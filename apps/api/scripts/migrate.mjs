@@ -16,15 +16,14 @@ const client = new Client({
   connectionTimeoutMillis: 10000,
 });
 
-const migration = {
-  version: "0001_initial",
-  file: resolve(process.cwd(), "src/database/migrations/0001_initial.sql"),
-};
+const migrations = [
+  { version: "0001_initial", file: "src/database/migrations/0001_initial.sql" },
+  { version: "0002_otp_antifraud", file: "src/database/migrations/0002_otp_antifraud.sql" },
+];
 
 try {
   await client.connect();
-  await client.query("BEGIN");
-  await client.query("SET LOCAL search_path TO public, extensions");
+  await client.query("SET search_path TO public, extensions");
 
   const postgis = await client.query(`
     SELECT n.nspname AS schema_name
@@ -46,28 +45,34 @@ try {
     )
   `);
 
-  const alreadyApplied = await client.query(
-    "SELECT 1 FROM public.schema_migrations WHERE version = $1",
-    [migration.version],
-  );
+  for (const migration of migrations) {
+    await client.query("BEGIN");
+    try {
+      const alreadyApplied = await client.query(
+        "SELECT 1 FROM public.schema_migrations WHERE version = $1",
+        [migration.version],
+      );
 
-  if (alreadyApplied.rowCount) {
-    await client.query("COMMIT");
-    console.log(`Migration ${migration.version} already applied.`);
-  } else {
-    const sql = await readFile(migration.file, "utf8");
-    await client.query(sql);
-    await client.query(
-      "INSERT INTO public.schema_migrations(version) VALUES ($1)",
-      [migration.version],
-    );
-    await client.query("COMMIT");
-    console.log(`Migration ${migration.version} applied successfully.`);
+      if (alreadyApplied.rowCount) {
+        await client.query("COMMIT");
+        console.log(`Migration ${migration.version} already applied.`);
+        continue;
+      }
+
+      const sql = await readFile(resolve(process.cwd(), migration.file), "utf8");
+      await client.query(sql);
+      await client.query(
+        "INSERT INTO public.schema_migrations(version) VALUES ($1)",
+        [migration.version],
+      );
+      await client.query("COMMIT");
+      console.log(`Migration ${migration.version} applied successfully.`);
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    }
   }
 } catch (error) {
-  try {
-    await client.query("ROLLBACK");
-  } catch {}
   console.error("Database migration failed:", error.message);
   process.exitCode = 1;
 } finally {
