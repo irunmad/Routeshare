@@ -1,0 +1,11 @@
+{
+  "expo": {
+    "name": "RouteShare",
+    "slug": "routeshare",
+    "scheme": "routeshare",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true
+  }
+}
