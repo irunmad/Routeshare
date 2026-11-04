@@ -71,7 +71,15 @@ export default function App() {
         return;
       }
 
-      const { error } = await supabase.auth.signInWithOtp({ phone: normalizedPhone });
+      const { error } = await supabase.auth.signInWithOtp({
+        phone: normalizedPhone,
+        options: { data: { routeshare_installation_id: installationId } },
+      });
+      await fetch(`${normalizedApiUrl}/v1/auth/otp/reservations/${reservation.reservationId}/result`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ outcome: error ? 'failed' : 'sent' }),
+      }).catch(() => undefined);
       setBusy(false);
       if (error) {
         setMessage(error.message);
