@@ -39,13 +39,17 @@ export class OtpAbuseService {
 
       const deviceCount = await client.query(
         `SELECT count(*)::int AS count FROM otp_request_events
-         WHERE device_hash = $1 AND outcome IN ('reserved', 'sent')
-           AND created_at >= now() - interval '30 days'`, [deviceHash],
+         WHERE device_hash = $1 AND (
+             (outcome = 'sent' AND created_at >= now() - interval '30 days') OR
+             (outcome = 'reserved' AND created_at >= now() - interval '10 minutes')
+           )`, [deviceHash],
       );
       const phoneCount = await client.query(
         `SELECT count(*)::int AS count FROM otp_request_events
-         WHERE phone_hash = $1 AND outcome IN ('reserved', 'sent')
-           AND created_at >= now() - interval '24 hours'`, [phoneHash],
+         WHERE phone_hash = $1 AND (
+             (outcome = 'sent' AND created_at >= now() - interval '24 hours') OR
+             (outcome = 'reserved' AND created_at >= now() - interval '10 minutes')
+           )`, [phoneHash],
       );
       const ipCount = ipHash
         ? await client.query(
@@ -102,6 +106,20 @@ export class OtpAbuseService {
       }, 429);
     }
     return reservation;
+  }
+
+  async finalize(reservationId: string, outcome: 'sent' | 'failed') {
+    const result = await this.database.withTransaction(async (client) => {
+      return client.query(
+        `UPDATE otp_request_events
+         SET outcome = $2
+         WHERE id = $1 AND outcome = 'reserved'
+           AND created_at >= now() - interval '15 minutes'
+         RETURNING id`,
+        [reservationId, outcome],
+      );
+    });
+    return { updated: result.rowCount === 1 };
   }
 
   private hash(scope: string, value: string): string {
