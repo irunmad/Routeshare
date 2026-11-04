@@ -53,7 +53,8 @@ export default function App() {
       }
 
       const installationId = await getInstallationId();
-      const reservationResponse = await fetch(`${apiUrl.replace(/\\/$/, '')}/v1/auth/otp/reservations`, {
+      const normalizedApiUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
+      const reservationResponse = await fetch(`${normalizedApiUrl}/v1/auth/otp/reservations`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: normalizedPhone, installationId }),
