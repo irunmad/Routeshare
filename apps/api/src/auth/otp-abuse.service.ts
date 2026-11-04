@@ -1,5 +1,5 @@
 import { createHmac } from 'node:crypto';
-import { Injectable, TooManyRequestsException, UnauthorizedException } from '@nestjs/common';
+import { HttpException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 
 type ReservationInput = { phone: string; installationId: string; ipAddress?: string };
@@ -92,10 +92,10 @@ export class OtpAbuseService {
     });
 
     if (reservation.blocked) {
-      throw new TooManyRequestsException({
+      throw new HttpException({
         code: 'OTP_RATE_LIMITED',
         message: 'Too many verification requests. Try again later or contact support.',
-      });
+      }, 429);
     }
     return reservation;
   }
