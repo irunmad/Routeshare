@@ -6,7 +6,8 @@
     "start:dev": "nest start --watch",
     "build": "nest build",
     "typecheck": "tsc --noEmit",
-    "migrate": "node scripts/migrate.mjs"
+    "migrate": "node scripts/migrate.mjs",
+    "start:prod": "node dist/main.js"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",
