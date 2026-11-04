@@ -15,8 +15,12 @@ export class OtpAbuseService {
       throw new UnauthorizedException('OTP protection is not configured.');
     }
 
-    const phone = input.phone.replace(/[\\s()-]/g, '');
-    if (!/^\\+380\\d{9}$/.test(phone)) {
+    const phone = input.phone.replaceAll(' ', '').replaceAll('-', '').replaceAll('(', '').replaceAll(')', '');
+    const isValidUkrainianPhone =
+      phone.startsWith('+380') &&
+      phone.length === 13 &&
+      [...phone.slice(1)].every((character) => character >= '0' && character <= '9');
+    if (!isValidUkrainianPhone) {
       throw new UnauthorizedException('Only valid Ukrainian phone numbers are supported.');
     }
     if (input.installationId.length < 20 || input.installationId.length > 200) {
