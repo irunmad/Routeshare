@@ -1,0 +1,21 @@
+import { Body, Controller, Post, Req } from '@nestjs/common';
+import { OtpAbuseService } from './otp-abuse.service';
+
+type RequestWithIp = { ip?: string };
+
+@Controller('auth/otp')
+export class OtpAbuseController {
+  constructor(private readonly otpAbuse: OtpAbuseService) {}
+
+  @Post('reservations')
+  reserve(@Body() body: { phone?: string; installationId?: string }, @Req() request: RequestWithIp) {
+    if (typeof body.phone !== 'string' || typeof body.installationId !== 'string') {
+      return Promise.reject(new Error('phone and installationId are required.'));
+    }
+    return this.otpAbuse.reserve({
+      phone: body.phone,
+      installationId: body.installationId,
+      ipAddress: request.ip,
+    });
+  }
+}
