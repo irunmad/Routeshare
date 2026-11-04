@@ -2,11 +2,7 @@ import { createHmac } from 'node:crypto';
 import { Injectable, TooManyRequestsException, UnauthorizedException } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 
-type ReservationInput = {
-  phone: string;
-  installationId: string;
-  ipAddress?: string;
-};
+type ReservationInput = { phone: string; installationId: string; ipAddress?: string };
 
 @Injectable()
 export class OtpAbuseService {
@@ -19,8 +15,8 @@ export class OtpAbuseService {
       throw new UnauthorizedException('OTP protection is not configured.');
     }
 
-    const phone = input.phone.replace(/[\s()-]/g, '');
-    if (!/^\+380\d{9}$/.test(phone)) {
+    const phone = input.phone.replace(/[\\s()-]/g, '');
+    if (!/^\\+380\\d{9}$/.test(phone)) {
       throw new UnauthorizedException('Only valid Ukrainian phone numbers are supported.');
     }
     if (input.installationId.length < 20 || input.installationId.length > 200) {
@@ -31,8 +27,7 @@ export class OtpAbuseService {
     const phoneHash = this.hash('phone', phone);
     const ipHash = input.ipAddress ? this.hash('ip', input.ipAddress) : null;
 
-    return this.database.withTransaction(async (client) => {
-      // Serialize requests sharing any rate-limit key to prevent parallel bypasses.
+    const reservation = await this.database.withTransaction(async (client) => {
       const lockKeys = [deviceHash, phoneHash, ...(ipHash ? [ipHash] : [])].sort();
       for (const key of lockKeys) {
         await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [key]);
@@ -41,21 +36,18 @@ export class OtpAbuseService {
       const deviceCount = await client.query(
         `SELECT count(*)::int AS count FROM otp_request_events
          WHERE device_hash = $1 AND outcome IN ('reserved', 'sent')
-           AND created_at >= now() - interval '30 days'`,
-        [deviceHash],
+           AND created_at >= now() - interval '30 days'`, [deviceHash],
       );
       const phoneCount = await client.query(
         `SELECT count(*)::int AS count FROM otp_request_events
          WHERE phone_hash = $1 AND outcome IN ('reserved', 'sent')
-           AND created_at >= now() - interval '24 hours'`,
-        [phoneHash],
+           AND created_at >= now() - interval '24 hours'`, [phoneHash],
       );
       const ipCount = ipHash
         ? await client.query(
             `SELECT count(*)::int AS count FROM otp_request_events
              WHERE ip_hash = $1 AND outcome IN ('reserved', 'sent')
-               AND created_at >= now() - interval '10 minutes'`,
-            [ipHash],
+               AND created_at >= now() - interval '10 minutes'`, [ipHash],
           )
         : { rows: [{ count: 0 }] };
 
@@ -69,7 +61,6 @@ export class OtpAbuseService {
         phoneDaily: phoneCount.rows[0].count as number,
         ipTenMinutes: ipCount.rows[0].count as number,
       };
-
       const exceeded = Object.entries(limits).find(([key, limit]) =>
         counts[key as keyof typeof counts] >= limit,
       );
@@ -77,23 +68,18 @@ export class OtpAbuseService {
       if (exceeded) {
         await client.query(
           `INSERT INTO otp_request_events(device_hash, phone_hash, ip_hash, outcome)
-           VALUES ($1, $2, $3, 'blocked')`,
-          [deviceHash, phoneHash, ipHash],
+           VALUES ($1, $2, $3, 'blocked')`, [deviceHash, phoneHash, ipHash],
         );
-        throw new TooManyRequestsException({
-          code: 'OTP_RATE_LIMITED',
-          message: 'Too many verification requests. Try again later or contact support.',
-        });
+        return { blocked: true as const };
       }
 
       const result = await client.query(
         `INSERT INTO otp_request_events(device_hash, phone_hash, ip_hash, outcome)
-         VALUES ($1, $2, $3, 'reserved')
-         RETURNING id, created_at`,
+         VALUES ($1, $2, $3, 'reserved') RETURNING id, created_at`,
         [deviceHash, phoneHash, ipHash],
       );
-
       return {
+        blocked: false as const,
         reservationId: result.rows[0].id as string,
         reservedAt: result.rows[0].created_at as Date,
         limits,
@@ -104,6 +90,14 @@ export class OtpAbuseService {
         },
       };
     });
+
+    if (reservation.blocked) {
+      throw new TooManyRequestsException({
+        code: 'OTP_RATE_LIMITED',
+        message: 'Too many verification requests. Try again later or contact support.',
+      });
+    }
+    return reservation;
   }
 
   private hash(scope: string, value: string): string {
