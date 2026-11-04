@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "packageManager": "pnpm@10.0.0",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev:api": "pnpm --filter @routeshare/api start:dev",
     "dev:mobile": "pnpm --filter @routeshare/mobile start",
