@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import type { Session } from '@supabase/supabase-js';
 import { isSupabaseConfigured, supabase } from './src/lib/supabase';
+import { getInstallationId } from './src/lib/installation';
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -43,10 +44,41 @@ export default function App() {
     }
     setBusy(true);
     setMessage('');
-    const { error } = await supabase.auth.signInWithOtp({ phone: normalizedPhone });
-    setBusy(false);
-    if (error) {
-      setMessage(error.message);
+    try {
+      const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+      if (!apiUrl) {
+        setBusy(false);
+        setMessage('Не настроен адрес RouteShare API. Обратитесь к администратору.');
+        return;
+      }
+
+      const installationId = await getInstallationId();
+      const reservationResponse = await fetch(`${apiUrl.replace(/\\/$/, '')}/v1/auth/otp/reservations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: normalizedPhone, installationId }),
+      });
+      const reservation = await reservationResponse.json().catch(() => ({}));
+      if (!reservationResponse.ok) {
+        setBusy(false);
+        setMessage(
+          reservation?.message ??
+          (reservationResponse.status === 429
+            ? 'Слишком много запросов с этого устройства или номера. Попробуйте позже.'
+            : 'Не удалось проверить запрос. Попробуйте позже.'),
+        );
+        return;
+      }
+
+      const { error } = await supabase.auth.signInWithOtp({ phone: normalizedPhone });
+      setBusy(false);
+      if (error) {
+        setMessage(error.message);
+        return;
+      }
+    } catch {
+      setBusy(false);
+      setMessage('Не удалось связаться с сервером защиты. SMS не отправлено.');
       return;
     }
     setPhone(normalizedPhone);
