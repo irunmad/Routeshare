@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { cancelTestPassengerRequest, createTestPassengerRequest, listTestPassengerRequests, TestPassengerRequest } from './src/lib/testRequests';
 import { StatusBar } from 'expo-status-bar';
 import {
   SafeAreaView,
@@ -26,6 +27,75 @@ export default function App() {
   const [to, setTo] = useState('Житомир');
   const [date, setDate] = useState('Сьогодні');
   const [notice, setNotice] = useState('');
+  const [rate, setRate] = useState('3.5');
+  const [testRequests, setTestRequests] = useState<TestPassengerRequest[]>([]);
+  const [savingRequest, setSavingRequest] = useState(false);
+
+  const refreshTestRequests = async (showErrors = false) => {
+    try {
+      setTestRequests(await listTestPassengerRequests());
+    } catch (error) {
+      if (showErrors) setNotice(error instanceof Error ? error.message : 'Не вдалося завантажити заявки.');
+    }
+  };
+
+  useEffect(() => {
+    let active = true;
+    const refresh = async () => {
+      try {
+        const rows = await listTestPassengerRequests();
+        if (active) setTestRequests(rows);
+      } catch {
+        // Shared test mode is enabled on the API separately.
+      }
+    };
+    refresh();
+    const timer = setInterval(refresh, 5000);
+    return () => { active = false; clearInterval(timer); };
+  }, []);
+
+  const createTestRequest = async () => {
+    if (!from.trim() || !to.trim()) {
+      setNotice('Вкажи місто відправлення та призначення.');
+      return;
+    }
+    const parsedRate = Number(rate.replace(',', '.'));
+    if (!Number.isFinite(parsedRate) || parsedRate < 0) {
+      setNotice('Перевір ціну за кілометр.');
+      return;
+    }
+    const departure = new Date();
+    departure.setDate(departure.getDate() + (date === 'Завтра' ? 1 : 0));
+    departure.setHours(17, 0, 0, 0);
+    if (departure.getTime() < Date.now()) departure.setTime(Date.now() + 60 * 60 * 1000);
+    const departureEnd = new Date(departure.getTime() + 2 * 60 * 60 * 1000);
+    setSavingRequest(true);
+    try {
+      await createTestPassengerRequest({
+        origin: from.trim(),
+        destination: to.trim(),
+        departureStart: departure.toISOString(),
+        departureEnd: departureEnd.toISOString(),
+        offeredRateUahPerKm: parsedRate,
+      });
+      await refreshTestRequests();
+      setNotice('Тестову заявку створено. Вона з’явиться на інших пристроях.');
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Не вдалося створити заявку.');
+    } finally {
+      setSavingRequest(false);
+    }
+  };
+
+  const cancelTestRequest = async (id: string) => {
+    try {
+      await cancelTestPassengerRequest(id);
+      await refreshTestRequests();
+      setNotice('Тестову заявку скасовано.');
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Не вдалося скасувати заявку.');
+    }
+  };
 
   const showNotice = (message: string) => setNotice(message);
 
@@ -92,9 +162,13 @@ export default function App() {
                       ))}
                     </View>
                   </View>
-                  <TouchableOpacity style={styles.primaryButton} onPress={() => showNotice('Пошук маршрутів підключимо на наступному етапі.')}>
-                    <Text style={styles.primaryButtonText}>Знайти поїздку</Text>
-                    <Text style={styles.buttonArrow}>→</Text>
+                  <View style={styles.rateRow}>
+                    <Text style={styles.rateLabel}>ТВОЯ ЦІНА, грн/км</Text>
+                    <TextInput value={rate} onChangeText={setRate} keyboardType="decimal-pad" style={styles.rateInput} />
+                  </View>
+                  <TouchableOpacity style={styles.primaryButton} disabled={savingRequest} onPress={createTestRequest}>
+                    <Text style={styles.primaryButtonText}>{savingRequest ? 'Зберігаємо…' : 'Створити тестову заявку'}</Text>
+                    <Text style={styles.buttonArrow}>＋</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -145,11 +219,12 @@ export default function App() {
 
           {tab === 'trips' && (
             <>
-              <Text style={styles.pageTitle}>{mode === 'passenger' ? 'Поїздки поруч' : 'Мої маршрути'}</Text>
-              <Text style={styles.pageSubtitle}>{mode === 'passenger' ? 'Приклади доступних пропозицій' : 'Тут будуть твої опубліковані маршрути'}</Text>
-              {mode === 'passenger'
-                ? sampleTrips.map((trip) => <TripCard key={trip.id} trip={trip} onPress={() => showNotice('Деталі поїздки підключимо наступним етапом.')} />)
-                : <View style={styles.emptyCard}><Text style={styles.emptyIcon}>🛣️</Text><Text style={styles.emptyTitle}>Маршрутів поки немає</Text><Text style={styles.emptyText}>Створи перший маршрут, щоб знайти пасажирів.</Text><TouchableOpacity style={styles.primaryButton} onPress={() => setTab('home')}><Text style={styles.primaryButtonText}>Створити маршрут</Text></TouchableOpacity></View>}
+              <Text style={styles.pageTitle}>Тестові заявки</Text>
+              <Text style={styles.pageSubtitle}>Спільний список з усіх пристроїв · автооновлення кожні 5 секунд</Text>
+              {testRequests.length === 0
+                ? <View style={styles.emptyCard}><Text style={styles.emptyIcon}>🛣️</Text><Text style={styles.emptyTitle}>Заявок поки немає</Text><Text style={styles.emptyText}>Перемкнись у режим пасажира та створи декілька маршрутів.</Text></View>
+                : testRequests.map((request) => <TestRequestCard key={request.id} request={request} onCancel={cancelTestRequest} />)}
+              <TouchableOpacity style={styles.secondaryButton} onPress={() => refreshTestRequests(true)}><Text style={styles.secondaryButtonText}>Оновити зараз</Text></TouchableOpacity>
             </>
           )}
 
@@ -180,6 +255,21 @@ export default function App() {
         </View>
       </View>
     </SafeAreaView>
+  );
+}
+
+function TestRequestCard({ request, onCancel }: { request: TestPassengerRequest; onCancel: (id: string) => void }) {
+  const departure = new Date(request.departureStart).toLocaleString('uk-UA', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  return (
+    <View style={styles.testRequestCard}>
+      <View style={styles.testRequestHeader}>
+        <Text style={styles.testRequestBadge}>ТЕСТ · {request.isMine ? 'ТВОЯ ЗАЯВКА' : 'ІНШИЙ ПРИСТРІЙ'}</Text>
+        <Text style={styles.testRequestRate}>{request.offeredRateUahPerKm} грн/км</Text>
+      </View>
+      <Text style={styles.testRequestRoute}>{request.origin} → {request.destination}</Text>
+      <Text style={styles.testRequestMeta}>Виїзд: {departure}</Text>
+      {request.isMine && <TouchableOpacity style={styles.cancelRequestButton} onPress={() => onCancel(request.id)}><Text style={styles.cancelRequestText}>Скасувати заявку</Text></TouchableOpacity>}
+    </View>
   );
 }
 
@@ -225,6 +315,9 @@ const styles = StyleSheet.create({
   fieldLabel: { color: '#8392A5', fontSize: 9, fontWeight: '800', letterSpacing: 1.1 },
   routeInput: { color: '#12263A', fontSize: 16, fontWeight: '700', paddingVertical: 3 },
   routeDivider: { height: 1, backgroundColor: '#E4EAF0', marginLeft: 27 },
+  rateRow: { borderTopWidth: 1, borderTopColor: '#E4EAF0', marginTop: 10, paddingTop: 11, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  rateLabel: { color: '#8392A5', fontSize: 9, fontWeight: '800', letterSpacing: 1 },
+  rateInput: { color: '#12263A', fontSize: 15, fontWeight: '800', minWidth: 75, textAlign: 'right', paddingVertical: 4 },
   dateRow: { borderTopWidth: 1, borderTopColor: '#E4EAF0', marginTop: 10, paddingTop: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   dateOptions: { flexDirection: 'row', gap: 7 },
   dateChip: { borderRadius: 9, paddingHorizontal: 12, paddingVertical: 7, backgroundColor: '#EAF0F5' },
@@ -243,6 +336,16 @@ const styles = StyleSheet.create({
   popularIcon: { fontSize: 20, marginBottom: 9 },
   popularRoute: { color: '#EAF2F8', fontSize: 12, fontWeight: '800' },
   popularMeta: { color: '#55D6BE', fontSize: 11, marginTop: 5 },
+  testRequestCard: { backgroundColor: '#142337', borderRadius: 16, padding: 15, marginBottom: 10, borderWidth: 1, borderColor: '#29445A' },
+  testRequestHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  testRequestBadge: { color: '#70DCC8', fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
+  testRequestRate: { color: '#55D6BE', fontSize: 12, fontWeight: '900' },
+  testRequestRoute: { color: '#F1F5F9', fontSize: 16, fontWeight: '800', marginTop: 11 },
+  testRequestMeta: { color: '#91A2B6', fontSize: 11, marginTop: 6 },
+  cancelRequestButton: { alignSelf: 'flex-start', marginTop: 11, borderRadius: 8, paddingHorizontal: 11, paddingVertical: 7, backgroundColor: '#3A2630' },
+  cancelRequestText: { color: '#FF9EAD', fontSize: 10, fontWeight: '800' },
+  secondaryButton: { borderWidth: 1, borderColor: '#31536A', borderRadius: 11, padding: 12, alignItems: 'center', marginTop: 8 },
+  secondaryButtonText: { color: '#70DCC8', fontSize: 12, fontWeight: '800' },
   tripCard: { backgroundColor: '#142337', borderRadius: 17, padding: 15, marginBottom: 10, borderWidth: 1, borderColor: '#20354C' },
   tripTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   tripTime: { color: '#91A2B6', fontSize: 11, fontWeight: '600' },
