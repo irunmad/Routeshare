@@ -20,6 +20,7 @@ const migrations = [
   { version: "0001_initial", file: "src/database/migrations/0001_initial.sql" },
   { version: "0002_otp_antifraud", file: "src/database/migrations/0002_otp_antifraud.sql" },
   { version: "0003_otp_reservation_lifecycle", file: "src/database/migrations/0003_otp_reservation_lifecycle.sql" },
+  { version: "0004_test_passenger_requests", file: "src/database/migrations/0004_test_passenger_requests.sql" },
 ];
 
 try {
