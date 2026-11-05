@@ -22,8 +22,8 @@ export class TestRequestsController {
   }
 
   @Get()
-  list() {
-    return this.requests.list();
+  list(@Headers('x-test-installation-id') installationId: string) {
+    return this.requests.list(installationId);
   }
 
   @Delete(':id')
