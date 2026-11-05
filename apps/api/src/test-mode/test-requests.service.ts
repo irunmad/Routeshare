@@ -71,18 +71,21 @@ export class TestRequestsService {
     });
   }
 
-  async list() {
+  async list(installationId: string) {
     this.assertEnabled();
+    const owner = this.validateInstallationId(installationId);
     return this.database.withTransaction(async (client) => {
       const result = await client.query(
         `SELECT id, origin_label AS origin, destination_label AS destination,
           departure_start AS "departureStart", departure_end AS "departureEnd",
           offered_rate_minor_per_km / 100.0 AS "offeredRateUahPerKm",
-          status, created_at AS "createdAt"
+          status, created_at AS "createdAt",
+          (installation_id = $1) AS "isMine"
          FROM test_passenger_requests
          WHERE status = 'searching'
          ORDER BY created_at DESC
          LIMIT 200`,
+        [owner],
       );
       return result.rows;
     });
