@@ -90,3 +90,37 @@ Rank combinations primarily by revenue per actual vehicle kilometre, with feasib
 - Push delivery is best-effort; the in-app state must remain correct if push is delayed or unavailable. Realtime API events update map/list state and countdown.
 - All transitions, timer deadlines, refunds/releases and race conditions are enforced transactionally on the server, never by trusting mobile UI state.
 
+
+## 10. Shared map/list visualization and overlapping combinations
+
+Map and list are two synchronized views of the same live result set for both passenger and driver modes. Switching views must preserve active filters, sorting, selected route/combination and live status. A change received from the server must update both views consistently.
+
+### Passenger map/list
+
+- The passenger can switch between **Map** and **List**. Both show the same currently relevant data, controlled by the two independent road-distance filters defined in section 7.
+- On the passenger map, show driver-published routes that are actively searching for compatible passengers as thin **black** route lines, and active passenger requests still in searching state as thin **red** route lines.
+- The passenger list presents the same eligible active routes/requests with useful route and distance details. The filters apply to road-network distance between the passenger's origin and another request's origin, and between their destination points; do not replace them with straight-line radius filters.
+- A request line is shown as searching only while its request is actually available. Provisional/accepted requests must not be presented as available to join or match.
+
+### Driver map/list
+
+- The driver can switch between **Map** and **List** without losing the current matching mode, search limits, sorting or selected combination.
+- When the driver selects/sets a second point (destination) on the map, display the driver's chosen route as a distinct, visually emphasized line. In destination-oriented mode this is the target route; flexible mode does not imply a fixed destination.
+- The driver list contains ranked feasible combinations. The map simultaneously highlights up to the **three highest-ranked combinations** from that same list:
+  1. bright **red** — highest-ranked / most attractive combination;
+  2. **green** — second;
+  3. **blue** — third.
+- Each highlighted combination is rendered as its own ordered vehicle route, including the pickup and drop-off sequence. The selected combination in the list and its map highlight must stay linked.
+- The ranking colors are local to a particular driver's current result set. They are not permanent attributes of a passenger request and must not be stored as a request's global color.
+
+### One passenger request can belong to multiple combinations
+
+- Candidate combinations are driver-specific and recalculated from the current pool. The same searching passenger request may appear in several different candidate combinations for one driver, and/or in combinations proposed to different drivers. For example, request R may be part of combination A for one driver and combination B for another.
+- Consequently, a passenger request may be drawn in more than one candidate route overlay and may have different rank colors in different drivers' map views. Never model a request as having one globally assigned attractiveness color.
+- Keep the underlying request as one canonical entity. Candidate combinations are separate derived offers/snapshots referencing request IDs; do not duplicate the passenger request to represent each combination.
+- When any driver provisionally confirms a combination, atomically claim the included requests so they are immediately excluded from every other driver's eligible matching pool. Invalidate/recompute all other candidate combinations that reference any claimed request. This must happen across all drivers, not only the accepting driver's screen.
+- For the accepting driver and affected passengers, preserve the just-confirmed route overlay for the 10-second free-cancellation animation. During this period, the included request route(s) blink/flash in the color of the candidate rank they occupied in that particular driver's result set (red, green or blue). After the server-authoritative free-cancellation deadline, remove the provisional overlay and show only the resulting current state.
+- Other drivers must not continue to see a claimed request as an available candidate during those 10 seconds. If a stale map frame briefly animates, it must be clearly non-interactive and must never allow another driver to accept it.
+- If one passenger cancels during the free window and the remaining offer is recalculated, update the affected route overlays and ranked list from the server's new canonical result. If the offer becomes infeasible, release/cancel the remaining provisional claims atomically and restore eligible requests to searching as appropriate.
+- Colors are presentation semantics only. Matching, acceptance, locking and cancellation are based on stable request/offer IDs and server states, never on map color or client animation state.
+
