@@ -98,7 +98,7 @@ Map and list are two synchronized views of the same live result set for both pas
 ### Passenger map/list
 
 - The passenger can switch between **Map** and **List**. Both show the same currently relevant data, controlled by the two independent road-distance filters defined in section 7.
-- On the passenger map, show driver-published routes that are actively searching for compatible passengers as thin **black** route lines, and active passenger requests still in searching state as thin **red** route lines.
+- On the passenger map, show driver-published routes that are actively searching for compatible passengers and satisfy both road-distance filters as thin **black** route lines. Show other passenger requests still in searching state that satisfy both filters as thin **grey** route lines.
 - The passenger list presents the same eligible active routes/requests with useful route and distance details. The filters apply to road-network distance between the passenger's origin and another request's origin, and between their destination points; do not replace them with straight-line radius filters.
 - A request line is shown as searching only while its request is actually available. Provisional/accepted requests must not be presented as available to join or match.
 
@@ -106,7 +106,7 @@ Map and list are two synchronized views of the same live result set for both pas
 
 - The driver can switch between **Map** and **List** without losing the current matching mode, search limits, sorting or selected combination.
 - When the driver selects/sets a second point (destination) on the map, display the driver's chosen route as a distinct, visually emphasized line. In destination-oriented mode this is the target route; flexible mode does not imply a fixed destination.
-- The driver list contains ranked feasible combinations. The map simultaneously highlights up to the **three highest-ranked combinations** from that same list:
+- The driver list contains ranked feasible combinations. The map simultaneously highlights up to the **three highest-ranked combinations** from that same list. All other candidate combinations/routes outside the top three are drawn in **black**:
   1. bright **red** — highest-ranked / most attractive combination;
   2. **green** — second;
   3. **blue** — third.
