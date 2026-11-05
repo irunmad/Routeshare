@@ -7,7 +7,6 @@ type RequestWithIp = { ip?: string };
 export class OtpAbuseController {
   constructor(private readonly otpAbuse: OtpAbuseService) {}
 
-  @Post('reservations')
   @Post('reservations/:id/result')
   finalize(@Param('id') id: string, @Body() body: { outcome?: string }) {
     if (!/^[0-9a-f-]{36}$/i.test(id) || (body.outcome !== 'sent' && body.outcome !== 'failed')) {
@@ -16,6 +15,7 @@ export class OtpAbuseController {
     return this.otpAbuse.finalize(id, body.outcome);
   }
 
+  @Post('reservations')
   reserve(@Body() body: { phone?: string; installationId?: string }, @Req() request: RequestWithIp) {
     if (typeof body.phone !== 'string' || typeof body.installationId !== 'string') {
       throw new BadRequestException('phone and installationId are required.');
