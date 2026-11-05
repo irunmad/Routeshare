@@ -52,3 +52,12 @@ These transitions must be enforced server-side; clients may request transitions 
 - The passenger and driver Map/List views are projections of the same server-side result/state. View switching must not alter filters, matching state, or selected entity. Realtime events invalidate or refresh both projections.
 - If a passenger cancels during the free window, recompute the provisional combination from the remaining canonical request IDs. Commit the revised stop sequence and claims atomically, or release/cancel the affected provisional offer and restore only still-eligible requests to searching.
 
+
+
+## Per-driver, per-combination blink animation snapshots
+
+- The 10-second acceptance animation applies to **all passenger route overlays belonging to the accepted combination**, not only a single line or the driver's overall route.
+- For the accepting driver, snapshot every passenger-request route overlay in the accepted combination with the rank/color of that accepted combination in that driver's result set. If the accepted combination is rank 1, every passenger route line in it blinks red.
+- For every other driver whose candidate result set contained one or more of those passenger request IDs, create/retain an invalidation animation snapshot for each affected candidate-combination/request overlay. Each overlay keeps the rank color assigned by that other driver's own result set at the moment of invalidation. Therefore the same request may blink in different colors on different drivers' maps.
+- Animation identity is the pair (candidate_combination_id, passenger_request_id), scoped to a driver/result-set version, rather than passenger_request_id alone. This preserves separate colors if the same request occurred in multiple candidate combinations for one driver.
+- These snapshots are immutable presentation metadata with a server-issued expiry/deadline. They do not retain a matching claim, make a request available, or authorize booking. All matching and acceptance queries must exclude claimed requests immediately after the acceptance transaction commits.
