@@ -38,3 +38,17 @@ These transitions must be enforced server-side; clients may request transitions 
 - Passenger discovery preferences: origin-to-origin road-distance limit and destination-to-destination road-distance limit. These are filters only; they do not reserve requests.
 - A passenger's free-cancellation deadline is stored per booking, not inferred from a client timer. Multi-passenger offers may need recomputation if one passenger cancels.
 
+
+
+## Live map overlays and candidate combination identity
+
+- A passenger request is one canonical record with one stable ID and one lifecycle state. It is never copied just because it participates in multiple candidate combinations.
+- A **CandidateCombination** is a driver-specific, derived result/snapshot containing an ordered stop sequence, the set of passenger request IDs, full vehicle route geometry/distance, total passenger revenue, revenue per vehicle kilometre, feasibility details and rank within that driver's current result set.
+- Candidate combinations may overlap: the same passenger request ID can be referenced by multiple candidate combinations, including combinations belonging to different drivers. A request therefore has no single global rank or map color.
+- Map colors are computed per driver's ranked result set at presentation time: rank 1 red, rank 2 green, rank 3 blue. Driver-published searching routes and passenger searching requests use their separate passenger-map conventions (black and red respectively). Do not persist these display colors as domain state.
+- A **ProvisionalClaim** (or equivalent transactional claim on request IDs) prevents any request in an accepted provisional combination from being offered to another driver. The claim must be globally visible to matching queries immediately after the accepting transaction commits.
+- On provisional acceptance, atomically lock/claim every included passenger request, create the provisional bookings, and invalidate/recompute every other candidate combination that references any claimed request. Enforce this with database transactions and appropriate row/advisory locks or uniqueness constraints; a stale client-side list cannot authorize acceptance.
+- Preserve a short-lived presentation snapshot for the accepting driver's 10-second blink animation, including the combination ID and the rank/color it had at confirmation. This is historical UI metadata only; it must not make the claimed requests eligible again. Other drivers' views must remove the claimed requests from available results immediately.
+- The passenger and driver Map/List views are projections of the same server-side result/state. View switching must not alter filters, matching state, or selected entity. Realtime events invalidate or refresh both projections.
+- If a passenger cancels during the free window, recompute the provisional combination from the remaining canonical request IDs. Commit the revised stop sequence and claims atomically, or release/cancel the affected provisional offer and restore only still-eligible requests to searching.
+
