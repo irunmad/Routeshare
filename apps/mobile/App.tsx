@@ -183,26 +183,7 @@ export default function App() {
             </>
           )}
 
-          {tab === 'home' && mode === 'driver' && (
-            <>
-              <View style={styles.driverHero}>
-                <Text style={styles.eyebrow}>ТВОЯ ДОРОГА МОЖЕ БУТИ ВИГІДНІШОЮ</Text>
-                <Text style={styles.heroTitle}>Є вільні місця?{"\n"}Знайди попутників.</Text>
-                <Text style={styles.heroSubtitle}>Опублікуй маршрут — пасажири запропонують свою ціну за кілометр.</Text>
-                <TouchableOpacity style={styles.primaryButton} onPress={() => showNotice('Форму створення маршруту зробимо наступним етапом.')}>
-                  <Text style={styles.primaryButtonText}>Опублікувати маршрут</Text><Text style={styles.buttonArrow}>→</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={styles.statsRow}>
-                <View style={styles.statCard}><Text style={styles.statValue}>—</Text><Text style={styles.statLabel}>Активні маршрути</Text></View>
-                <View style={styles.statCard}><Text style={styles.statValue}>—</Text><Text style={styles.statLabel}>Заявки пасажирів</Text></View>
-              </View>
-              <View style={styles.sectionHeader}><View><Text style={styles.sectionTitle}>Як це працює</Text><Text style={styles.sectionSubtitle}>Три прості кроки</Text></View></View>
-              <View style={styles.stepCard}><Text style={styles.stepNumber}>01</Text><View style={styles.stepText}><Text style={styles.stepTitle}>Вкажи маршрут</Text><Text style={styles.stepDescription}>Звідки, куди, час виїзду та кількість вільних місць.</Text></View></View>
-              <View style={styles.stepCard}><Text style={styles.stepNumber}>02</Text><View style={styles.stepText}><Text style={styles.stepTitle}>Отримай пропозиції</Text><Text style={styles.stepDescription}>Побачиш пасажирів, зручні комбінації та дохід.</Text></View></View>
-              <View style={styles.stepCard}><Text style={styles.stepNumber}>03</Text><View style={styles.stepText}><Text style={styles.stepTitle}>Обери найкращий варіант</Text><Text style={styles.stepDescription}>Підтверди маршрут і забери пасажирів дорогою.</Text></View></View>
-            </>
-          )}
+          {tab === 'home' && mode === 'driver' && <DriverOfferList onOpen={() => setNotice('Екран заявки та серверне бронювання — наступний етап.')} />}
 
           {tab === 'trips' && (
             <>
@@ -244,6 +225,126 @@ export default function App() {
     </SafeAreaView>
   );
 }
+
+
+type DriverOffer = {
+  id: string; color: string; amount: number; distance: number; minutes: number;
+  pickupKm: number; finalKm: number; pickup: string; dropoff: string;
+  passengers: { name: string; acceptance: number; noShow: number; km: number; fare: number; avatar: string }[];
+};
+// Preview data only. Never use these values to accept a real ride or charge a passenger.
+const previewOffers: DriverOffer[] = [
+  { id: 'red', color: '#FF4256', amount: 870, distance: 23.6, minutes: 42, pickupKm: 2.1, finalKm: 3.4, pickup: 'просп. Відрадний, 3', dropoff: 'просп. Григоренка, 22', passengers: [
+    { name: 'Олексій', acceptance: 97, noShow: 0, km: 8.1, fare: 320, avatar: 'О' },
+    { name: 'Марія', acceptance: 95, noShow: 2, km: 7.5, fare: 280, avatar: 'М' },
+    { name: 'Ігор', acceptance: 100, noShow: 0, km: 11.2, fare: 270, avatar: 'І' },
+  ] },
+  { id: 'green', color: '#23DE75', amount: 750, distance: 22, minutes: 38, pickupKm: 1.8, finalKm: 3.1, pickup: 'вул. Лісова, 7', dropoff: 'Харківське шосе, 144', passengers: [
+    { name: 'Анна', acceptance: 98, noShow: 0, km: 6.9, fare: 260, avatar: 'А' },
+    { name: 'Дмитро', acceptance: 96, noShow: 1, km: 7.4, fare: 250, avatar: 'Д' },
+    { name: 'Сергій', acceptance: 94, noShow: 3, km: 7.7, fare: 240, avatar: 'С' },
+  ] },
+  { id: 'blue', color: '#36A9FF', amount: 690, distance: 21, minutes: 36, pickupKm: 2.6, finalKm: 2.8, pickup: 'вул. Вишгородська, 45', dropoff: 'вул. Бориспільська, 40', passengers: [
+    { name: 'Віктор', acceptance: 93, noShow: 3, km: 6.5, fare: 230, avatar: 'В' },
+    { name: 'Юлія', acceptance: 95, noShow: 0, km: 7, fare: 220, avatar: 'Ю' },
+    { name: 'Роман', acceptance: 95, noShow: 1, km: 7.5, fare: 240, avatar: 'Р' },
+  ] },
+];
+const perKm = (o: DriverOffer) => o.distance > 0 ? o.amount / o.distance : 0;
+const perHour = (o: DriverOffer) => o.minutes > 0 ? o.amount / o.minutes * 60 : 0;
+function DriverOfferList({ onOpen }: { onOpen: () => void }) {
+  const [seats, setSeats] = useState(3);
+  const [pickupLimit, setPickupLimit] = useState(3);
+  const [finalLimit, setFinalLimit] = useState(4);
+  const [unique, setUnique] = useState(true);
+  const [sortBy, setSortBy] = useState<'km' | 'hour'>('km');
+  const [replaceName, setReplaceName] = useState<string | null>(null);
+  const offers = [...previewOffers]
+    .filter(o => o.passengers.length <= seats && o.pickupKm <= pickupLimit && o.finalKm <= finalLimit)
+    .sort((a, b) => sortBy === 'km' ? perKm(b) - perKm(a) : perHour(b) - perHour(a));
+  const cycle = (v: number) => v >= 7 ? 0.5 : Math.round((v + 0.5) * 10) / 10;
+  return (
+    <View style={driverStyles.wrap}>
+      <Text style={driverStyles.heading}>RouteShare · Водій <Text style={driverStyles.preview}>ПЕРЕГЛЯД</Text></Text>
+      <View style={driverStyles.filters}>
+        <TouchableOpacity style={driverStyles.filter} onPress={() => setSeats(v => v === 3 ? 1 : v + 1)}>
+          <Text style={driverStyles.legend}>Місць</Text><Text style={driverStyles.filterValue}>{seats} ▾</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={driverStyles.filter} onPress={() => setPickupLimit(cycle)}>
+          <Text style={driverStyles.legend}>Подача</Text><Text style={driverStyles.filterValue}>≤ {pickupLimit.toFixed(1)} км</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={driverStyles.filter} onPress={() => setFinalLimit(cycle)}>
+          <Text style={driverStyles.legend}>Фінал</Text><Text style={driverStyles.filterValue}>≤ {finalLimit.toFixed(1)} км</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={driverStyles.filter} onPress={() => setUnique(v => !v)}>
+          <Text style={driverStyles.legend}>Унікальні</Text><Text style={[driverStyles.filterValue, { color: unique ? '#36E88C' : '#8B9BAE' }]}>{unique ? '✓' : '—'}</Text>
+        </TouchableOpacity>
+      </View>
+      <View style={driverStyles.sortRow}>
+        <Text style={driverStyles.count}>Заявки ({offers.length})</Text>
+        <Text style={driverStyles.sortLabel}>Сортування:</Text>
+        <TouchableOpacity onPress={() => setSortBy('km')} style={[driverStyles.sortChip, sortBy === 'km' && driverStyles.sortActive]}><Text style={driverStyles.sortText}>₴/км</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => setSortBy('hour')} style={[driverStyles.sortChip, sortBy === 'hour' && driverStyles.sortActive]}><Text style={driverStyles.sortText}>₴/год</Text></TouchableOpacity>
+      </View>
+      {offers.length === 0 && <Text style={driverStyles.empty}>Немає варіантів для цих фільтрів.</Text>}
+      {offers.map(o => (
+        <TouchableOpacity key={o.id} onPress={onOpen} activeOpacity={0.8} style={[driverStyles.offer, { borderColor: o.color }]}>
+          <View style={driverStyles.metrics}>
+            <Text style={driverStyles.total}>₴{o.amount}</Text>
+            <Text style={driverStyles.gps}>GPS OK</Text>
+            <Text style={driverStyles.metric}><Text style={driverStyles.green}>{perKm(o).toFixed(1)}</Text> ₴/км</Text>
+            <Text style={driverStyles.metric}><Text style={driverStyles.orange}>{Math.round(perHour(o)).toLocaleString('uk-UA')}</Text> ₴/год</Text>
+          </View>
+          <Text numberOfLines={1} style={driverStyles.address}>┄ {o.pickupKm.toFixed(1)} км →  🟢 {o.pickup}</Text>
+          <Text numberOfLines={1} style={driverStyles.address}>      →  🔴 {o.dropoff}  ┄ {o.finalKm.toFixed(1)} км</Text>
+          <View style={driverStyles.tripInfo}><Text style={driverStyles.tripInfoText}>{o.distance.toFixed(1)} км</Text><Text style={driverStyles.tripInfoText}>≈ {o.minutes} хв</Text></View>
+          {o.passengers.map(p => (
+            <View key={p.name} style={driverStyles.person}>
+              <View style={driverStyles.personAvatar}><Text style={driverStyles.personAvatarText}>{p.avatar}</Text></View>
+              <Text numberOfLines={1} style={driverStyles.personName}>{p.name}</Text>
+              <Text style={driverStyles.acceptance}>{p.acceptance}%</Text>
+              <Text style={driverStyles.noShow}>{p.noShow}%</Text>
+              <Text style={driverStyles.personKm}>{p.km.toFixed(1)} км</Text>
+              <Text style={driverStyles.personFare}>₴{p.fare}</Text>
+              <TouchableOpacity accessibilityLabel={'Замінити ' + p.name} onPress={() => setReplaceName(p.name)}><Text style={driverStyles.replace}>⟳</Text></TouchableOpacity>
+            </View>
+          ))}
+        </TouchableOpacity>
+      ))}
+      {replaceName && <View style={driverStyles.confirm}><Text style={driverStyles.confirmText}>Замінити маршрут пасажира {replaceName}?</Text><View style={driverStyles.confirmActions}><TouchableOpacity onPress={() => setReplaceName(null)}><Text style={driverStyles.confirmText}>Ні</Text></TouchableOpacity><TouchableOpacity onPress={() => { setReplaceName(null); onOpen(); }}><Text style={driverStyles.confirmYes}>Так</Text></TouchableOpacity></View></View>}
+      <Text style={driverStyles.disclaimer}>Демонстраційні комбінації — без реального розрахунку доріг чи бронювання.</Text>
+    </View>
+  );
+}
+const driverStyles = StyleSheet.create({
+  wrap: { gap: 8 }, heading: { color: '#FFFFFF', fontSize: 17, fontWeight: '800', marginBottom: 6 },
+  preview: { color: '#FFBD68', fontSize: 10 }, filters: { flexDirection: 'row', gap: 5, marginBottom: 5 },
+  filter: { flex: 1, minWidth: 0, borderWidth: 1, borderColor: '#526373', borderRadius: 7, paddingVertical: 8, alignItems: 'center' },
+  legend: { color: '#B5C2CF', fontSize: 10, marginBottom: 4 }, filterValue: { color: '#F6F8FB', fontSize: 11, fontWeight: '800' },
+  sortRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 5 },
+  count: { color: '#FFFFFF', fontSize: 14, fontWeight: '800', flex: 1 },
+  sortLabel: { color: '#9CAFC1', fontSize: 10 },
+  sortChip: { paddingHorizontal: 7, paddingVertical: 6, borderWidth: 1, borderColor: '#536374', borderRadius: 9 },
+  sortActive: { borderColor: '#21D775', backgroundColor: '#103628' }, sortText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
+  offer: { backgroundColor: '#101B28', borderWidth: 1, borderRadius: 12, paddingHorizontal: 9, paddingVertical: 9, marginBottom: 5 },
+  metrics: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 3, marginBottom: 7 },
+  total: { color: '#FFFFFF', fontSize: 24, fontWeight: '900' }, gps: { color: '#2FEF82', fontSize: 9, fontWeight: '800' },
+  metric: { color: '#FFFFFF', fontSize: 10, fontWeight: '700' }, green: { color: '#32F183', fontSize: 17, fontWeight: '900' },
+  orange: { color: '#FFA52B', fontSize: 17, fontWeight: '900' }, address: { color: '#E1E9F0', fontSize: 10, marginBottom: 3 },
+  tripInfo: { flexDirection: 'row', justifyContent: 'flex-end', gap: 14, marginBottom: 4 },
+  tripInfoText: { color: '#A8B9C7', fontSize: 10 },
+  person: { borderTopWidth: 1, borderTopColor: '#2A3948', flexDirection: 'row', alignItems: 'center', minHeight: 30, gap: 4 },
+  personAvatar: { width: 23, height: 23, borderRadius: 12, backgroundColor: '#32485D', alignItems: 'center', justifyContent: 'center' },
+  personAvatarText: { color: '#FFFFFF', fontSize: 10, fontWeight: '700' }, personName: { flex: 1, color: '#F5F7FA', fontSize: 11 },
+  acceptance: { color: '#3FE985', fontSize: 11, fontWeight: '700', width: 33, textAlign: 'right' },
+  noShow: { color: '#FFCB48', fontSize: 11, fontWeight: '700', width: 25, textAlign: 'right' },
+  personKm: { color: '#D5DEE8', fontSize: 10, width: 42, textAlign: 'right' },
+  personFare: { color: '#FFFFFF', fontSize: 11, fontWeight: '800', width: 43, textAlign: 'right' },
+  replace: { color: '#F1F5F9', fontSize: 23, marginLeft: 3 }, empty: { color: '#ABB8C7', padding: 15 },
+  confirm: { backgroundColor: '#253346', borderRadius: 12, padding: 14, gap: 12 },
+  confirmText: { color: '#FFFFFF', fontSize: 13 }, confirmActions: { flexDirection: 'row', justifyContent: 'space-around' },
+  confirmYes: { color: '#45E991', fontWeight: '900' }, disclaimer: { color: '#8A9BAB', fontSize: 10, marginTop: 4 },
+});
 
 function TestRequestCard({ request, onCancel }: { request: TestPassengerRequest; onCancel: (id: string) => void }) {
   const departure = new Date(request.departureStart).toLocaleString('uk-UA', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
