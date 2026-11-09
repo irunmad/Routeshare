@@ -57,6 +57,18 @@ export class TestRequestsService {
 
     const id = randomUUID();
     return this.database.withTransaction(async (client) => {
+      // Serialize creations from the same test installation to prevent concurrent limit bypasses.
+      await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [owner]);
+      const quota = await client.query(
+        `SELECT
+           count(*) FILTER (WHERE status = 'searching')::int AS active,
+           count(*) FILTER (WHERE created_at >= now() - interval '1 minute')::int AS recent
+         FROM test_passenger_requests WHERE installation_id = $1`,
+        [owner],
+      );
+      if (quota.rows[0].active >= 25 || quota.rows[0].recent >= 5) {
+        throw new BadRequestException('Test request limit reached (25 active, 5 per minute per device).');
+      }
       const result = await client.query(
         `INSERT INTO test_passenger_requests
           (id, installation_id, origin_label, destination_label, departure_start, departure_end, offered_rate_minor_per_km)
