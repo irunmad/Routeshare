@@ -27,7 +27,9 @@ jobs:
           node-version: 22
       - run: pnpm install --no-frozen-lockfile
       - name: Export Expo Web
-        run: pnpm --filter @routeshare/mobile exec expo export --platform web --output-dir ../../dist --base-url /Routeshare
+        run: pnpm --filter @routeshare/mobile exec expo export --platform web --output-dir ../../dist
+      - name: Adjust asset paths for project Pages URL
+        run: sed -i 's|href="/|href="/Routeshare/|g; s|src="/|src="/Routeshare/|g' dist/index.html
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
