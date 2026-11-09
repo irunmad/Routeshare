@@ -23,9 +23,8 @@ const sampleTrips = [
 export default function App() {
   const [mode, setMode] = useState<Mode>('passenger');
   const [tab, setTab] = useState<Tab>('home');
-  const [from, setFrom] = useState('Київ');
-  const [to, setTo] = useState('Житомир');
-  const [date, setDate] = useState('Сьогодні');
+  const [from, setFrom] = useState('Київ, Берестейський проспект 10');
+  const [to, setTo] = useState('Київ, Хрещатик 1');
   const [notice, setNotice] = useState('');
   const [rate, setRate] = useState('3.5');
   const [testRequests, setTestRequests] = useState<TestPassengerRequest[]>([]);
@@ -56,7 +55,7 @@ export default function App() {
 
   const createTestRequest = async () => {
     if (!from.trim() || !to.trim()) {
-      setNotice('Вкажи місто відправлення та призначення.');
+      setNotice('Вкажи адреси посадки та висадки.');
       return;
     }
     const parsedRate = Number(rate.replace(',', '.'));
@@ -65,10 +64,8 @@ export default function App() {
       return;
     }
     const departure = new Date();
-    departure.setDate(departure.getDate() + (date === 'Завтра' ? 1 : 0));
-    departure.setHours(17, 0, 0, 0);
-    if (departure.getTime() < Date.now()) departure.setTime(Date.now() + 60 * 60 * 1000);
-    const departureEnd = new Date(departure.getTime() + 2 * 60 * 60 * 1000);
+    // Temporary API compatibility: requests are immediate; the time window is not user-selected.
+    const departureEnd = new Date(departure.getTime() + 11 * 60 * 1000);
     setSavingRequest(true);
     try {
       await createTestPassengerRequest({
@@ -141,7 +138,7 @@ export default function App() {
                     <View style={styles.dotStart} />
                     <View style={styles.routeInputWrap}>
                       <Text style={styles.fieldLabel}>ЗВІДКИ</Text>
-                      <TextInput value={from} onChangeText={setFrom} placeholder="Місто відправлення" placeholderTextColor="#718096" style={styles.routeInput} />
+                      <TextInput value={from} onChangeText={setFrom} placeholder="Адреса посадки" placeholderTextColor="#718096" style={styles.routeInput} />
                     </View>
                   </View>
                   <View style={styles.routeDivider} />
@@ -149,17 +146,7 @@ export default function App() {
                     <View style={styles.dotEnd} />
                     <View style={styles.routeInputWrap}>
                       <Text style={styles.fieldLabel}>КУДИ</Text>
-                      <TextInput value={to} onChangeText={setTo} placeholder="Місто призначення" placeholderTextColor="#718096" style={styles.routeInput} />
-                    </View>
-                  </View>
-                  <View style={styles.dateRow}>
-                    <Text style={styles.fieldLabel}>ДАТА</Text>
-                    <View style={styles.dateOptions}>
-                      {['Сьогодні', 'Завтра'].map((value) => (
-                        <TouchableOpacity key={value} style={[styles.dateChip, date === value && styles.dateChipActive]} onPress={() => setDate(value)}>
-                          <Text style={[styles.dateChipText, date === value && styles.dateChipTextActive]}>{value}</Text>
-                        </TouchableOpacity>
-                      ))}
+                      <TextInput value={to} onChangeText={setTo} placeholder="Адреса висадки" placeholderTextColor="#718096" style={styles.routeInput} />
                     </View>
                   </View>
                   <View style={styles.rateRow}>
@@ -175,22 +162,22 @@ export default function App() {
 
               <View style={styles.sectionHeader}>
                 <View>
-                  <Text style={styles.sectionTitle}>Популярні напрямки</Text>
-                  <Text style={styles.sectionSubtitle}>Поруч із тобою</Text>
+                  <Text style={styles.sectionTitle}>Тестування маршрутів</Text>
+                  <Text style={styles.sectionSubtitle}>Створюй декілька заявок для перевірки</Text>
                 </View>
                 <TouchableOpacity onPress={() => setTab('trips')}><Text style={styles.seeAll}>Усі →</Text></TouchableOpacity>
               </View>
               <View style={styles.popularRow}>
-                <TouchableOpacity style={styles.popularCard} onPress={() => { setFrom('Київ'); setTo('Житомир'); }}>
-                  <Text style={styles.popularIcon}>🏙️</Text><Text style={styles.popularRoute}>Київ — Житомир</Text><Text style={styles.popularMeta}>від 180 грн</Text>
+                <TouchableOpacity style={styles.popularCard} onPress={() => { setFrom('Київ, Оболонський проспект 10'); setTo('Київ, Хрещатик 1'); }}>
+                  <Text style={styles.popularIcon}>🏙️</Text><Text style={styles.popularRoute}>Київ: Берестейський → Хрещатик</Text><Text style={styles.popularMeta}>від 180 грн</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.popularCard} onPress={() => { setFrom('Київ'); setTo('Черкаси'); }}>
-                  <Text style={styles.popularIcon}>🌆</Text><Text style={styles.popularRoute}>Київ — Черкаси</Text><Text style={styles.popularMeta}>від 320 грн</Text>
+                <TouchableOpacity style={styles.popularCard} onPress={() => { setFrom('Київ'); setTo('Київ, Контрактова площа 1'); }}>
+                  <Text style={styles.popularIcon}>🌆</Text><Text style={styles.popularRoute}>Київ: Оболонь → Поділ</Text><Text style={styles.popularMeta}>від 320 грн</Text>
                 </TouchableOpacity>
               </View>
 
               <View style={styles.sectionHeader}>
-                <View><Text style={styles.sectionTitle}>Найближчі поїздки</Text><Text style={styles.sectionSubtitle}>Приклади пропозицій</Text></View>
+                <View><Text style={styles.sectionTitle}>Демо-пропозиції</Text><Text style={styles.sectionSubtitle}>Приклади пропозицій</Text></View>
               </View>
               {sampleTrips.slice(0, 2).map((trip) => <TripCard key={trip.id} trip={trip} onPress={() => showNotice('Деталі поїздки та бронювання з’являться після підключення API.')} />)}
             </>
