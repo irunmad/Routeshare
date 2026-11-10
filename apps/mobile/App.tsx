@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { cancelTestPassengerRequest, createTestPassengerRequest, listTestPassengerRequests, TestPassengerRequest } from './src/lib/testRequests';
 import { StatusBar } from 'expo-status-bar';
 import {
   SafeAreaView,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -260,6 +261,7 @@ function DriverOfferList({ onOpen }: { onOpen: () => void }) {
   const [sortBy, setSortBy] = useState<'km' | 'hour'>('km');
   const [replaceName, setReplaceName] = useState<string | null>(null);
   const [selectedOffer, setSelectedOffer] = useState<DriverOffer | null>(null);
+  const [showMap, setShowMap] = useState(false);
   const [increase, setIncrease] = useState(0);
   const offers = [...previewOffers]
     .filter(o => o.passengers.length <= seats && o.pickupKm <= pickupLimit && o.finalKm <= finalLimit)
@@ -269,6 +271,7 @@ function DriverOfferList({ onOpen }: { onOpen: () => void }) {
   return (
     <View style={driverStyles.wrap}>
       <Text style={driverStyles.heading}>RouteShare · Водій <Text style={driverStyles.preview}>ПЕРЕГЛЯД</Text></Text>
+      {showMap && <RouteMapPreview detail={false} />}
       <View style={driverStyles.filters}>
         <TouchableOpacity style={driverStyles.filter} onPress={() => setSeats(v => v === 3 ? 1 : v + 1)}>
           <Text style={driverStyles.legend}>Місць</Text><Text style={driverStyles.filterValue}>{seats} ▾</Text>
@@ -315,9 +318,18 @@ function DriverOfferList({ onOpen }: { onOpen: () => void }) {
         </TouchableOpacity>
       ))}
       {replaceName && <View style={driverStyles.confirm}><Text style={driverStyles.confirmText}>Замінити маршрут пасажира {replaceName}?</Text><View style={driverStyles.confirmActions}><TouchableOpacity onPress={() => setReplaceName(null)}><Text style={driverStyles.confirmText}>Ні</Text></TouchableOpacity><TouchableOpacity onPress={() => { setReplaceName(null); onOpen(); }}><Text style={driverStyles.confirmYes}>Так</Text></TouchableOpacity></View></View>}
-      <Text style={driverStyles.disclaimer}>Демонстраційні комбінації — без реального розрахунку доріг чи бронювання.</Text>
+      <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'center', marginTop: 8 }}><TouchableOpacity onPress={() => setShowMap(false)} style={[driverStyles.sortChip, !showMap && driverStyles.sortActive]}><Text style={driverStyles.sortText}>Список</Text></TouchableOpacity><TouchableOpacity onPress={() => setShowMap(true)} style={[driverStyles.sortChip, showMap && driverStyles.sortActive]}><Text style={driverStyles.sortText}>Карта</Text></TouchableOpacity></View>
+      <Text style={driverStyles.disclaimer}>Демонстраційні комбінації — без реального бронювання.</Text>
     </View>
   );
+}
+
+function RouteMapPreview({ detail }: { detail: boolean }) {
+  if (Platform.OS !== 'web') return <View style={detailStyles.mapPlaceholder}><Text style={detailStyles.mapText}>Веб-карта доступна у браузері.</Text></View>;
+  const src = '/Routeshare/route-map.html' + (detail ? '?detail=1' : '');
+  return <View style={{ height: detail ? 245 : 360, borderRadius: 9, overflow: 'hidden', borderWidth: 1, borderColor: '#526373' }}>
+    {React.createElement('iframe' as any, { src, title: 'RouteShare OSM map', style: { width: '100%', height: '100%', border: 0 }, loading: 'lazy' })}
+  </View>;
 }
 
 // Detail preview uses the same sample offers as the list. No real reservations or negotiations.
@@ -351,10 +363,7 @@ function DriverOfferDetail({ offer, increase, setIncrease, onBack }: {
         ))}
         <Text style={detailStyles.segment}>Остання висадка → ┄ {offer.finalKm.toFixed(1)} км до фінішу водія</Text>
       </View>
-      <View style={detailStyles.mapPlaceholder}>
-        <Text style={detailStyles.mapTitle}>Карта заявки</Text>
-        <Text style={detailStyles.mapText}>Реальні дороги та геометрія маршруту ще не підключені. У цьому перегляді маршрут не вигадується.</Text>
-      </View>
+      <RouteMapPreview detail />
       <View style={detailStyles.priceRow}>
         <Text style={detailStyles.priceLabel}>Підвищення тарифу</Text>
         {[0,10,20,30,40,50].map(value => (
