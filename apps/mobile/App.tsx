@@ -292,10 +292,10 @@ function DriverOfferList({ design, view, selectedOffer, onSelectOffer, onBack }:
   if (view === 'offer') return selectedOffer ? <DriverOfferDetail design={design} offer={selectedOffer} increase={increase} setIncrease={setIncrease} onBack={onBack} /> : <View style={driverStyles.wrap}><Text style={driverStyles.empty}>Заявку ще не вибрано. Відкрий «Список» і натисни на потрібну комбінацію.</Text></View>;
   return (
     <View style={[driverStyles.wrap, design === 'new' && { backgroundColor: '#E9F0F6', padding: 8, borderRadius: 14 }]}>
-      <Text style={[driverStyles.heading, design === 'new' && { color: '#123B52' }]}>RouteShare · Водій <Text style={driverStyles.preview}>ПЕРЕГЛЯД</Text></Text>
-      <View style={driverStyles.filters}>
-        <TouchableOpacity style={driverStyles.filter} onPress={() => setSeats(v => v === 3 ? 1 : v + 1)}>
-          <Text style={driverStyles.legend}>Місць</Text><Text style={driverStyles.filterValue}>{seats} ▾</Text>
+      <Text style={[driverStyles.heading, design === 'new' && { color: '#123B52' }]}>{design === 'new' ? 'НОВИЙ ДИЗАЙН · МАРШРУТИ' : 'RouteShare · Водій'} <Text style={driverStyles.preview}>ПЕРЕГЛЯД</Text></Text>
+      <View style={[driverStyles.filters, design === 'new' && { backgroundColor: '#C6DDE8', borderRadius: 16, padding: 8, flexWrap: 'wrap' }]}>
+        <TouchableOpacity style={[driverStyles.filter, design === 'new' && { backgroundColor: '#FFFFFF', borderColor: '#9DB5C4', borderRadius: 14, minWidth: '22%' }]} onPress={() => setSeats(v => v === 3 ? 1 : v + 1)}>
+          <Text style={[driverStyles.legend, design === 'new' && { color: '#476175' }]}>Місць</Text><Text style={[driverStyles.filterValue, design === 'new' && { color: '#163D54' }]}>{seats} ▾</Text>
         </TouchableOpacity>
         <TouchableOpacity style={driverStyles.filter} onPress={() => setPickupLimit(cycle)}>
           <Text style={driverStyles.legend}>Подача</Text><Text style={driverStyles.filterValue}>≤ {pickupLimit.toFixed(1)} км</Text>
@@ -304,43 +304,43 @@ function DriverOfferList({ design, view, selectedOffer, onSelectOffer, onBack }:
           <Text style={driverStyles.legend}>Фінал</Text><Text style={driverStyles.filterValue}>≤ {finalLimit.toFixed(1)} км</Text>
         </TouchableOpacity>
         <TouchableOpacity style={driverStyles.filter} onPress={() => setUnique(v => !v)}>
-          <Text style={driverStyles.legend}>Унікальні</Text><Text style={[driverStyles.filterValue, { color: unique ? '#36E88C' : '#8B9BAE' }]}>{unique ? '✓' : '—'}</Text>
+          <Text style={driverStyles.legend}>Унікальні</Text><Text style={[driverStyles.filterValue, { color: unique ? '#36E88C' : '#8B9BAE' }, design === 'new' && { color: unique ? '#00854E' : '#526E80' }]}>{unique ? '✓' : '—'}</Text>
         </TouchableOpacity>
       </View>
       {view === 'map' && <RouteMapPreview detail={false} />}
       {view === 'list' && <View style={driverStyles.sortRow}>
-        <Text style={driverStyles.count}>Заявки ({offers.length})</Text>
-        <Text style={driverStyles.sortLabel}>Сортування:</Text>
-        <TouchableOpacity onPress={() => setSortBy('km')} style={[driverStyles.sortChip, sortBy === 'km' && driverStyles.sortActive]}><Text style={driverStyles.sortText}>₴/км</Text></TouchableOpacity>
-        <TouchableOpacity onPress={() => setSortBy('hour')} style={[driverStyles.sortChip, sortBy === 'hour' && driverStyles.sortActive]}><Text style={driverStyles.sortText}>₴/год</Text></TouchableOpacity>
+        <Text style={[driverStyles.count, design === 'new' && { color: '#123B52' }]}>Заявки ({offers.length})</Text>
+        <Text style={[driverStyles.sortLabel, design === 'new' && { color: '#476175' }]}>Сортування:</Text>
+        <TouchableOpacity onPress={() => setSortBy('km')} style={[driverStyles.sortChip, sortBy === 'km' && driverStyles.sortActive, design === 'new' && { backgroundColor: '#173D52', borderRadius: 15 }]}><Text style={driverStyles.sortText}>₴/км</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => setSortBy('hour')} style={[driverStyles.sortChip, sortBy === 'hour' && driverStyles.sortActive, design === 'new' && { backgroundColor: '#173D52', borderRadius: 15 }]}><Text style={driverStyles.sortText}>₴/год</Text></TouchableOpacity>
       </View>}
       {view === 'list' && offers.length === 0 && <Text style={driverStyles.empty}>Немає варіантів для цих фільтрів.</Text>}
       {view === 'list' && offers.map(o => (
-        <TouchableOpacity key={o.id} onPress={() => onSelectOffer(o)} activeOpacity={0.8} style={[driverStyles.offer, { borderColor: o.color }, design === 'new' && { backgroundColor: '#173D52', borderRadius: 22, borderWidth: 2, paddingVertical: 15, marginBottom: 10 }]}>
+        <TouchableOpacity key={o.id} onPress={() => onSelectOffer(o)} activeOpacity={0.8} style={[driverStyles.offer, { borderColor: o.color }, design === 'new' && { backgroundColor: '#FFFFFF', borderRadius: 22, borderWidth: 2, paddingVertical: 17, marginBottom: 12 }]}>
           <View style={driverStyles.metrics}>
-            <Text style={driverStyles.total}>₴{o.amount}</Text>
-            <Text style={driverStyles.gps}>GPS OK</Text>
-            <Text style={driverStyles.metric}><Text style={driverStyles.green}>{perKm(o).toFixed(1)}</Text> ₴/км</Text>
-            <Text style={driverStyles.metric}><Text style={driverStyles.orange}>{Math.round(perHour(o)).toLocaleString('uk-UA')}</Text> ₴/год</Text>
+            <Text style={[driverStyles.total, design === 'new' && { color: '#123B52' }]}>₴{o.amount}</Text>
+            <Text style={[driverStyles.gps, design === 'new' && { color: '#007A4B' }]}>GPS OK</Text>
+            <Text style={[driverStyles.metric, design === 'new' && { color: '#173D52' }]}><Text style={[driverStyles.green, design === 'new' && { color: '#007C51' }]}>{perKm(o).toFixed(1)}</Text> ₴/км</Text>
+            <Text style={driverStyles.metric}><Text style={[driverStyles.orange, design === 'new' && { color: '#B66A00' }]}>{Math.round(perHour(o)).toLocaleString('uk-UA')}</Text> ₴/год</Text>
           </View>
-          <Text numberOfLines={1} style={driverStyles.address}>┄ {o.pickupKm.toFixed(1)} км →  🟢 {o.pickup}</Text>
+          <Text numberOfLines={1} style={[driverStyles.address, design === 'new' && { color: '#244B61' }]}>┄ {o.pickupKm.toFixed(1)} км →  🟢 {o.pickup}</Text>
           <Text numberOfLines={1} style={driverStyles.address}>      →  🔴 {o.dropoff}  ┄ {o.finalKm.toFixed(1)} км</Text>
-          <View style={driverStyles.tripInfo}><Text style={driverStyles.tripInfoText}>{o.distance.toFixed(1)} км</Text><Text style={driverStyles.tripInfoText}>≈ {o.minutes} хв</Text></View>
+          <View style={driverStyles.tripInfo}><Text style={[driverStyles.tripInfoText, design === 'new' && { color: '#526D7D' }]}>{o.distance.toFixed(1)} км</Text><Text style={driverStyles.tripInfoText}>≈ {o.minutes} хв</Text></View>
           {o.passengers.map(p => (
             <View key={p.name} style={driverStyles.person}>
               <View style={driverStyles.personAvatar}><Text style={driverStyles.personAvatarText}>{p.avatar}</Text></View>
-              <Text numberOfLines={1} style={driverStyles.personName}>{p.name}</Text>
-              <Text style={driverStyles.acceptance}>{p.acceptance}%</Text>
-              <Text style={driverStyles.noShow}>{p.noShow}%</Text>
-              <Text style={driverStyles.personKm}>{p.km.toFixed(1)} км</Text>
-              <Text style={driverStyles.personFare}>₴{p.fare}</Text>
-              <TouchableOpacity accessibilityLabel={'Замінити ' + p.name} onPress={() => setReplaceName(p.name)}><Text style={driverStyles.replace}>⟳</Text></TouchableOpacity>
+              <Text numberOfLines={1} style={[driverStyles.personName, design === 'new' && { color: '#163D54' }]}>{p.name}</Text>
+              <Text style={[driverStyles.acceptance, design === 'new' && { color: '#00854E' }]}>{p.acceptance}%</Text>
+              <Text style={[driverStyles.noShow, design === 'new' && { color: '#B06B00' }]}>{p.noShow}%</Text>
+              <Text style={[driverStyles.personKm, design === 'new' && { color: '#244B61' }]}>{p.km.toFixed(1)} км</Text>
+              <Text style={[driverStyles.personFare, design === 'new' && { color: '#123B52' }]}>₴{p.fare}</Text>
+              <TouchableOpacity accessibilityLabel={'Замінити ' + p.name} onPress={() => setReplaceName(p.name)}><Text style={[driverStyles.replace, design === 'new' && { color: '#123B52' }]}>⟳</Text></TouchableOpacity>
             </View>
           ))}
         </TouchableOpacity>
       ))}
       {replaceName && <View style={driverStyles.confirm}><Text style={driverStyles.confirmText}>Замінити маршрут пасажира {replaceName}?</Text><View style={driverStyles.confirmActions}><TouchableOpacity onPress={() => setReplaceName(null)}><Text style={driverStyles.confirmText}>Ні</Text></TouchableOpacity><TouchableOpacity onPress={() => { setReplaceName(null); }}><Text style={driverStyles.confirmYes}>Так</Text></TouchableOpacity></View></View>}
-      <Text style={driverStyles.disclaimer}>Демонстраційні комбінації — без реального бронювання.</Text>
+      <Text style={[driverStyles.disclaimer, design === 'new' && { color: '#456579' }]}>Демонстраційні комбінації — без реального бронювання.</Text>
     </View>
   );
 }
