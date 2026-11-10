@@ -271,7 +271,6 @@ function DriverOfferList({ onOpen }: { onOpen: () => void }) {
   return (
     <View style={driverStyles.wrap}>
       <Text style={driverStyles.heading}>RouteShare · Водій <Text style={driverStyles.preview}>ПЕРЕГЛЯД</Text></Text>
-      {showMap && <RouteMapPreview detail={false} />}
       <View style={driverStyles.filters}>
         <TouchableOpacity style={driverStyles.filter} onPress={() => setSeats(v => v === 3 ? 1 : v + 1)}>
           <Text style={driverStyles.legend}>Місць</Text><Text style={driverStyles.filterValue}>{seats} ▾</Text>
@@ -286,14 +285,16 @@ function DriverOfferList({ onOpen }: { onOpen: () => void }) {
           <Text style={driverStyles.legend}>Унікальні</Text><Text style={[driverStyles.filterValue, { color: unique ? '#36E88C' : '#8B9BAE' }]}>{unique ? '✓' : '—'}</Text>
         </TouchableOpacity>
       </View>
-      <View style={driverStyles.sortRow}>
+      <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'center', marginTop: 8 }}><TouchableOpacity onPress={() => setShowMap(false)} style={[driverStyles.sortChip, !showMap && driverStyles.sortActive]}><Text style={driverStyles.sortText}>Список</Text></TouchableOpacity><TouchableOpacity onPress={() => setShowMap(true)} style={[driverStyles.sortChip, showMap && driverStyles.sortActive]}><Text style={driverStyles.sortText}>Карта</Text></TouchableOpacity></View>
+      {showMap && <RouteMapPreview detail={false} />}
+      {!showMap && <View style={driverStyles.sortRow}>
         <Text style={driverStyles.count}>Заявки ({offers.length})</Text>
         <Text style={driverStyles.sortLabel}>Сортування:</Text>
         <TouchableOpacity onPress={() => setSortBy('km')} style={[driverStyles.sortChip, sortBy === 'km' && driverStyles.sortActive]}><Text style={driverStyles.sortText}>₴/км</Text></TouchableOpacity>
         <TouchableOpacity onPress={() => setSortBy('hour')} style={[driverStyles.sortChip, sortBy === 'hour' && driverStyles.sortActive]}><Text style={driverStyles.sortText}>₴/год</Text></TouchableOpacity>
       </View>
-      {offers.length === 0 && <Text style={driverStyles.empty}>Немає варіантів для цих фільтрів.</Text>}
-      {offers.map(o => (
+      {!showMap && offers.length === 0 && <Text style={driverStyles.empty}>Немає варіантів для цих фільтрів.</Text>}
+      {!showMap && offers.map(o => (
         <TouchableOpacity key={o.id} onPress={() => setSelectedOffer(o)} activeOpacity={0.8} style={[driverStyles.offer, { borderColor: o.color }]}>
           <View style={driverStyles.metrics}>
             <Text style={driverStyles.total}>₴{o.amount}</Text>
@@ -318,7 +319,6 @@ function DriverOfferList({ onOpen }: { onOpen: () => void }) {
         </TouchableOpacity>
       ))}
       {replaceName && <View style={driverStyles.confirm}><Text style={driverStyles.confirmText}>Замінити маршрут пасажира {replaceName}?</Text><View style={driverStyles.confirmActions}><TouchableOpacity onPress={() => setReplaceName(null)}><Text style={driverStyles.confirmText}>Ні</Text></TouchableOpacity><TouchableOpacity onPress={() => { setReplaceName(null); onOpen(); }}><Text style={driverStyles.confirmYes}>Так</Text></TouchableOpacity></View></View>}
-      <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'center', marginTop: 8 }}><TouchableOpacity onPress={() => setShowMap(false)} style={[driverStyles.sortChip, !showMap && driverStyles.sortActive]}><Text style={driverStyles.sortText}>Список</Text></TouchableOpacity><TouchableOpacity onPress={() => setShowMap(true)} style={[driverStyles.sortChip, showMap && driverStyles.sortActive]}><Text style={driverStyles.sortText}>Карта</Text></TouchableOpacity></View>
       <Text style={driverStyles.disclaimer}>Демонстраційні комбінації — без реального бронювання.</Text>
     </View>
   );
