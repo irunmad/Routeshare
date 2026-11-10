@@ -13,6 +13,12 @@ import {
 } from 'react-native';
 
 type Mode = 'passenger' | 'driver';
+type Design = 'classic' | 'new';
+const initialDesign = (): Design => {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') return 'classic';
+  const query = new URLSearchParams(window.location.search).get('design');
+  return query === 'new' ? 'new' : 'classic';
+};
 type Tab = 'home' | 'trips' | 'messages' | 'profile';
 
 const sampleTrips = [
@@ -25,6 +31,16 @@ export default function App() {
   const [mode, setMode] = useState<Mode>('passenger');
   const [tab, setTab] = useState<Tab>('home');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [design, setDesign] = useState<Design>(initialDesign);
+  const changeDesign = (next: Design) => {
+    setDesign(next);
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.set('design', next);
+      window.history.replaceState(null, '', url.toString());
+      try { window.localStorage.setItem('routeshare-design', next); } catch {}
+    }
+  };
   const [driverView, setDriverView] = useState<'list' | 'map' | 'offer'>('list');
   const [driverOffer, setDriverOffer] = useState<DriverOffer | null>(null);
   const [from, setFrom] = useState('Київ, Берестейський проспект 10');
@@ -103,8 +119,8 @@ export default function App() {
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar style="light" />
-      <View style={styles.screen}>
-        <View style={styles.header}>
+      <View style={[styles.screen, design === 'new' && { backgroundColor: '#E9F0F6' }]}>
+        <View style={[styles.header, design === 'new' && { backgroundColor: '#123B52', borderBottomColor: '#2B7088' }]}>
           <TouchableOpacity onPress={() => setMenuOpen(v => !v)} style={{ paddingHorizontal: 9, paddingVertical: 5 }} accessibilityLabel="Відкрити меню"><Text style={{ color: '#FFFFFF', fontSize: 27 }}>☰</Text></TouchableOpacity>
           <View>
             <Text style={styles.brand}>ROUTE<Text style={styles.brandAccent}>SHARE</Text></Text>
@@ -116,9 +132,11 @@ export default function App() {
         </View>
 
         {menuOpen && <View style={{ backgroundColor: '#1A2A3D', padding: 12, gap: 12, borderBottomWidth: 1, borderBottomColor: '#40536A' }}>
+          <Text style={{ color: '#AFC8D6', fontWeight: '700', fontSize: 12 }}>ОФОРМЛЕННЯ</Text>
+          <View style={{ flexDirection: 'row', gap: 8 }}><TouchableOpacity onPress={() => changeDesign('classic')} style={{ padding: 10, borderRadius: 8, borderWidth: 1, borderColor: design === 'classic' ? '#34D97B' : '#54677C' }}><Text style={{ color: '#FFFFFF' }}>Класичний {design === 'classic' ? '✓' : ''}</Text></TouchableOpacity><TouchableOpacity onPress={() => changeDesign('new')} style={{ padding: 10, borderRadius: 8, borderWidth: 1, borderColor: design === 'new' ? '#34D97B' : '#54677C' }}><Text style={{ color: '#FFFFFF' }}>Новий {design === 'new' ? '✓' : ''}</Text></TouchableOpacity></View>
           {([['home', 'Головна'], ['trips', 'Тестові заявки'], ['messages', 'Чати'], ['profile', 'Профіль']] as const).map(([key, label]) => <TouchableOpacity key={key} onPress={() => { setTab(key); setMenuOpen(false); }}><Text style={{ color: '#FFFFFF', fontSize: 15, padding: 6 }}>{label}</Text></TouchableOpacity>)}
         </View>}
-        <View style={styles.modeSwitch}>
+        <View style={[styles.modeSwitch, design === 'new' && { backgroundColor: '#D7E4EC' }]}>
           <TouchableOpacity
             style={[styles.modeButton, mode === 'passenger' && styles.modeButtonActive]}
             onPress={() => { setMode('passenger'); setTab('home'); setNotice(''); setDriverView('list'); setDriverOffer(null); }}
@@ -191,7 +209,7 @@ export default function App() {
             </>
           )}
 
-          {tab === 'home' && mode === 'driver' && <DriverOfferList view={driverView} selectedOffer={driverOffer} onSelectOffer={(offer) => { setDriverOffer(offer); setDriverView('offer'); }} onBack={() => { setDriverOffer(null); setDriverView('list'); }} />}
+          {tab === 'home' && mode === 'driver' && <DriverOfferList design={design} view={driverView} selectedOffer={driverOffer} onSelectOffer={(offer) => { setDriverOffer(offer); setDriverView('offer'); }} onBack={() => { setDriverOffer(null); setDriverView('list'); }} />}
 
           {tab === 'trips' && (
             <>
@@ -223,7 +241,7 @@ export default function App() {
           <Text style={styles.footer}>ROUTE<Text style={styles.brandAccent}>SHARE</Text>  ·  Разом дорогою</Text>
         </ScrollView>
 
-        {tab === 'home' && mode === 'driver' && <View style={styles.bottomNav}>
+        {tab === 'home' && mode === 'driver' && <View style={[styles.bottomNav, design === 'new' && { backgroundColor: '#123B52' }]}>
           <NavItem icon="☷" label="Список" active={driverView === 'list'} onPress={() => { setDriverView('list'); setDriverOffer(null); }} />
           <NavItem icon="▧" label="Карта" active={driverView === 'map'} onPress={() => { setDriverView('map'); setDriverOffer(null); }} />
           <NavItem icon="▤" label="Заявка" active={driverView === 'offer'} onPress={() => setDriverView('offer')} />
@@ -259,7 +277,7 @@ const previewOffers: DriverOffer[] = [
 ];
 const perKm = (o: DriverOffer) => o.distance > 0 ? o.amount / o.distance : 0;
 const perHour = (o: DriverOffer) => o.minutes > 0 ? o.amount / o.minutes * 60 : 0;
-function DriverOfferList({ view, selectedOffer, onSelectOffer, onBack }: { view: 'list' | 'map' | 'offer'; selectedOffer: DriverOffer | null; onSelectOffer: (offer: DriverOffer) => void; onBack: () => void }) {
+function DriverOfferList({ design, view, selectedOffer, onSelectOffer, onBack }: { design: Design; view: 'list' | 'map' | 'offer'; selectedOffer: DriverOffer | null; onSelectOffer: (offer: DriverOffer) => void; onBack: () => void }) {
   const [seats, setSeats] = useState(3);
   const [pickupLimit, setPickupLimit] = useState(3);
   const [finalLimit, setFinalLimit] = useState(4);
@@ -271,10 +289,10 @@ function DriverOfferList({ view, selectedOffer, onSelectOffer, onBack }: { view:
     .filter(o => o.passengers.length <= seats && o.pickupKm <= pickupLimit && o.finalKm <= finalLimit)
     .sort((a, b) => sortBy === 'km' ? perKm(b) - perKm(a) : perHour(b) - perHour(a));
   const cycle = (v: number) => v >= 7 ? 0.5 : Math.round((v + 0.5) * 10) / 10;
-  if (view === 'offer') return selectedOffer ? <DriverOfferDetail offer={selectedOffer} increase={increase} setIncrease={setIncrease} onBack={onBack} /> : <View style={driverStyles.wrap}><Text style={driverStyles.empty}>Заявку ще не вибрано. Відкрий «Список» і натисни на потрібну комбінацію.</Text></View>;
+  if (view === 'offer') return selectedOffer ? <DriverOfferDetail design={design} offer={selectedOffer} increase={increase} setIncrease={setIncrease} onBack={onBack} /> : <View style={driverStyles.wrap}><Text style={driverStyles.empty}>Заявку ще не вибрано. Відкрий «Список» і натисни на потрібну комбінацію.</Text></View>;
   return (
-    <View style={driverStyles.wrap}>
-      <Text style={driverStyles.heading}>RouteShare · Водій <Text style={driverStyles.preview}>ПЕРЕГЛЯД</Text></Text>
+    <View style={[driverStyles.wrap, design === 'new' && { backgroundColor: '#E9F0F6', padding: 8, borderRadius: 14 }]}>
+      <Text style={[driverStyles.heading, design === 'new' && { color: '#123B52' }]}>RouteShare · Водій <Text style={driverStyles.preview}>ПЕРЕГЛЯД</Text></Text>
       <View style={driverStyles.filters}>
         <TouchableOpacity style={driverStyles.filter} onPress={() => setSeats(v => v === 3 ? 1 : v + 1)}>
           <Text style={driverStyles.legend}>Місць</Text><Text style={driverStyles.filterValue}>{seats} ▾</Text>
@@ -298,7 +316,7 @@ function DriverOfferList({ view, selectedOffer, onSelectOffer, onBack }: { view:
       </View>}
       {view === 'list' && offers.length === 0 && <Text style={driverStyles.empty}>Немає варіантів для цих фільтрів.</Text>}
       {view === 'list' && offers.map(o => (
-        <TouchableOpacity key={o.id} onPress={() => onSelectOffer(o)} activeOpacity={0.8} style={[driverStyles.offer, { borderColor: o.color }]}>
+        <TouchableOpacity key={o.id} onPress={() => onSelectOffer(o)} activeOpacity={0.8} style={[driverStyles.offer, { borderColor: o.color }, design === 'new' && { backgroundColor: '#173D52', borderRadius: 22, borderWidth: 2, paddingVertical: 15, marginBottom: 10 }]}>
           <View style={driverStyles.metrics}>
             <Text style={driverStyles.total}>₴{o.amount}</Text>
             <Text style={driverStyles.gps}>GPS OK</Text>
@@ -336,20 +354,20 @@ function RouteMapPreview({ detail }: { detail: boolean }) {
 }
 
 // Detail preview uses the same sample offers as the list. No real reservations or negotiations.
-function DriverOfferDetail({ offer, increase, setIncrease, onBack }: {
-  offer: DriverOffer; increase: number; setIncrease: (value: number) => void; onBack: () => void;
+function DriverOfferDetail({ design, offer, increase, setIncrease, onBack }: {
+  design: Design; offer: DriverOffer; increase: number; setIncrease: (value: number) => void; onBack: () => void;
 }) {
   const [message, setMessage] = useState('');
   const updated = Math.round(offer.amount * (1 + increase / 100));
   return (
-    <View style={detailStyles.wrap}>
-      <View style={detailStyles.head}>
+    <View style={[detailStyles.wrap, design === 'new' && { backgroundColor: '#E9F0F6', padding: 10, borderRadius: 16 }]}>
+      <View style={[detailStyles.head, design === 'new' && { backgroundColor: '#173D52', borderRadius: 15, padding: 10 }]}>
         <Text style={detailStyles.title}>Заявка</Text>
         <Text style={detailStyles.amount}>₴{updated}</Text>
         <Text style={detailStyles.stat}><Text style={detailStyles.km}>{(updated / offer.distance).toFixed(1)}</Text> ₴/км</Text>
         <Text style={detailStyles.stat}><Text style={detailStyles.hour}>{Math.round(updated / offer.minutes * 60)}</Text> ₴/год</Text>
       </View>
-      <View style={[detailStyles.frame, { borderColor: offer.color }]}>
+      <View style={[detailStyles.frame, { borderColor: offer.color }, design === 'new' && { backgroundColor: '#173D52', borderRadius: 20, borderWidth: 2 }]}>
         <Text style={detailStyles.segment}>┄ {offer.pickupKm.toFixed(1)} км → Перша посадка</Text>
         {offer.passengers.map((p, index) => (
           <View key={p.name} style={detailStyles.passenger}>
