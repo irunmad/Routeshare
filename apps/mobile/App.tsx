@@ -24,6 +24,9 @@ const sampleTrips = [
 export default function App() {
   const [mode, setMode] = useState<Mode>('passenger');
   const [tab, setTab] = useState<Tab>('home');
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [driverView, setDriverView] = useState<'list' | 'map' | 'offer'>('list');
+  const [driverOffer, setDriverOffer] = useState<DriverOffer | null>(null);
   const [from, setFrom] = useState('Київ, Берестейський проспект 10');
   const [to, setTo] = useState('Київ, Хрещатик 1');
   const [notice, setNotice] = useState('');
@@ -102,25 +105,29 @@ export default function App() {
       <StatusBar style="light" />
       <View style={styles.screen}>
         <View style={styles.header}>
+          <TouchableOpacity onPress={() => setMenuOpen(v => !v)} style={{ paddingHorizontal: 9, paddingVertical: 5 }} accessibilityLabel="Відкрити меню"><Text style={{ color: '#FFFFFF', fontSize: 27 }}>☰</Text></TouchableOpacity>
           <View>
             <Text style={styles.brand}>ROUTE<Text style={styles.brandAccent}>SHARE</Text></Text>
             <Text style={styles.headerCaption}>Твій маршрут. Твоя компанія.</Text>
           </View>
-          <TouchableOpacity style={styles.avatar} onPress={() => setTab('profile')}>
+          <TouchableOpacity style={styles.avatar} onPress={() => setMenuOpen(v => !v)}>
             <Text style={styles.avatarText}>С</Text>
           </TouchableOpacity>
         </View>
 
+        {menuOpen && <View style={{ backgroundColor: '#1A2A3D', padding: 12, gap: 12, borderBottomWidth: 1, borderBottomColor: '#40536A' }}>
+          {([['home', 'Головна'], ['trips', 'Тестові заявки'], ['messages', 'Чати'], ['profile', 'Профіль']] as const).map(([key, label]) => <TouchableOpacity key={key} onPress={() => { setTab(key); setMenuOpen(false); }}><Text style={{ color: '#FFFFFF', fontSize: 15, padding: 6 }}>{label}</Text></TouchableOpacity>)}
+        </View>}
         <View style={styles.modeSwitch}>
           <TouchableOpacity
             style={[styles.modeButton, mode === 'passenger' && styles.modeButtonActive]}
-            onPress={() => { setMode('passenger'); setTab('home'); setNotice(''); }}
+            onPress={() => { setMode('passenger'); setTab('home'); setNotice(''); setDriverView('list'); setDriverOffer(null); }}
           >
             <Text style={[styles.modeText, mode === 'passenger' && styles.modeTextActive]}>Пасажир</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.modeButton, mode === 'driver' && styles.modeButtonActive]}
-            onPress={() => { setMode('driver'); setTab('home'); setNotice(''); }}
+            onPress={() => { setMode('driver'); setTab('home'); setNotice(''); setDriverView('list'); setDriverOffer(null); }}
           >
             <Text style={[styles.modeText, mode === 'driver' && styles.modeTextActive]}>Водій</Text>
           </TouchableOpacity>
@@ -184,7 +191,7 @@ export default function App() {
             </>
           )}
 
-          {tab === 'home' && mode === 'driver' && <DriverOfferList onOpen={() => setNotice('Екран заявки та серверне бронювання — наступний етап.')} />}
+          {tab === 'home' && mode === 'driver' && <DriverOfferList view={driverView} selectedOffer={driverOffer} onSelectOffer={(offer) => { setDriverOffer(offer); setDriverView('offer'); }} onBack={() => { setDriverOffer(null); setDriverView('list'); }} />}
 
           {tab === 'trips' && (
             <>
@@ -216,12 +223,11 @@ export default function App() {
           <Text style={styles.footer}>ROUTE<Text style={styles.brandAccent}>SHARE</Text>  ·  Разом дорогою</Text>
         </ScrollView>
 
-        <View style={styles.bottomNav}>
-          <NavItem icon="⌂" label="Головна" active={tab === 'home'} onPress={() => setTab('home')} />
-          <NavItem icon="⇄" label={mode === 'passenger' ? 'Поїздки' : 'Маршрути'} active={tab === 'trips'} onPress={() => setTab('trips')} />
-          <NavItem icon="▤" label="Чати" active={tab === 'messages'} onPress={() => setTab('messages')} />
-          <NavItem icon="◉" label="Профіль" active={tab === 'profile'} onPress={() => setTab('profile')} />
-        </View>
+        {tab === 'home' && mode === 'driver' && <View style={styles.bottomNav}>
+          <NavItem icon="☷" label="Список" active={driverView === 'list'} onPress={() => { setDriverView('list'); setDriverOffer(null); }} />
+          <NavItem icon="▧" label="Карта" active={driverView === 'map'} onPress={() => { setDriverView('map'); setDriverOffer(null); }} />
+          <NavItem icon="▤" label="Заявка" active={driverView === 'offer'} onPress={() => setDriverView('offer')} />
+        </View>}
       </View>
     </SafeAreaView>
   );
@@ -253,21 +259,19 @@ const previewOffers: DriverOffer[] = [
 ];
 const perKm = (o: DriverOffer) => o.distance > 0 ? o.amount / o.distance : 0;
 const perHour = (o: DriverOffer) => o.minutes > 0 ? o.amount / o.minutes * 60 : 0;
-function DriverOfferList({ onOpen }: { onOpen: () => void }) {
+function DriverOfferList({ view, selectedOffer, onSelectOffer, onBack }: { view: 'list' | 'map' | 'offer'; selectedOffer: DriverOffer | null; onSelectOffer: (offer: DriverOffer) => void; onBack: () => void }) {
   const [seats, setSeats] = useState(3);
   const [pickupLimit, setPickupLimit] = useState(3);
   const [finalLimit, setFinalLimit] = useState(4);
   const [unique, setUnique] = useState(true);
   const [sortBy, setSortBy] = useState<'km' | 'hour'>('km');
   const [replaceName, setReplaceName] = useState<string | null>(null);
-  const [selectedOffer, setSelectedOffer] = useState<DriverOffer | null>(null);
-  const [showMap, setShowMap] = useState(false);
   const [increase, setIncrease] = useState(0);
   const offers = [...previewOffers]
     .filter(o => o.passengers.length <= seats && o.pickupKm <= pickupLimit && o.finalKm <= finalLimit)
     .sort((a, b) => sortBy === 'km' ? perKm(b) - perKm(a) : perHour(b) - perHour(a));
   const cycle = (v: number) => v >= 7 ? 0.5 : Math.round((v + 0.5) * 10) / 10;
-  if (selectedOffer) return <DriverOfferDetail offer={selectedOffer} increase={increase} setIncrease={setIncrease} onBack={() => { setSelectedOffer(null); setIncrease(0); }} />;
+  if (view === 'offer') return selectedOffer ? <DriverOfferDetail offer={selectedOffer} increase={increase} setIncrease={setIncrease} onBack={onBack} /> : <View style={driverStyles.wrap}><Text style={driverStyles.empty}>Заявку ще не вибрано. Відкрий «Список» і натисни на потрібну комбінацію.</Text></View>;
   return (
     <View style={driverStyles.wrap}>
       <Text style={driverStyles.heading}>RouteShare · Водій <Text style={driverStyles.preview}>ПЕРЕГЛЯД</Text></Text>
@@ -285,17 +289,16 @@ function DriverOfferList({ onOpen }: { onOpen: () => void }) {
           <Text style={driverStyles.legend}>Унікальні</Text><Text style={[driverStyles.filterValue, { color: unique ? '#36E88C' : '#8B9BAE' }]}>{unique ? '✓' : '—'}</Text>
         </TouchableOpacity>
       </View>
-      <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'center', marginTop: 8 }}><TouchableOpacity onPress={() => setShowMap(false)} style={[driverStyles.sortChip, !showMap && driverStyles.sortActive]}><Text style={driverStyles.sortText}>Список</Text></TouchableOpacity><TouchableOpacity onPress={() => setShowMap(true)} style={[driverStyles.sortChip, showMap && driverStyles.sortActive]}><Text style={driverStyles.sortText}>Карта</Text></TouchableOpacity></View>
-      {showMap && <RouteMapPreview detail={false} />}
-      {!showMap && <View style={driverStyles.sortRow}>
+      {view === 'map' && <RouteMapPreview detail={false} />}
+      {view === 'list' && <View style={driverStyles.sortRow}>
         <Text style={driverStyles.count}>Заявки ({offers.length})</Text>
         <Text style={driverStyles.sortLabel}>Сортування:</Text>
         <TouchableOpacity onPress={() => setSortBy('km')} style={[driverStyles.sortChip, sortBy === 'km' && driverStyles.sortActive]}><Text style={driverStyles.sortText}>₴/км</Text></TouchableOpacity>
         <TouchableOpacity onPress={() => setSortBy('hour')} style={[driverStyles.sortChip, sortBy === 'hour' && driverStyles.sortActive]}><Text style={driverStyles.sortText}>₴/год</Text></TouchableOpacity>
       </View>}
-      {!showMap && offers.length === 0 && <Text style={driverStyles.empty}>Немає варіантів для цих фільтрів.</Text>}
-      {!showMap && offers.map(o => (
-        <TouchableOpacity key={o.id} onPress={() => setSelectedOffer(o)} activeOpacity={0.8} style={[driverStyles.offer, { borderColor: o.color }]}>
+      {view === 'list' && offers.length === 0 && <Text style={driverStyles.empty}>Немає варіантів для цих фільтрів.</Text>}
+      {view === 'list' && offers.map(o => (
+        <TouchableOpacity key={o.id} onPress={() => onSelectOffer(o)} activeOpacity={0.8} style={[driverStyles.offer, { borderColor: o.color }]}>
           <View style={driverStyles.metrics}>
             <Text style={driverStyles.total}>₴{o.amount}</Text>
             <Text style={driverStyles.gps}>GPS OK</Text>
@@ -318,7 +321,7 @@ function DriverOfferList({ onOpen }: { onOpen: () => void }) {
           ))}
         </TouchableOpacity>
       ))}
-      {replaceName && <View style={driverStyles.confirm}><Text style={driverStyles.confirmText}>Замінити маршрут пасажира {replaceName}?</Text><View style={driverStyles.confirmActions}><TouchableOpacity onPress={() => setReplaceName(null)}><Text style={driverStyles.confirmText}>Ні</Text></TouchableOpacity><TouchableOpacity onPress={() => { setReplaceName(null); onOpen(); }}><Text style={driverStyles.confirmYes}>Так</Text></TouchableOpacity></View></View>}
+      {replaceName && <View style={driverStyles.confirm}><Text style={driverStyles.confirmText}>Замінити маршрут пасажира {replaceName}?</Text><View style={driverStyles.confirmActions}><TouchableOpacity onPress={() => setReplaceName(null)}><Text style={driverStyles.confirmText}>Ні</Text></TouchableOpacity><TouchableOpacity onPress={() => { setReplaceName(null); }}><Text style={driverStyles.confirmYes}>Так</Text></TouchableOpacity></View></View>}
       <Text style={driverStyles.disclaimer}>Демонстраційні комбінації — без реального бронювання.</Text>
     </View>
   );
