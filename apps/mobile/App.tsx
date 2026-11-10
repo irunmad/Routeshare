@@ -3,6 +3,7 @@ import { cancelTestPassengerRequest, createTestPassengerRequest, listTestPasseng
 import { StatusBar } from 'expo-status-bar';
 import {
   SafeAreaView,
+  Image,
   Platform,
   ScrollView,
   StyleSheet,
@@ -26,6 +27,21 @@ const sampleTrips = [
   { id: '2', from: 'Київ', to: 'Черкаси', time: 'Сьогодні, 17:00', price: '320 грн', seats: '3 місця', driver: 'Андрій', car: 'Volkswagen Passat', color: '#8EA8FF' },
   { id: '3', from: 'Бровари', to: 'Київ', time: 'Завтра, 08:15', price: '75 грн', seats: '1 місце', driver: 'Марина', car: 'Toyota Corolla', color: '#F2B76B' },
 ];
+
+const navSvgPaths: Record<string, string> = {
+  listClassic: '<path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3.5" cy="6" r="1"/><circle cx="3.5" cy="12" r="1"/><circle cx="3.5" cy="18" r="1"/>',
+  mapClassic: '<path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3zM9 3v15M15 6v15"/>',
+  offerClassic: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>',
+  listNew: '<rect x="3" y="4" width="18" height="5" rx="1.5"/><rect x="3" y="11" width="18" height="5" rx="1.5"/><path d="M7 19h14"/>',
+  mapNew: '<path d="M12 22s8-8.1 8-14a8 8 0 0 0-16 0c0 5.9 8 14 8 14Z"/><circle cx="12" cy="8" r="2.5"/>',
+  offerNew: '<path d="M8 3h8l2 3h3v15H3V6h3zM8 3v4h8V3M7 13l3 3 7-7"/>',
+};
+function NavGraphic({ kind, active, design }: { kind: 'list' | 'map' | 'offer'; active: boolean; design: Design }) {
+  const stroke = design === 'new' ? (active ? '#FFFFFF' : '#146E87') : (active ? '#35E08B' : '#8495A8');
+  const key = kind + (design === 'new' ? 'New' : 'Classic');
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="' + stroke + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + navSvgPaths[key] + '</svg>';
+  return <Image source={{ uri: 'data:image/svg+xml,' + encodeURIComponent(svg) }} style={{ width: 28, height: 28 }} resizeMode="contain" />;
+}
 
 export default function App() {
   const [mode, setMode] = useState<Mode>('passenger');
@@ -249,7 +265,7 @@ export default function App() {
           ] as const).map(([key, label, classicIcon, newIcon]) => (
             <TouchableOpacity key={key} onPress={() => { setDriverView(key); if (key !== 'offer') setDriverOffer(null); }}
               style={design === 'new' ? { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 17, paddingVertical: 10, backgroundColor: driverView === key ? '#146E87' : '#FFFFFF', borderWidth: 1, borderColor: driverView === key ? '#146E87' : '#C7D9E4' } : { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 6, borderTopWidth: driverView === key ? 3 : 3, borderTopColor: driverView === key ? '#35E08B' : 'transparent' }}>
-              <Text style={{ fontSize: design === 'new' ? 25 : 22, color: design === 'new' ? (driverView === key ? '#FFFFFF' : '#146E87') : (driverView === key ? '#35E08B' : '#8495A8'), fontWeight: '800' }}>{design === 'new' ? newIcon : classicIcon}</Text>
+              <NavGraphic kind={key} active={driverView === key} design={design} />
               <Text style={{ fontSize: design === 'new' ? 12 : 10, marginTop: 3, color: design === 'new' ? (driverView === key ? '#FFFFFF' : '#146E87') : (driverView === key ? '#35E08B' : '#8495A8'), fontWeight: '800' }}>{label}</Text>
             </TouchableOpacity>
           ))}
