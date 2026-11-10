@@ -259,10 +259,13 @@ function DriverOfferList({ onOpen }: { onOpen: () => void }) {
   const [unique, setUnique] = useState(true);
   const [sortBy, setSortBy] = useState<'km' | 'hour'>('km');
   const [replaceName, setReplaceName] = useState<string | null>(null);
+  const [selectedOffer, setSelectedOffer] = useState<DriverOffer | null>(null);
+  const [increase, setIncrease] = useState(0);
   const offers = [...previewOffers]
     .filter(o => o.passengers.length <= seats && o.pickupKm <= pickupLimit && o.finalKm <= finalLimit)
     .sort((a, b) => sortBy === 'km' ? perKm(b) - perKm(a) : perHour(b) - perHour(a));
   const cycle = (v: number) => v >= 7 ? 0.5 : Math.round((v + 0.5) * 10) / 10;
+  if (selectedOffer) return <DriverOfferDetail offer={selectedOffer} increase={increase} setIncrease={setIncrease} onBack={() => { setSelectedOffer(null); setIncrease(0); }} />;
   return (
     <View style={driverStyles.wrap}>
       <Text style={driverStyles.heading}>RouteShare · Водій <Text style={driverStyles.preview}>ПЕРЕГЛЯД</Text></Text>
@@ -288,7 +291,7 @@ function DriverOfferList({ onOpen }: { onOpen: () => void }) {
       </View>
       {offers.length === 0 && <Text style={driverStyles.empty}>Немає варіантів для цих фільтрів.</Text>}
       {offers.map(o => (
-        <TouchableOpacity key={o.id} onPress={onOpen} activeOpacity={0.8} style={[driverStyles.offer, { borderColor: o.color }]}>
+        <TouchableOpacity key={o.id} onPress={() => setSelectedOffer(o)} activeOpacity={0.8} style={[driverStyles.offer, { borderColor: o.color }]}>
           <View style={driverStyles.metrics}>
             <Text style={driverStyles.total}>₴{o.amount}</Text>
             <Text style={driverStyles.gps}>GPS OK</Text>
@@ -316,6 +319,78 @@ function DriverOfferList({ onOpen }: { onOpen: () => void }) {
     </View>
   );
 }
+
+// Detail preview uses the same sample offers as the list. No real reservations or negotiations.
+function DriverOfferDetail({ offer, increase, setIncrease, onBack }: {
+  offer: DriverOffer; increase: number; setIncrease: (value: number) => void; onBack: () => void;
+}) {
+  const [message, setMessage] = useState('');
+  const updated = Math.round(offer.amount * (1 + increase / 100));
+  return (
+    <View style={detailStyles.wrap}>
+      <View style={detailStyles.head}>
+        <Text style={detailStyles.title}>Заявка</Text>
+        <Text style={detailStyles.amount}>₴{updated}</Text>
+        <Text style={detailStyles.stat}><Text style={detailStyles.km}>{(updated / offer.distance).toFixed(1)}</Text> ₴/км</Text>
+        <Text style={detailStyles.stat}><Text style={detailStyles.hour}>{Math.round(updated / offer.minutes * 60)}</Text> ₴/год</Text>
+      </View>
+      <View style={[detailStyles.frame, { borderColor: offer.color }]}>
+        <Text style={detailStyles.segment}>┄ {offer.pickupKm.toFixed(1)} км → Перша посадка</Text>
+        {offer.passengers.map((p, index) => (
+          <View key={p.name} style={detailStyles.passenger}>
+            <View style={detailStyles.personTop}>
+              <View style={driverStyles.personAvatar}><Text style={driverStyles.personAvatarText}>{p.avatar}</Text></View>
+              <Text style={detailStyles.name}>{p.name}</Text>
+              <Text style={detailStyles.rating}>{p.acceptance}% · неявка {p.noShow}%</Text>
+              <Text style={detailStyles.fare}>₴{p.fare}</Text>
+            </View>
+            <Text style={detailStyles.address}>↗ Посадка: {index === 0 ? offer.pickup : 'Адреса посадки не задана (демо)'}</Text>
+            <Text style={detailStyles.address}>↘ Висадка: {index === offer.passengers.length - 1 ? offer.dropoff : 'Адреса висадки не задана (демо)'}</Text>
+            <Text style={detailStyles.distance}>{p.km.toFixed(1)} км</Text>
+          </View>
+        ))}
+        <Text style={detailStyles.segment}>Остання висадка → ┄ {offer.finalKm.toFixed(1)} км до фінішу водія</Text>
+      </View>
+      <View style={detailStyles.mapPlaceholder}>
+        <Text style={detailStyles.mapTitle}>Карта заявки</Text>
+        <Text style={detailStyles.mapText}>Реальні дороги та геометрія маршруту ще не підключені. У цьому перегляді маршрут не вигадується.</Text>
+      </View>
+      <View style={detailStyles.priceRow}>
+        <Text style={detailStyles.priceLabel}>Підвищення тарифу</Text>
+        {[0,10,20,30,40,50].map(value => (
+          <TouchableOpacity key={value} onPress={() => { setIncrease(value); setMessage(''); }} style={[detailStyles.priceChip, increase === value && detailStyles.priceActive]}>
+            <Text style={detailStyles.priceText}>{value === 0 ? '—' : '+' + value + '%'}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      <View style={detailStyles.actions}>
+        <TouchableOpacity onPress={onBack} style={detailStyles.back}><Text style={detailStyles.actionText}>Назад</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => setMessage('Прийняття та запит нової ціни ще не підключені до сервера.')} style={detailStyles.accept}><Text style={detailStyles.actionText}>{increase ? 'Запропонувати' : 'Прийняти'}</Text></TouchableOpacity>
+      </View>
+      {!!message && <Text style={detailStyles.warning}>{message}</Text>}
+      <Text style={detailStyles.warning}>Демо-заявка · без бронювання та реальних адрес усіх пасажирів</Text>
+    </View>
+  );
+}
+const detailStyles = StyleSheet.create({
+  wrap: { gap: 10 }, head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 5 },
+  title: { color: '#FFFFFF', fontSize: 17, fontWeight: '800' }, amount: { color: '#FFFFFF', fontSize: 23, fontWeight: '900' },
+  stat: { color: '#FFFFFF', fontSize: 10, fontWeight: '700' }, km: { color: '#3CF28C', fontSize: 15, fontWeight: '900' },
+  hour: { color: '#FFA72B', fontSize: 15, fontWeight: '900' }, frame: { borderWidth: 1, borderRadius: 11, padding: 10, gap: 7 },
+  segment: { color: '#BFCBDA', fontSize: 11 }, passenger: { borderTopWidth: 1, borderTopColor: '#334050', paddingTop: 6, gap: 3 },
+  personTop: { flexDirection: 'row', alignItems: 'center', gap: 7 }, name: { color: '#FFFFFF', fontSize: 12, flex: 1, fontWeight: '700' },
+  rating: { color: '#B8C8D6', fontSize: 10 }, fare: { color: '#FFFFFF', fontSize: 12, fontWeight: '800' },
+  address: { color: '#E1E9F2', fontSize: 11, marginLeft: 28 }, distance: { color: '#B5C6D8', fontSize: 10, textAlign: 'right' },
+  mapPlaceholder: { height: 165, backgroundColor: '#172737', borderWidth: 1, borderColor: '#34485C', borderRadius: 10, justifyContent: 'center', alignItems: 'center', padding: 18, gap: 9 },
+  mapTitle: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' }, mapText: { color: '#AFC0D1', fontSize: 11, textAlign: 'center' },
+  priceRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, alignItems: 'center' }, priceLabel: { color: '#FFFFFF', fontSize: 11, width: '100%' },
+  priceChip: { paddingVertical: 7, paddingHorizontal: 9, borderWidth: 1, borderColor: '#506073', borderRadius: 7 },
+  priceActive: { borderColor: '#31DE7D', backgroundColor: '#16412C' }, priceText: { color: '#FFFFFF', fontSize: 11 },
+  actions: { flexDirection: 'row', gap: 10 }, back: { flex: 1, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: '#67798A', borderRadius: 8 },
+  accept: { flex: 1, padding: 12, alignItems: 'center', backgroundColor: '#1E9B60', borderRadius: 8 },
+  actionText: { color: '#FFFFFF', fontSize: 13, fontWeight: '800' }, warning: { color: '#AFC0D1', fontSize: 10 },
+});
+
 const driverStyles = StyleSheet.create({
   wrap: { gap: 8 }, heading: { color: '#FFFFFF', fontSize: 17, fontWeight: '800', marginBottom: 6 },
   preview: { color: '#FFBD68', fontSize: 10 }, filters: { flexDirection: 'row', gap: 5, marginBottom: 5 },
