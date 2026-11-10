@@ -292,7 +292,7 @@ function DriverOfferList({ onOpen }: { onOpen: () => void }) {
         <Text style={driverStyles.sortLabel}>Сортування:</Text>
         <TouchableOpacity onPress={() => setSortBy('km')} style={[driverStyles.sortChip, sortBy === 'km' && driverStyles.sortActive]}><Text style={driverStyles.sortText}>₴/км</Text></TouchableOpacity>
         <TouchableOpacity onPress={() => setSortBy('hour')} style={[driverStyles.sortChip, sortBy === 'hour' && driverStyles.sortActive]}><Text style={driverStyles.sortText}>₴/год</Text></TouchableOpacity>
-      </View>
+      </View>}
       {!showMap && offers.length === 0 && <Text style={driverStyles.empty}>Немає варіантів для цих фільтрів.</Text>}
       {!showMap && offers.map(o => (
         <TouchableOpacity key={o.id} onPress={() => setSelectedOffer(o)} activeOpacity={0.8} style={[driverStyles.offer, { borderColor: o.color }]}>
