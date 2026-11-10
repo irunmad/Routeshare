@@ -1,0 +1,36 @@
+<!doctype html><html lang="uk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"><style>html,body,#map{margin:0;width:100%;height:100%;background:#e6e9e9} .leaflet-control-attribution{font-size:9px!important}.marker{background:#132235;color:white;border:2px solid white;border-radius:6px;padding:2px 5px;font:700 11px system-ui;white-space:nowrap;box-shadow:0 1px 4px #3337}.info{position:absolute;top:8px;left:8px;z-index:1000;background:#101d2be8;color:#fff;border-radius:7px;padding:6px 9px;font:11px system-ui;max-width:65%}</style></head><body><div id="map"></div><div class="info" id="info">Завантаження дорожніх маршрутів…</div><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script>
+const map=L.map('map',{zoomControl:true}).setView([50.43,30.55],11);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(map);
+const params=new URLSearchParams(location.search), detail=params.get('detail')==='1';
+const colors=['#ee4151','#21a95a','#3185f4'];
+// Approximate illustrative locations near Kyiv roads; no geocoding or matching claims.
+const start=[30.4346,50.4372],end=[30.632,50.403];
+const sets=[
+ [[30.444,50.436],[30.465,50.431],[30.511,50.429],[30.553,50.418],[30.592,50.409],[30.625,50.403]],
+ [[30.446,50.440],[30.478,50.432],[30.526,50.428],[30.562,50.418],[30.600,50.411],[30.624,50.404]],
+ [[30.450,50.434],[30.490,50.431],[30.538,50.424],[30.575,50.417],[30.605,50.409],[30.627,50.403]]
+];
+function marker(point,label,color){L.marker([point[1],point[0]],{icon:L.divIcon({className:'',html:'<span class="marker" style="border-color:'+color+'">'+label+'</span>',iconSize:[30,20]})}).addTo(map);}
+async function road(a,b){const url='https://router.project-osrm.org/route/v1/driving/'+a.join(',')+';'+b.join(',')+'?overview=full&geometries=geojson';const r=await fetch(url);if(!r.ok)throw Error('OSRM '+r.status);const d=await r.json();if(d.code!=='Ok'||!d.routes?.[0])throw Error('No route');return d.routes[0];}
+function draw(coords,options){return L.polyline(coords.map(c=>[c[1],c[0]]),options).addTo(map)}
+(async()=>{try{
+ const bounds=[];
+ const baseline=await road(start,end);draw(baseline.geometry.coordinates,{color:'#171b23',weight:2.2,opacity:.85});bounds.push(...baseline.geometry.coordinates);
+ marker(start,'A','#161b25');marker(end,'B','#161b25');
+ const count=detail?1:3;
+ for(let k=0;k<count;k++){
+  const pts=sets[k],color=colors[k];
+  // Ordered pickups 1,2,3 followed by dropoffs 1,2,3.
+  const stops=[start,...pts];
+  for(let i=0;i<stops.length-1;i++){
+   const r=await road(stops[i],stops[i+1]);
+   const n=i===0?0:i<=3?i:Math.max(0,6-i);
+   const options={color:i===0?'#171b23':color,weight:i===0?1.5:detail?1.1+n*.65:1+n*.35,opacity:.85,dashArray:i===0?'4 6':undefined};
+   draw(r.geometry.coordinates,options);bounds.push(...r.geometry.coordinates);
+  }
+  pts.forEach((p,i)=>marker(p,(i<3?'↑':'↓')+(i%3+1),color));
+ }
+ map.fitBounds(L.latLngBounds(bounds.map(c=>[c[1],c[0]])),{padding:[18,18]});
+ document.getElementById('info').textContent='Демо-точки · маршрути OSRM · '+(detail?'1 заявка':'3 варіанти');
+}catch(e){document.getElementById('info').textContent='Маршрути недоступні: '+e.message;}})();
+</script></body></html>
