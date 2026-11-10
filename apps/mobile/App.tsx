@@ -241,10 +241,18 @@ export default function App() {
           <Text style={styles.footer}>ROUTE<Text style={styles.brandAccent}>SHARE</Text>  ·  Разом дорогою</Text>
         </ScrollView>
 
-        {tab === 'home' && mode === 'driver' && <View style={[styles.bottomNav, design === 'new' && { backgroundColor: '#123B52' }]}>
-          <NavItem icon="☷" label="Список" active={driverView === 'list'} onPress={() => { setDriverView('list'); setDriverOffer(null); }} />
-          <NavItem icon="▧" label="Карта" active={driverView === 'map'} onPress={() => { setDriverView('map'); setDriverOffer(null); }} />
-          <NavItem icon="▤" label="Заявка" active={driverView === 'offer'} onPress={() => setDriverView('offer')} />
+        {tab === 'home' && mode === 'driver' && <View style={[styles.bottomNav, design === 'new' && { backgroundColor: '#E9F0F6', paddingHorizontal: 9, paddingTop: 12, paddingBottom: 14, borderTopColor: '#B7CEDA', gap: 8 }]}>
+          {([
+            ['list', 'Список', '☷', '▤'],
+            ['map', 'Карта', '▧', '◈'],
+            ['offer', 'Заявка', '▤', '✦'],
+          ] as const).map(([key, label, classicIcon, newIcon]) => (
+            <TouchableOpacity key={key} onPress={() => { setDriverView(key); if (key !== 'offer') setDriverOffer(null); }}
+              style={design === 'new' ? { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 17, paddingVertical: 10, backgroundColor: driverView === key ? '#146E87' : '#FFFFFF', borderWidth: 1, borderColor: driverView === key ? '#146E87' : '#C7D9E4' } : { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 6, borderTopWidth: driverView === key ? 3 : 3, borderTopColor: driverView === key ? '#35E08B' : 'transparent' }}>
+              <Text style={{ fontSize: design === 'new' ? 25 : 22, color: design === 'new' ? (driverView === key ? '#FFFFFF' : '#146E87') : (driverView === key ? '#35E08B' : '#8495A8'), fontWeight: '800' }}>{design === 'new' ? newIcon : classicIcon}</Text>
+              <Text style={{ fontSize: design === 'new' ? 12 : 10, marginTop: 3, color: design === 'new' ? (driverView === key ? '#FFFFFF' : '#146E87') : (driverView === key ? '#35E08B' : '#8495A8'), fontWeight: '800' }}>{label}</Text>
+            </TouchableOpacity>
+          ))}
         </View>}
       </View>
     </SafeAreaView>
