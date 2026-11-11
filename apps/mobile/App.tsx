@@ -225,7 +225,7 @@ export default function App() {
             </>
           )}
 
-          {tab === 'home' && mode === 'driver' && <DriverOfferList design={design} view={driverView} selectedOffer={driverOffer} onSelectOffer={(offer) => { setDriverOffer(offer); setDriverView('offer'); }} onBack={() => { setDriverOffer(null); setDriverView('list'); }} />}
+          {tab === 'home' && mode === 'driver' && <DriverOfferList liveRequests={testRequests} onRefresh={() => refreshTestRequests(true)} design={design} view={driverView} selectedOffer={driverOffer} onSelectOffer={(offer) => { setDriverOffer(offer); setDriverView('offer'); }} onBack={() => { setDriverOffer(null); setDriverView('list'); }} />}
 
           {tab === 'trips' && (
             <>
@@ -301,7 +301,7 @@ const previewOffers: DriverOffer[] = [
 ];
 const perKm = (o: DriverOffer) => o.distance > 0 ? o.amount / o.distance : 0;
 const perHour = (o: DriverOffer) => o.minutes > 0 ? o.amount / o.minutes * 60 : 0;
-function DriverOfferList({ design, view, selectedOffer, onSelectOffer, onBack }: { design: Design; view: 'list' | 'map' | 'offer'; selectedOffer: DriverOffer | null; onSelectOffer: (offer: DriverOffer) => void; onBack: () => void }) {
+function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer, onSelectOffer, onBack }: { liveRequests: TestPassengerRequest[]; onRefresh: () => void; design: Design; view: 'list' | 'map' | 'offer'; selectedOffer: DriverOffer | null; onSelectOffer: (offer: DriverOffer) => void; onBack: () => void }) {
   const [seats, setSeats] = useState(3);
   const [pickupLimit, setPickupLimit] = useState(3);
   const [finalLimit, setFinalLimit] = useState(4);
@@ -338,6 +338,22 @@ function DriverOfferList({ design, view, selectedOffer, onSelectOffer, onBack }:
         <TouchableOpacity onPress={() => setSortBy('km')} style={[driverStyles.sortChip, sortBy === 'km' && driverStyles.sortActive, design === 'new' && { backgroundColor: '#173D52', borderRadius: 15 }]}><Text style={driverStyles.sortText}>₴/км</Text></TouchableOpacity>
         <TouchableOpacity onPress={() => setSortBy('hour')} style={[driverStyles.sortChip, sortBy === 'hour' && driverStyles.sortActive, design === 'new' && { backgroundColor: '#173D52', borderRadius: 15 }]}><Text style={driverStyles.sortText}>₴/год</Text></TouchableOpacity>
       </View>}
+      {view === 'list' && <View style={{ marginBottom: 15, padding: 12, borderRadius: 14, borderWidth: 1, borderColor: '#35CBA0', backgroundColor: design === 'new' ? '#FFFFFF' : '#142337' }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Text style={{ color: design === 'new' ? '#123B52' : '#E9F6F3', fontWeight: '900', fontSize: 15 }}>Живі тестові заявки ({liveRequests.length})</Text>
+          <TouchableOpacity onPress={onRefresh} accessibilityLabel="Оновити заявки"><Text style={{ color: '#159D75', fontWeight: '900' }}>↻ Оновити</Text></TouchableOpacity>
+        </View>
+        <Text style={{ color: design === 'new' ? '#526E80' : '#9DB2C2', fontSize: 11, marginTop: 5 }}>Синхронізація між телефонами кожні 5 с · без розрахованого маршруту</Text>
+        {liveRequests.length === 0 && <Text style={{ color: design === 'new' ? '#526E80' : '#9DB2C2', marginTop: 10 }}>Заявок немає. Створи маршрут у режимі пасажира на іншому телефоні.</Text>}
+        {liveRequests.map(request => (
+          <View key={request.id} style={{ borderTopWidth: 1, borderTopColor: design === 'new' ? '#D6E4EB' : '#29445A', marginTop: 10, paddingTop: 10 }}>
+            <Text style={{ color: design === 'new' ? '#123B52' : '#F3F8FA', fontSize: 13, fontWeight: '800' }}>● {request.origin}</Text>
+            <Text style={{ color: design === 'new' ? '#123B52' : '#F3F8FA', fontSize: 13, marginTop: 4 }}>◎ {request.destination}</Text>
+            <Text style={{ color: '#1AAE80', fontSize: 12, fontWeight: '800', marginTop: 6 }}>{request.offeredRateUahPerKm} ₴/км · Очікує водія · {request.isMine ? 'Моя заявка' : 'Інший пристрій'}</Text>
+          </View>
+        ))}
+      </View>}
+      {view === 'list' && <Text style={{ color: design === 'new' ? '#456579' : '#9DB2C2', fontWeight: '800', marginBottom: 8 }}>Демонстраційні комбінації (не реальні заявки)</Text>}
       {view === 'list' && offers.length === 0 && <Text style={driverStyles.empty}>Немає варіантів для цих фільтрів.</Text>}
       {view === 'list' && offers.map(o => (
         <TouchableOpacity key={o.id} onPress={() => onSelectOffer(o)} activeOpacity={0.8} style={[driverStyles.offer, { borderColor: o.color }, design === 'new' && { backgroundColor: '#FFFFFF', borderRadius: 22, borderWidth: 2, paddingVertical: 17, marginBottom: 12 }]}>
