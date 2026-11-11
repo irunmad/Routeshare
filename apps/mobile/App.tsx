@@ -372,6 +372,35 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
     setGpsMessage('Визначаємо місце…');
     navigator.geolocation.getCurrentPosition(p => { setGps({ lat: p.coords.latitude, lon: p.coords.longitude }); setGpsMessage('GPS: ' + p.coords.latitude.toFixed(5) + ', ' + p.coords.longitude.toFixed(5)); }, e => setGpsMessage('GPS: ' + e.message), { enableHighAccuracy: true, timeout: 12000, maximumAge: 10000 });
   };
+  const [destination, setDestination] = useState('');
+  const [destinationPoint, setDestinationPoint] = useState<AddressSuggestion | null>(null);
+  const [destinationSuggestions, setDestinationSuggestions] = useState<AddressSuggestion[]>([]);
+  const [manualStart, setManualStart] = useState('');
+  const [manualSuggestions, setManualSuggestions] = useState<AddressSuggestion[]>([]);
+  const [manualOpen, setManualOpen] = useState(false);
+  const [startPoint, setStartPoint] = useState<AddressSuggestion | null>(null);
+  const [driverRouteKm, setDriverRouteKm] = useState<number | null>(null);
+  const [driverRouteError, setDriverRouteError] = useState('');
+  useEffect(() => {
+    if (destinationPoint || destination.trim().length < 3) { setDestinationSuggestions([]); return; }
+    let active = true;
+    const timer = setTimeout(() => lookupAddresses(destination).then(rows => { if (active) setDestinationSuggestions(rows); }).catch(e => { if (active) setDriverRouteError(e.message); }), 350);
+    return () => { active = false; clearTimeout(timer); };
+  }, [destination, destinationPoint]);
+  useEffect(() => {
+    if (!manualOpen || startPoint || manualStart.trim().length < 3) { setManualSuggestions([]); return; }
+    let active = true;
+    const timer = setTimeout(() => lookupAddresses(manualStart).then(rows => { if (active) setManualSuggestions(rows); }).catch(e => { if (active) setDriverRouteError(e.message); }), 350);
+    return () => { active = false; clearTimeout(timer); };
+  }, [manualStart, manualOpen, startPoint]);
+  useEffect(() => {
+    const origin = startPoint || (gps ? { label: 'GPS', lat: gps.lat, lon: gps.lon } : null);
+    if (!origin || !destinationPoint) { setDriverRouteKm(null); return; }
+    let active = true; setDriverRouteError('');
+    roadDistanceKm(origin, destinationPoint).then(km => { if (active) setDriverRouteKm(km); }).catch(e => { if (active) { setDriverRouteKm(null); setDriverRouteError(e.message); } });
+    return () => { active = false; };
+  }, [gps, startPoint, destinationPoint]);
+  const adjust = (value: number, delta: number) => Math.min(7, Math.max(0.5, Math.round((value + delta) * 10) / 10));
   const offers = [...previewOffers]
     .filter(o => o.passengers.length <= seats && o.pickupKm <= pickupLimit && o.finalKm <= finalLimit)
     .sort((a, b) => sortBy === 'km' ? perKm(b) - perKm(a) : perHour(b) - perHour(a));
@@ -396,6 +425,28 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
       </View>
       <TouchableOpacity onPress={requestGps} style={{ padding: 11, borderRadius: 10, backgroundColor: design === 'new' ? '#FFFFFF' : '#172D40', borderWidth: 1, borderColor: '#35CBA0', marginBottom: 9 }}><Text style={{ color: design === 'new' ? '#123B52' : '#C9F9E5', fontWeight: '800' }}>⌖ Визначити GPS водія</Text><Text style={{ color: design === 'new' ? '#456579' : '#A4C2CC', fontSize: 11, marginTop: 4 }}>{gpsMessage}</Text></TouchableOpacity>
       {!!gps && <Text style={{ color: design === 'new' ? '#456579' : '#A4C2CC', fontSize: 11, marginBottom: 8 }}>Точку отримано. Фільтр подачі по дорогах підключимо після вибору кінцевої точки водія.</Text>}
+      <View style={{ backgroundColor: design === 'new' ? '#FFFFFF' : '#172D40', borderColor: '#345B6D', borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 10 }}>
+        <Text style={{ color: design === 'new' ? '#173D52' : '#FFFFFF', fontWeight: '900', marginBottom: 8 }}>Маршрут водія</Text>
+        <Text style={{ color: design === 'new' ? '#476175' : '#9AB7C5', fontSize: 12 }}>Початок: {startPoint ? startPoint.label : gps ? 'GPS визначено' : 'GPS не визначено'}</Text>
+        <TouchableOpacity onPress={() => setManualOpen(v => !v)} style={{ paddingVertical: 7 }}><Text style={{ color: '#19BA87', fontWeight: '800' }}>⌖ {manualOpen ? 'Сховати ручне введення' : 'Вказати початок вручну'}</Text></TouchableOpacity>
+        {manualOpen && <TextInput value={manualStart} onChangeText={v => { setManualStart(v); setStartPoint(null); }} placeholder="Початкова адреса" placeholderTextColor="#718096" style={{ backgroundColor: '#253F52', color: '#FFFFFF', borderRadius: 8, padding: 11 }} />}
+        {manualOpen && manualSuggestions.map((item,i) => <TouchableOpacity key={i} onPress={() => { setStartPoint(item); setManualStart(item.label); setManualSuggestions([]); }} style={{ padding: 9, borderBottomColor: '#426071', borderBottomWidth: 1 }}><Text style={{ color: '#20B98A' }}>{item.label}</Text></TouchableOpacity>)}
+        <Text style={{ color: design === 'new' ? '#476175' : '#9AB7C5', fontSize: 12, marginTop: 9, marginBottom: 5 }}>Кінцева адреса</Text>
+        <TextInput value={destination} onChangeText={v => { setDestination(v); setDestinationPoint(null); }} placeholder="Куди прямує водій?" placeholderTextColor="#718096" style={{ backgroundColor: '#253F52', color: '#FFFFFF', borderRadius: 8, padding: 11 }} />
+        {destinationSuggestions.map((item,i) => <TouchableOpacity key={i} onPress={() => { setDestinationPoint(item); setDestination(item.label); setDestinationSuggestions([]); }} style={{ padding: 9, borderBottomColor: '#426071', borderBottomWidth: 1 }}><Text style={{ color: '#20B98A' }}>{item.label}</Text></TouchableOpacity>)}
+        <Text style={{ color: '#1FC995', marginTop: 9, fontWeight: '800' }}>{driverRouteKm !== null ? 'Маршрут водія: ' + driverRouteKm.toFixed(1) + ' км по дорогах' : 'Вкажи початок та кінцеву адресу для розрахунку'}</Text>
+        {!!driverRouteError && <Text style={{ color: '#FF9C9C', marginTop: 6 }}>{driverRouteError}</Text>}
+        <Text style={{ color: design === 'new' ? '#476175' : '#9AB7C5', fontSize: 11, marginTop: 7 }}>Фільтри заявок за цим маршрутом ще не активовані; демонстраційні пропозиції не є результатом перевірки.</Text>
+      </View>
+      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+        {([['Подача',pickupLimit,setPickupLimit],['Фінал',finalLimit,setFinalLimit]] as const).map(([label,value,setter]) => <View key={label} style={{ flex: 1, backgroundColor: design === 'new' ? '#FFFFFF' : '#172D40', borderRadius: 12, padding: 9 }}>
+          <Text style={{ color: design === 'new' ? '#173D52' : '#FFFFFF', fontWeight: '800', fontSize: 12 }}>{label}: {value.toFixed(1)} км</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 7 }}>
+            <TouchableOpacity onPress={() => setter(v => adjust(v,-0.1))} style={{ padding: 9, borderRadius: 7, backgroundColor: '#28627A' }}><Text style={{ color: '#FFFFFF', fontWeight: '900' }}>− 0,1</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => setter(v => adjust(v,0.1))} style={{ padding: 9, borderRadius: 7, backgroundColor: '#28627A' }}><Text style={{ color: '#FFFFFF', fontWeight: '900' }}>+ 0,1</Text></TouchableOpacity>
+          </View>
+        </View>)}
+      </View>
       {view === 'map' && <RouteMapPreview detail={false} requests={liveRequests} />}
       {view === 'list' && <View style={driverStyles.sortRow}>
         <Text style={[driverStyles.count, design === 'new' && { color: '#123B52' }]}>Заявки ({offers.length})</Text>
