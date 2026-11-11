@@ -43,6 +43,25 @@ function NavGraphic({ kind, active, design }: { kind: 'list' | 'map' | 'offer'; 
   return <Image source={{ uri: 'data:image/svg+xml,' + encodeURIComponent(svg) }} style={{ width: 28, height: 28 }} resizeMode="contain" />;
 }
 
+type AddressSuggestion = { label: string; lon: number; lat: number };
+async function lookupAddresses(query: string): Promise<AddressSuggestion[]> {
+  const url = 'https://photon.komoot.io/api/?limit=6&lat=50.45&lon=30.52&q=' + encodeURIComponent(query);
+  const response = await fetch(url);
+  if (!response.ok) throw Error('Сервіс підказок тимчасово недоступний');
+  const data = await response.json();
+  return (data.features || []).filter((f: any) => f.geometry?.coordinates && f.properties?.countrycode === 'UA').map((f: any) => {
+    const p = f.properties;
+    return { label: [p.name, p.street && p.street !== p.name ? p.street : '', p.housenumber, p.city || p.locality || p.county].filter(Boolean).join(', '), lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] };
+  });
+}
+async function roadDistanceKm(a: AddressSuggestion, b: AddressSuggestion): Promise<number> {
+  const url = 'https://router.project-osrm.org/route/v1/driving/' + a.lon + ',' + a.lat + ';' + b.lon + ',' + b.lat + '?overview=false';
+  const response = await fetch(url);
+  if (!response.ok) throw Error('Не вдалося розрахувати відстань');
+  const data = await response.json();
+  if (!data.routes?.[0]) throw Error('Автомобільний маршрут не знайдено');
+  return data.routes[0].distance / 1000;
+}
 export default function App() {
   const [mode, setMode] = useState<Mode>('passenger');
   const [tab, setTab] = useState<Tab>('home');
@@ -62,10 +81,36 @@ export default function App() {
   const [from, setFrom] = useState('Київ, Берестейський проспект 10');
   const [to, setTo] = useState('Київ, Хрещатик 1');
   const [notice, setNotice] = useState('');
-  const [rate, setRate] = useState('3.5');
+  const [rate, setRate] = useState('15');
+  const [fromPoint, setFromPoint] = useState<AddressSuggestion | null>(null);
+  const [toPoint, setToPoint] = useState<AddressSuggestion | null>(null);
+  const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
+  const [editingAddress, setEditingAddress] = useState<'from' | 'to' | null>(null);
+  const [distanceKm, setDistanceKm] = useState<number | null>(null);
+  const [routeBusy, setRouteBusy] = useState(false);
+  const [addressError, setAddressError] = useState('');
   const [testRequests, setTestRequests] = useState<TestPassengerRequest[]>([]);
   const [savingRequest, setSavingRequest] = useState(false);
 
+  useEffect(() => {
+    if (!editingAddress) { setSuggestions([]); return; }
+    const query = editingAddress === 'from' ? from : to;
+    if (query.trim().length < 3) { setSuggestions([]); return; }
+    let active = true;
+    const timer = setTimeout(() => { lookupAddresses(query).then(rows => { if (active) { setSuggestions(rows); setAddressError(''); } }).catch(e => { if (active) setAddressError(String(e.message || e)); }); }, 350);
+    return () => { active = false; clearTimeout(timer); };
+  }, [from, to, editingAddress]);
+  useEffect(() => {
+    if (!fromPoint || !toPoint) { setDistanceKm(null); return; }
+    let active = true; setRouteBusy(true); setDistanceKm(null);
+    roadDistanceKm(fromPoint, toPoint).then(km => { if (active) { setDistanceKm(km); setAddressError(''); } }).catch(e => { if (active) setAddressError(String(e.message || e)); }).finally(() => { if (active) setRouteBusy(false); });
+    return () => { active = false; };
+  }, [fromPoint, toPoint]);
+  const selectAddress = (point: AddressSuggestion) => {
+    if (editingAddress === 'from') { setFrom(point.label); setFromPoint(point); }
+    if (editingAddress === 'to') { setTo(point.label); setToPoint(point); }
+    setEditingAddress(null); setSuggestions([]);
+  };
   const refreshTestRequests = async (showErrors = false) => {
     try {
       setTestRequests(await listTestPassengerRequests());
@@ -90,13 +135,17 @@ export default function App() {
   }, []);
 
   const createTestRequest = async () => {
+    if (!fromPoint || !toPoint || distanceKm === null) {
+      setNotice('Вибери обидві адреси з підказок і дочекайся розрахунку відстані.');
+      return;
+    }
     if (!from.trim() || !to.trim()) {
       setNotice('Вкажи адреси посадки та висадки.');
       return;
     }
     const parsedRate = Number(rate.replace(',', '.'));
-    if (!Number.isFinite(parsedRate) || parsedRate < 0) {
-      setNotice('Перевір ціну за кілометр.');
+    if (!Number.isFinite(parsedRate) || parsedRate < 15) {
+      setNotice('Тариф має бути не менше 15 грн/км.');
       return;
     }
     const departure = new Date();
@@ -112,7 +161,7 @@ export default function App() {
         offeredRateUahPerKm: parsedRate,
       });
       await refreshTestRequests();
-      setNotice('Тестову заявку створено. Вона з’явиться на інших пристроях.');
+      setNotice('Йде пошук водія. Заявку видно також у твоєму режимі водія.');
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Не вдалося створити заявку.');
     } finally {
@@ -180,7 +229,7 @@ export default function App() {
                     <View style={styles.dotStart} />
                     <View style={styles.routeInputWrap}>
                       <Text style={styles.fieldLabel}>ЗВІДКИ</Text>
-                      <TextInput value={from} onChangeText={setFrom} placeholder="Адреса посадки" placeholderTextColor="#718096" style={styles.routeInput} />
+                      <TextInput value={from} onChangeText={v => { setFrom(v); setFromPoint(null); setEditingAddress('from'); }} onFocus={() => setEditingAddress('from')} placeholder="Адреса посадки" placeholderTextColor="#718096" style={styles.routeInput} />
                     </View>
                   </View>
                   <View style={styles.routeDivider} />
@@ -188,14 +237,21 @@ export default function App() {
                     <View style={styles.dotEnd} />
                     <View style={styles.routeInputWrap}>
                       <Text style={styles.fieldLabel}>КУДИ</Text>
-                      <TextInput value={to} onChangeText={setTo} placeholder="Адреса висадки" placeholderTextColor="#718096" style={styles.routeInput} />
+                      <TextInput value={to} onChangeText={v => { setTo(v); setToPoint(null); setEditingAddress('to'); }} onFocus={() => setEditingAddress('to')} placeholder="Адреса висадки" placeholderTextColor="#718096" style={styles.routeInput} />
                     </View>
                   </View>
+                  {editingAddress && suggestions.length > 0 && <View style={{ backgroundColor: '#22384A', borderRadius: 10, padding: 7, marginBottom: 10 }}>
+                    <Text style={{ color: '#88C7B5', fontSize: 11, marginBottom: 5 }}>ОБЕРИ АДРЕСУ · {editingAddress === 'from' ? 'ЗВІДКИ' : 'КУДИ'}</Text>
+                    {suggestions.map((item, index) => <TouchableOpacity key={index} onPress={() => selectAddress(item)} style={{ paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#385064' }}><Text style={{ color: '#FFFFFF', fontSize: 13 }}>{item.label}</Text></TouchableOpacity>)}
+                  </View>}
+                  {!!addressError && <Text style={{ color: '#FFAD84', fontSize: 12, marginBottom: 8 }}>{addressError}</Text>}
+                  <Text style={{ color: '#8EE6C1', fontWeight: '800', marginBottom: 9 }}>{routeBusy ? 'Розрахунок маршруту…' : distanceKm === null ? 'Вибери адреси зі списку для розрахунку' : distanceKm.toFixed(1) + ' км по дорогах · від ' + Math.ceil(distanceKm * 15) + ' ₴'}</Text>
                   <View style={styles.rateRow}>
-                    <Text style={styles.rateLabel}>ТВОЯ ЦІНА, грн/км</Text>
+                    <Text style={styles.rateLabel}>ТАРИФ, грн/км (мін. 15)</Text>
                     <TextInput value={rate} onChangeText={setRate} keyboardType="decimal-pad" style={styles.rateInput} />
                   </View>
-                  <TouchableOpacity style={styles.primaryButton} disabled={savingRequest} onPress={createTestRequest}>
+                  {distanceKm !== null && <Text style={{ color: '#FFFFFF', fontWeight: '900', fontSize: 17, marginBottom: 10 }}>Разом: {Math.ceil(distanceKm * Math.max(15, Number(rate.replace(',', '.')) || 15))} ₴</Text>}
+                  <TouchableOpacity style={styles.primaryButton} disabled={savingRequest || distanceKm === null || routeBusy} onPress={createTestRequest}>
                     <Text style={styles.primaryButtonText}>{savingRequest ? 'Зберігаємо…' : 'Створити тестову заявку'}</Text>
                     <Text style={styles.buttonArrow}>＋</Text>
                   </TouchableOpacity>
@@ -210,10 +266,10 @@ export default function App() {
                 <TouchableOpacity onPress={() => setTab('trips')}><Text style={styles.seeAll}>Усі →</Text></TouchableOpacity>
               </View>
               <View style={styles.popularRow}>
-                <TouchableOpacity style={styles.popularCard} onPress={() => { setFrom('Київ, Оболонський проспект 10'); setTo('Київ, Хрещатик 1'); }}>
+                <TouchableOpacity style={styles.popularCard} onPress={() => { setFrom('Київ, Оболонський проспект 10'); setTo('Київ, Хрещатик 1'); setFromPoint(null); setToPoint(null); }}>
                   <Text style={styles.popularIcon}>🏙️</Text><Text style={styles.popularRoute}>Київ: Берестейський → Хрещатик</Text><Text style={styles.popularMeta}>від 180 грн</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.popularCard} onPress={() => { setFrom('Київ'); setTo('Київ, Контрактова площа 1'); }}>
+                <TouchableOpacity style={styles.popularCard} onPress={() => { setFrom('Київ'); setTo('Київ, Контрактова площа 1'); setFromPoint(null); setToPoint(null); }}>
                   <Text style={styles.popularIcon}>🌆</Text><Text style={styles.popularRoute}>Київ: Оболонь → Поділ</Text><Text style={styles.popularMeta}>від 320 грн</Text>
                 </TouchableOpacity>
               </View>
