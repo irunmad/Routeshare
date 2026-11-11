@@ -3,6 +3,8 @@ const map=L.map('map',{zoomControl:true}).setView([50.43,30.55],11);
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(map);
 const params=new URLSearchParams(location.search), detail=params.get('detail')==='1';
 const colors=['#ee4151','#21a95a','#3185f4'];
+const liveMode=params.get('live')==='1';
+let liveRequests=[];try{liveRequests=JSON.parse(params.get('requests')||'[]')}catch{}
 // Approximate illustrative locations near Kyiv roads; no geocoding or matching claims.
 const start=[30.4346,50.4372],end=[30.632,50.403];
 const sets=[
@@ -14,6 +16,7 @@ function marker(point,label,color){L.marker([point[1],point[0]],{icon:L.divIcon(
 async function road(a,b){const url='https://router.project-osrm.org/route/v1/driving/'+a.join(',')+';'+b.join(',')+'?overview=full&geometries=geojson';const r=await fetch(url);if(!r.ok)throw Error('OSRM '+r.status);const d=await r.json();if(d.code!=='Ok'||!d.routes?.[0])throw Error('No route');return d.routes[0];}
 function draw(coords,options){return L.polyline(coords.map(c=>[c[1],c[0]]),options).addTo(map)}
 (async()=>{try{
+ if(liveMode){await drawLiveRequests();return;}
  const bounds=[];
  const baseline=await road(start,end);draw(baseline.geometry.coordinates,{color:'#171b23',weight:2.2,opacity:.85});bounds.push(...baseline.geometry.coordinates);
  marker(start,'A','#161b25');marker(end,'B','#161b25');
@@ -33,4 +36,43 @@ function draw(coords,options){return L.polyline(coords.map(c=>[c[1],c[0]]),optio
  map.fitBounds(L.latLngBounds(bounds.map(c=>[c[1],c[0]])),{padding:[18,18]});
  document.getElementById('info').textContent='Демо-точки · маршрути OSRM · '+(detail?'1 заявка':'3 варіанти');
 }catch(e){document.getElementById('info').textContent='Маршрути недоступні: '+e.message;}})();
+
+// Live test requests are geocoded from entered addresses, not guessed.
+async function geocode(address){
+ const cacheKey='rs-geo-v1:'+address.toLowerCase().trim();
+ try{const cached=JSON.parse(localStorage.getItem(cacheKey)||'null');if(cached)return cached;}catch{}
+ const q=address.toLowerCase().includes('київ')||address.toLowerCase().includes('kyiv')?address:address+', Київ, Україна';
+ const url='https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=ua&viewbox=30.20,50.62,30.85,50.25&bounded=1&q='+encodeURIComponent(q);
+ const response=await fetch(url,{headers:{'Accept':'application/json'}});
+ if(!response.ok)throw Error('Геокодування HTTP '+response.status);
+ const rows=await response.json();
+ if(!rows.length)return null;
+ const point=[Number(rows[0].lon),Number(rows[0].lat)];
+ try{localStorage.setItem(cacheKey,JSON.stringify(point));}catch{}
+ return point;
+}
+async function drawLiveRequests(){
+ const info=document.getElementById('info');
+ if(!liveRequests.length){info.textContent='Немає тестових заявок · створи їх у режимі пасажира';return;}
+ info.textContent='Пошук адрес для '+liveRequests.length+' заявок…';
+ const bounds=[];let drawn=0;let unresolved=0;
+ for(const request of liveRequests){
+  try{
+   const a=await geocode(request.origin);
+   await new Promise(resolve=>setTimeout(resolve,1100));
+   const b=await geocode(request.destination);
+   await new Promise(resolve=>setTimeout(resolve,1100));
+   if(!a||!b){unresolved++;continue;}
+   const route=await road(a,b);
+   const color=colors[drawn%colors.length];
+   draw(route.geometry.coordinates,{color:'#FFFFFF',weight:7,opacity:.95});
+   draw(route.geometry.coordinates,{color,weight:4.5,opacity:.95});
+   marker(a,'↑'+(drawn+1),color);marker(b,'↓'+(drawn+1),color);
+   bounds.push(...route.geometry.coordinates);drawn++;
+  }catch(e){unresolved++;console.warn('RouteShare live route',e);}
+  info.textContent='Маршрути: '+drawn+'/'+liveRequests.length+' · не знайдено: '+unresolved;
+ }
+ if(bounds.length)map.fitBounds(L.latLngBounds(bounds.map(c=>[c[1],c[0]])),{padding:[22,22]});
+ info.textContent='Тестові заявки на дорогах: '+drawn+'/'+liveRequests.length+(unresolved?' · адреси не визначено: '+unresolved:'');
+}
 </script></body></html>
