@@ -13,6 +13,18 @@ import {
   View,
 } from 'react-native';
 
+type TestProfile = { id: string; name: string; phone: string; gender: 'male' | 'female' | 'other'; avatar: string };
+const PROFILE_KEY = 'routeshare.local-test-profiles';
+function loadProfiles(): TestProfile[] {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') return [];
+  try { return JSON.parse(window.localStorage.getItem(PROFILE_KEY) || '[]'); } catch { return []; }
+}
+function testUuid(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.floor(Math.random() * 16); return (c === 'x' ? r : (r & 3 | 8)).toString(16);
+  });
+}
 type Mode = 'passenger' | 'driver';
 type Design = 'classic' | 'new';
 const initialDesign = (): Design => {
@@ -70,6 +82,30 @@ export default function App() {
   const [mode, setMode] = useState<Mode>('passenger');
   const [tab, setTab] = useState<Tab>('home');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [profiles, setProfiles] = useState<TestProfile[]>(loadProfiles);
+  const [activeProfileId, setActiveProfileId] = useState(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return '';
+    return window.localStorage.getItem('routeshare.active-test-profile') || '';
+  });
+  const [accountScreen, setAccountScreen] = useState<'none' | 'register' | 'login'>('none');
+  const [profileName, setProfileName] = useState('');
+  const [profilePhone, setProfilePhone] = useState('');
+  const [profileGender, setProfileGender] = useState<'male' | 'female' | 'other'>('male');
+  const [profileAvatar, setProfileAvatar] = useState('🙂');
+  const activeProfile = profiles.find(p => p.id === activeProfileId);
+  const selectProfile = (id: string) => {
+    setActiveProfileId(id); setAccountScreen('none'); setMenuOpen(false);
+    if (Platform.OS === 'web' && typeof window !== 'undefined') window.localStorage.setItem('routeshare.active-test-profile', id);
+  };
+  const registerProfile = () => {
+    if (profileName.trim().length < 2 || !/^\\+?[0-9 ()-]{9,18}$/.test(profilePhone.trim())) {
+      setNotice('Вкажи ім’я (від 2 символів) та номер телефону.'); return;
+    }
+    const profile: TestProfile = { id: testUuid(), name: profileName.trim(), phone: profilePhone.trim(), gender: profileGender, avatar: profileAvatar };
+    const next = [...profiles, profile]; setProfiles(next);
+    if (Platform.OS === 'web' && typeof window !== 'undefined') window.localStorage.setItem(PROFILE_KEY, JSON.stringify(next));
+    selectProfile(profile.id); setNotice('Тестовий профіль створено: ' + profile.name);
+  };
   const [design, setDesign] = useState<Design>(initialDesign);
   const changeDesign = (next: Design) => {
     setDesign(next);
@@ -128,7 +164,7 @@ export default function App() {
   };
   const refreshTestRequests = async (showErrors = false) => {
     try {
-      setTestRequests(await listTestPassengerRequests());
+      setTestRequests(await listTestPassengerRequests(activeProfileId || undefined));
     } catch (error) {
       if (showErrors) setNotice(error instanceof Error ? error.message : 'Не вдалося завантажити заявки.');
     }
@@ -147,7 +183,7 @@ export default function App() {
     refresh();
     const timer = setInterval(refresh, 5000);
     return () => { active = false; clearInterval(timer); };
-  }, []);
+  }, [activeProfileId]);
 
   const createTestRequest = async () => {
     setRequestResult(null);
@@ -175,7 +211,7 @@ export default function App() {
         departureStart: departure.toISOString(),
         departureEnd: departureEnd.toISOString(),
         offeredRateUahPerKm: parsedRate,
-      });
+      }, activeProfileId || undefined);
       await refreshTestRequests();
       setShowPassengerRoute(true);
       setRequestResult({ok: true, message: '✓ Заявку створено! № ' + created.id.slice(0, 8) + '. Йде пошук водія. Перевір її в «Тестові заявки».'});
@@ -191,7 +227,7 @@ export default function App() {
 
   const cancelTestRequest = async (id: string) => {
     try {
-      await cancelTestPassengerRequest(id);
+      await cancelTestPassengerRequest(id, activeProfileId || undefined);
       await refreshTestRequests();
       setNotice('Тестову заявку скасовано.');
     } catch (error) {
@@ -219,6 +255,14 @@ export default function App() {
         {menuOpen && <View style={{ backgroundColor: '#1A2A3D', padding: 12, gap: 12, borderBottomWidth: 1, borderBottomColor: '#40536A' }}>
           <Text style={{ color: '#AFC8D6', fontWeight: '700', fontSize: 12 }}>ОФОРМЛЕННЯ</Text>
           <View style={{ flexDirection: 'row', gap: 8 }}><TouchableOpacity onPress={() => changeDesign('classic')} style={{ padding: 10, borderRadius: 8, borderWidth: 1, borderColor: design === 'classic' ? '#34D97B' : '#54677C' }}><Text style={{ color: '#FFFFFF' }}>Класичний {design === 'classic' ? '✓' : ''}</Text></TouchableOpacity><TouchableOpacity onPress={() => changeDesign('new')} style={{ padding: 10, borderRadius: 8, borderWidth: 1, borderColor: design === 'new' ? '#34D97B' : '#54677C' }}><Text style={{ color: '#FFFFFF' }}>Новий {design === 'new' ? '✓' : ''}</Text></TouchableOpacity></View>
+          <View style={{ padding: 8, borderRadius: 9, backgroundColor: '#263F53', gap: 8 }}>
+            <Text style={{ color: '#FFFFFF', fontWeight: '900' }}>{activeProfile ? activeProfile.avatar + ' ' + activeProfile.name : 'Гість · тестовий режим'}</Text>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <TouchableOpacity onPress={() => { setAccountScreen('register'); setMenuOpen(false); }}><Text style={{ color: '#42E5A5', fontWeight: '800' }}>Реєстрація</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => { setAccountScreen('login'); setMenuOpen(false); }}><Text style={{ color: '#42E5A5', fontWeight: '800' }}>Вхід</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => selectProfile('')}><Text style={{ color: '#FFB6B6', fontWeight: '800' }}>Вихід</Text></TouchableOpacity>
+            </View>
+          </View>
           {([['home', 'Головна'], ['trips', 'Тестові заявки'], ['messages', 'Чати'], ['profile', 'Профіль']] as const).map(([key, label]) => <TouchableOpacity key={key} onPress={() => { setTab(key); setMenuOpen(false); }}><Text style={{ color: '#FFFFFF', fontSize: 15, padding: 6 }}>{label}</Text></TouchableOpacity>)}
         </View>}
         <View style={[styles.modeSwitch, design === 'new' && { backgroundColor: '#D7E4EC' }]}>
@@ -236,6 +280,18 @@ export default function App() {
           </TouchableOpacity>
         </View>
 
+        {accountScreen !== 'none' && <View style={{ padding: 15, backgroundColor: '#172D40', gap: 11, borderBottomWidth: 1, borderColor: '#3C5C70' }}>
+          <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '900' }}>{accountScreen === 'register' ? 'Новий тестовий пасажир' : 'Вхід у тестовий профіль'}</Text>
+          <Text style={{ color: '#B9CEDA', fontSize: 12 }}>Профілі зберігаються лише на цьому пристрої. Без паролів та SMS. Не використовуй реальні персональні дані.</Text>
+          {accountScreen === 'register' ? <>
+            <TextInput value={profileName} onChangeText={setProfileName} placeholder="Ім’я" placeholderTextColor="#92A8B8" style={{ backgroundColor: '#28465A', color: '#FFFFFF', padding: 12, borderRadius: 8 }} />
+            <TextInput value={profilePhone} onChangeText={setProfilePhone} placeholder="Телефон (тестовий)" placeholderTextColor="#92A8B8" keyboardType="phone-pad" style={{ backgroundColor: '#28465A', color: '#FFFFFF', padding: 12, borderRadius: 8 }} />
+            <View style={{ flexDirection: 'row', gap: 9 }}>{([['male','Чоловік'],['female','Жінка'],['other','Інше']] as const).map(([v,l]) => <TouchableOpacity key={v} onPress={() => setProfileGender(v)} style={{ padding: 9, borderWidth: 1, borderColor: profileGender === v ? '#35DFA3' : '#698095', borderRadius: 8 }}><Text style={{ color: '#FFFFFF' }}>{l}</Text></TouchableOpacity>)}</View>
+            <View style={{ flexDirection: 'row', gap: 14 }}>{['🙂','😎','👩','👨','🧑','🚴'].map(v => <TouchableOpacity key={v} onPress={() => setProfileAvatar(v)} style={{ padding: 5, borderWidth: profileAvatar === v ? 2 : 0, borderColor: '#35DFA3' }}><Text style={{ fontSize: 25 }}>{v}</Text></TouchableOpacity>)}</View>
+            <TouchableOpacity onPress={registerProfile} style={{ padding: 13, backgroundColor: '#128D68', borderRadius: 8 }}><Text style={{ color: '#FFFFFF', fontWeight: '900' }}>Створити профіль</Text></TouchableOpacity>
+          </> : profiles.length ? profiles.map(p => <TouchableOpacity key={p.id} onPress={() => selectProfile(p.id)} style={{ padding: 12, backgroundColor: '#28465A', borderRadius: 9 }}><Text style={{ color: '#FFFFFF', fontWeight: '800' }}>{p.avatar} {p.name} · {p.phone}</Text></TouchableOpacity>) : <Text style={{ color: '#FFFFFF' }}>Спочатку зареєструй тестового пасажира.</Text>}
+          <TouchableOpacity onPress={() => setAccountScreen('none')}><Text style={{ color: '#D6E5F0' }}>Закрити</Text></TouchableOpacity>
+        </View>}
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
           {tab === 'home' && mode === 'passenger' && (
             <>
@@ -306,8 +362,8 @@ export default function App() {
           {tab === 'profile' && (
             <View style={styles.profileCard}>
               <View style={styles.profileAvatar}><Text style={styles.profileAvatarText}>С</Text></View>
-              <Text style={styles.profileName}>Тестовий користувач</Text>
-              <Text style={styles.profilePhone}>Демо-режим · без підтвердження номера</Text>
+              <Text style={styles.profileName}>{activeProfile?.name || 'Тестовий користувач'}</Text>
+              <Text style={styles.profilePhone}>{activeProfile?.phone || 'Демо-режим'} · без підтвердження номера</Text>
               <View style={styles.profileDivider} />
               <Text style={styles.profileHint}>Профіль, контакти та підтвердження телефону налаштуємо окремо перед запуском реальних поїздок.</Text>
               <View style={styles.demoTag}><Text style={styles.demoTagText}>DEVELOPMENT PREVIEW</Text></View>
