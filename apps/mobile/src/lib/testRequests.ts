@@ -14,8 +14,8 @@ export interface TestPassengerRequest {
   isMine: boolean;
 }
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const installationId = await getInstallationId();
+async function request<T>(path: string, init: RequestInit = {}, profileId?: string): Promise<T> {
+  const installationId = profileId || await getInstallationId();
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
     headers: {
@@ -32,8 +32,8 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export function listTestPassengerRequests(): Promise<TestPassengerRequest[]> {
-  return request<TestPassengerRequest[]>('/test/passenger-requests');
+export function listTestPassengerRequests(profileId?: string): Promise<TestPassengerRequest[]> {
+  return request<TestPassengerRequest[]>('/test/passenger-requests', {}, profileId);
 }
 
 export async function createTestPassengerRequest(input: {
@@ -42,15 +42,15 @@ export async function createTestPassengerRequest(input: {
   departureStart: string;
   departureEnd: string;
   offeredRateUahPerKm: number;
-}): Promise<TestPassengerRequest> {
+}, profileId?: string): Promise<TestPassengerRequest> {
   return request<TestPassengerRequest>('/test/passenger-requests', {
     method: 'POST',
     body: JSON.stringify(input),
-  });
+  }, profileId);
 }
 
-export async function cancelTestPassengerRequest(id: string): Promise<void> {
+export async function cancelTestPassengerRequest(id: string, profileId?: string): Promise<void> {
   await request<{ id: string; status: string }>(`/test/passenger-requests/${id}`, {
     method: 'DELETE',
-  });
+  }, profileId);
 }
