@@ -95,6 +95,7 @@ export default function App() {
   const [addressError, setAddressError] = useState('');
   const [testRequests, setTestRequests] = useState<TestPassengerRequest[]>([]);
   const [savingRequest, setSavingRequest] = useState(false);
+  const [requestResult, setRequestResult] = useState<{ok: boolean; message: string} | null>(null);
 
   useEffect(() => {
     if (!editingAddress) { setSuggestions([]); return; }
@@ -139,6 +140,7 @@ export default function App() {
   }, []);
 
   const createTestRequest = async () => {
+    setRequestResult(null);
     if (!fromPoint || !toPoint || distanceKm === null) {
       setNotice('Вибери обидві адреси з підказок і дочекайся розрахунку відстані.');
       return;
@@ -157,7 +159,7 @@ export default function App() {
     const departureEnd = new Date(departure.getTime() + 11 * 60 * 1000);
     setSavingRequest(true);
     try {
-      await createTestPassengerRequest({
+      const created = await createTestPassengerRequest({
         origin: from.trim(),
         destination: to.trim(),
         departureStart: departure.toISOString(),
@@ -165,9 +167,12 @@ export default function App() {
         offeredRateUahPerKm: parsedRate,
       });
       await refreshTestRequests();
-      setNotice('Йде пошук водія. Заявку видно також у твоєму режимі водія.');
+      setRequestResult({ok: true, message: '✓ Заявку створено! № ' + created.id.slice(0, 8) + '. Йде пошук водія. Перевір її в «Тестові заявки».'});
+      setNotice('Заявку створено. Йде пошук водія.');
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'Не вдалося створити заявку.');
+      const message = error instanceof Error ? error.message : 'Не вдалося створити заявку.';
+      setRequestResult({ok: false, message: '✕ Заявку НЕ створено: ' + message + (message.includes('Shared test mode is disabled') ? ' У Render → Environment встанови TEST_MODE_ENABLED=true та перезапусти API.' : '')});
+      setNotice('Помилка створення заявки — дивись повідомлення під кнопкою.');
     } finally {
       setSavingRequest(false);
     }
@@ -259,6 +264,8 @@ export default function App() {
                     <Text style={styles.primaryButtonText}>{savingRequest ? 'Зберігаємо…' : 'Створити тестову заявку'}</Text>
                     <Text style={styles.buttonArrow}>＋</Text>
                   </TouchableOpacity>
+                  {requestResult && <View style={{ marginTop: 12, padding: 12, borderRadius: 8, backgroundColor: requestResult.ok ? '#14563C' : '#692C36', borderWidth: 1, borderColor: requestResult.ok ? '#39D58A' : '#FF7883' }}><Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '800' }}>{requestResult.message}</Text></View>}
+                  {!fromPoint || !toPoint ? <Text style={{ color: '#F3DFA3', marginTop: 8, fontSize: 12 }}>Для створення вибери обидві адреси саме зі списку підказок.</Text> : null}
                 </View>
               </View>
 
