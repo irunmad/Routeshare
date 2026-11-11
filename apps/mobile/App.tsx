@@ -365,6 +365,13 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
   const [sortBy, setSortBy] = useState<'km' | 'hour'>('km');
   const [replaceName, setReplaceName] = useState<string | null>(null);
   const [increase, setIncrease] = useState(0);
+  const [gps, setGps] = useState<{lat: number; lon: number} | null>(null);
+  const [gpsMessage, setGpsMessage] = useState('GPS не ввімкнено');
+  const requestGps = () => {
+    if (Platform.OS !== 'web' || typeof navigator === 'undefined' || !navigator.geolocation) { setGpsMessage('Геолокація недоступна'); return; }
+    setGpsMessage('Визначаємо місце…');
+    navigator.geolocation.getCurrentPosition(p => { setGps({ lat: p.coords.latitude, lon: p.coords.longitude }); setGpsMessage('GPS: ' + p.coords.latitude.toFixed(5) + ', ' + p.coords.longitude.toFixed(5)); }, e => setGpsMessage('GPS: ' + e.message), { enableHighAccuracy: true, timeout: 12000, maximumAge: 10000 });
+  };
   const offers = [...previewOffers]
     .filter(o => o.passengers.length <= seats && o.pickupKm <= pickupLimit && o.finalKm <= finalLimit)
     .sort((a, b) => sortBy === 'km' ? perKm(b) - perKm(a) : perHour(b) - perHour(a));
@@ -387,6 +394,8 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
           <Text style={driverStyles.legend}>Унікальні</Text><Text style={[driverStyles.filterValue, { color: unique ? '#36E88C' : '#8B9BAE' }, design === 'new' && { color: unique ? '#00854E' : '#526E80' }]}>{unique ? '✓' : '—'}</Text>
         </TouchableOpacity>
       </View>
+      <TouchableOpacity onPress={requestGps} style={{ padding: 11, borderRadius: 10, backgroundColor: design === 'new' ? '#FFFFFF' : '#172D40', borderWidth: 1, borderColor: '#35CBA0', marginBottom: 9 }}><Text style={{ color: design === 'new' ? '#123B52' : '#C9F9E5', fontWeight: '800' }}>⌖ Визначити GPS водія</Text><Text style={{ color: design === 'new' ? '#456579' : '#A4C2CC', fontSize: 11, marginTop: 4 }}>{gpsMessage}</Text></TouchableOpacity>
+      {!!gps && <Text style={{ color: design === 'new' ? '#456579' : '#A4C2CC', fontSize: 11, marginBottom: 8 }}>Точку отримано. Фільтр подачі по дорогах підключимо після вибору кінцевої точки водія.</Text>}
       {view === 'map' && <RouteMapPreview detail={false} requests={liveRequests} />}
       {view === 'list' && <View style={driverStyles.sortRow}>
         <Text style={[driverStyles.count, design === 'new' && { color: '#123B52' }]}>Заявки ({offers.length})</Text>
