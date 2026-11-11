@@ -54,6 +54,10 @@ async function lookupAddresses(query: string): Promise<AddressSuggestion[]> {
     return { label: [p.name, p.street && p.street !== p.name ? p.street : '', p.housenumber, p.city || p.locality || p.county].filter(Boolean).join(', '), lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] };
   });
 }
+async function resolveAddress(label: string): Promise<AddressSuggestion | null> {
+  const rows = await lookupAddresses(label);
+  return rows[0] || null;
+}
 async function roadDistanceKm(a: AddressSuggestion, b: AddressSuggestion): Promise<number> {
   const url = 'https://router.project-osrm.org/route/v1/driving/' + a.lon + ',' + a.lat + ';' + b.lon + ',' + b.lat + '?overview=false';
   const response = await fetch(url);
@@ -401,6 +405,46 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
     return () => { active = false; };
   }, [gps, startPoint, destinationPoint]);
   const adjust = (value: number, delta: number) => Math.min(7, Math.max(0.5, Math.round((value + delta) * 10) / 10));
+  const [eligibleRequests, setEligibleRequests] = useState<{ request: TestPassengerRequest; pickupKm: number; finalKm: number; passengerKm: number; fare: number }[]>([]);
+  const [matchingState, setMatchingState] = useState('Для підбору вкажи початок і кінець маршруту');
+  useEffect(() => {
+    const origin = startPoint || (gps ? { label: 'GPS', lat: gps.lat, lon: gps.lon } : null);
+    if (!origin || !destinationPoint) {
+      setEligibleRequests([]);
+      setMatchingState('Вкажи початок (GPS або вручну) та кінцеву адресу водія');
+      return;
+    }
+    if (!liveRequests.length) { setEligibleRequests([]); setMatchingState('Немає активних пасажирських заявок'); return; }
+    let active = true;
+    setMatchingState('Перевіряємо відстані по дорогах…');
+    const run = async () => {
+      const results: { request: TestPassengerRequest; pickupKm: number; finalKm: number; passengerKm: number; fare: number }[] = [];
+      let unresolved = 0;
+      for (const request of liveRequests) {
+        if (!active) return;
+        try {
+          const pickup = await resolveAddress(request.origin);
+          const dropoff = await resolveAddress(request.destination);
+          if (!pickup || !dropoff) { unresolved++; continue; }
+          const [pickupKm, finalKm, passengerKm] = await Promise.all([
+            roadDistanceKm(origin, pickup),
+            roadDistanceKm(dropoff, destinationPoint),
+            roadDistanceKm(pickup, dropoff),
+          ]);
+          if (pickupKm <= pickupLimit && finalKm <= finalLimit) {
+            results.push({ request, pickupKm, finalKm, passengerKm, fare: Math.ceil(passengerKm * request.offeredRateUahPerKm) });
+          }
+        } catch { unresolved++; }
+      }
+      if (active) {
+        results.sort((a,b) => (b.fare / (b.pickupKm+b.passengerKm+b.finalKm || 1)) - (a.fare / (a.pickupKm+a.passengerKm+a.finalKm || 1)));
+        setEligibleRequests(results);
+        setMatchingState('Перевірено ' + liveRequests.length + ' · підходять ' + results.length + (unresolved ? ' · не вдалося перевірити ' + unresolved : ''));
+      }
+    };
+    run();
+    return () => { active = false; };
+  }, [gps, startPoint, destinationPoint, liveRequests, pickupLimit, finalLimit]);
   const offers = [...previewOffers]
     .filter(o => o.passengers.length <= seats && o.pickupKm <= pickupLimit && o.finalKm <= finalLimit)
     .sort((a, b) => sortBy === 'km' ? perKm(b) - perKm(a) : perHour(b) - perHour(a));
@@ -456,18 +500,19 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
       </View>}
       {view === 'list' && <View style={{ marginBottom: 15, padding: 12, borderRadius: 14, borderWidth: 1, borderColor: '#35CBA0', backgroundColor: design === 'new' ? '#FFFFFF' : '#142337' }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Text style={{ color: design === 'new' ? '#123B52' : '#E9F6F3', fontWeight: '900', fontSize: 15 }}>Живі тестові заявки ({liveRequests.length})</Text>
-          <TouchableOpacity onPress={onRefresh} accessibilityLabel="Оновити заявки"><Text style={{ color: '#159D75', fontWeight: '900' }}>↻ Оновити</Text></TouchableOpacity>
+          <Text style={{ color: design === 'new' ? '#123B52' : '#E9F6F3', fontWeight: '900', fontSize: 15 }}>Відповідні заявки ({eligibleRequests.length})</Text>
+          <TouchableOpacity onPress={onRefresh}><Text style={{ color: '#159D75', fontWeight: '900' }}>↻ Оновити</Text></TouchableOpacity>
         </View>
-        <Text style={{ color: design === 'new' ? '#526E80' : '#9DB2C2', fontSize: 11, marginTop: 5 }}>Синхронізація між телефонами кожні 5 с · без розрахованого маршруту</Text>
-        {liveRequests.length === 0 && <Text style={{ color: design === 'new' ? '#526E80' : '#9DB2C2', marginTop: 10 }}>Заявок немає. Створи маршрут у режимі пасажира на іншому телефоні.</Text>}
-        {liveRequests.map(request => (
-          <View key={request.id} style={{ borderTopWidth: 1, borderTopColor: design === 'new' ? '#D6E4EB' : '#29445A', marginTop: 10, paddingTop: 10 }}>
+        <Text style={{ color: design === 'new' ? '#526E80' : '#9DB2C2', fontSize: 11, marginTop: 5 }}>{matchingState}</Text>
+        {eligibleRequests.map(({request,pickupKm,finalKm,passengerKm,fare},i) => (
+          <View key={request.id} style={{ borderTopWidth: 1, borderTopColor: design === 'new' ? '#D6E4EB' : '#29445A', marginTop: 10, paddingTop: 10, borderLeftWidth: 4, borderLeftColor: i === 0 ? '#FF4256' : i === 1 ? '#23DE75' : i === 2 ? '#36A9FF' : '#1B2735', paddingLeft: 9 }}>
             <Text style={{ color: design === 'new' ? '#123B52' : '#F3F8FA', fontSize: 13, fontWeight: '800' }}>● {request.origin}</Text>
             <Text style={{ color: design === 'new' ? '#123B52' : '#F3F8FA', fontSize: 13, marginTop: 4 }}>◎ {request.destination}</Text>
-            <Text style={{ color: '#1AAE80', fontSize: 12, fontWeight: '800', marginTop: 6 }}>{request.offeredRateUahPerKm} ₴/км · Очікує водія · {request.isMine ? 'Моя заявка' : 'Інший пристрій'}</Text>
+            <Text style={{ color: '#1AAE80', fontSize: 12, fontWeight: '800', marginTop: 6 }}>{fare} ₴ · {passengerKm.toFixed(1)} км пасажир · {request.offeredRateUahPerKm} ₴/км</Text>
+            <Text style={{ color: design === 'new' ? '#526E80' : '#9DB2C2', fontSize: 11 }}>Подача {pickupKm.toFixed(1)} км · Фінал {finalKm.toFixed(1)} км · {request.isMine ? 'Моя тестова заявка' : 'Інший пристрій'}</Text>
           </View>
         ))}
+        {!eligibleRequests.length && <Text style={{ color: design === 'new' ? '#526E80' : '#9DB2C2', marginTop: 10 }}>Немає підтверджених відповідних заявок. Інші маршрути не показуємо як відповідні без перевірки.</Text>}
       </View>}
       {view === 'list' && <Text style={{ color: design === 'new' ? '#456579' : '#9DB2C2', fontWeight: '800', marginBottom: 8 }}>Демонстраційні комбінації (не реальні заявки)</Text>}
       {view === 'list' && offers.length === 0 && <Text style={driverStyles.empty}>Немає варіантів для цих фільтрів.</Text>}
