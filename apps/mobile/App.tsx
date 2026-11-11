@@ -346,7 +346,8 @@ export default function App() {
 type DriverOffer = {
   id: string; color: string; amount: number; distance: number; minutes: number;
   pickupKm: number; finalKm: number; pickup: string; dropoff: string;
-  passengers: { name: string; acceptance: number; noShow: number; km: number; fare: number; avatar: string }[];
+  passengers: { name: string; acceptance: number; noShow: number; km: number; fare: number; avatar: string; pickup?: string; dropoff?: string }[];
+  live?: boolean;
 };
 // Preview data only. Never use these values to accept a real ride or charge a passenger.
 const previewOffers: DriverOffer[] = [
@@ -366,6 +367,7 @@ const previewOffers: DriverOffer[] = [
     { name: 'Роман', acceptance: 95, noShow: 1, km: 7.5, fare: 240, avatar: 'Р' },
   ] },
 ];
+const formatRate = (rate: number) => Number(rate).toFixed(2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1');
 const perKm = (o: DriverOffer) => o.distance > 0 ? o.amount / o.distance : 0;
 const perHour = (o: DriverOffer) => o.minutes > 0 ? o.amount / o.minutes * 60 : 0;
 function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer, onSelectOffer, onBack }: { liveRequests: TestPassengerRequest[]; onRefresh: () => void; design: Design; view: 'list' | 'map' | 'offer'; selectedOffer: DriverOffer | null; onSelectOffer: (offer: DriverOffer) => void; onBack: () => void }) {
@@ -452,9 +454,22 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
     run();
     return () => { active = false; };
   }, [gps, startPoint, destinationPoint, liveRequests, pickupLimit, finalLimit]);
-  const offers = [...previewOffers]
+  // Real test requests and preview combinations share one ranking and the same cards.
+  // A live single-passenger offer uses its verified road distances; travel time is estimated.
+  const liveOffers: DriverOffer[] = eligibleRequests.map(({request, pickupKm, finalKm, passengerKm, fare}) => {
+    const distance = pickupKm + passengerKm + finalKm;
+    return {
+      id: request.id, color: '#718096', live: true, amount: fare,
+      distance, minutes: Math.max(1, Math.round(distance / 25 * 60)),
+      pickupKm, finalKm, pickup: request.origin, dropoff: request.destination,
+      passengers: [{ name: 'Тестовий пасажир', acceptance: 100, noShow: 0,
+        km: passengerKm, fare, avatar: 'Т', pickup: request.origin, dropoff: request.destination }],
+    };
+  });
+  const rankedOffers = [...previewOffers, ...liveOffers]
     .filter(o => o.passengers.length <= seats && o.pickupKm <= pickupLimit && o.finalKm <= finalLimit)
     .sort((a, b) => sortBy === 'km' ? perKm(b) - perKm(a) : perHour(b) - perHour(a));
+  const offers = rankedOffers.map((o, i) => ({...o, color: i === 0 ? '#FF4256' : i === 1 ? '#23DE75' : i === 2 ? '#36A9FF' : '#718096'}));
   const cycle = (v: number) => v >= 7 ? 0.5 : Math.round((v + 0.5) * 10) / 10;
   if (view === 'offer') return selectedOffer ? <DriverOfferDetail design={design} offer={selectedOffer} increase={increase} setIncrease={setIncrease} onBack={onBack} /> : <View style={driverStyles.wrap}><Text style={driverStyles.empty}>Заявку ще не вибрано. Відкрий «Список» і натисни на потрібну комбінацію.</Text></View>;
   return (
@@ -505,29 +520,14 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
         <TouchableOpacity onPress={() => setSortBy('km')} style={[driverStyles.sortChip, sortBy === 'km' && driverStyles.sortActive, design === 'new' && { backgroundColor: '#173D52', borderRadius: 15 }]}><Text style={driverStyles.sortText}>₴/км</Text></TouchableOpacity>
         <TouchableOpacity onPress={() => setSortBy('hour')} style={[driverStyles.sortChip, sortBy === 'hour' && driverStyles.sortActive, design === 'new' && { backgroundColor: '#173D52', borderRadius: 15 }]}><Text style={driverStyles.sortText}>₴/год</Text></TouchableOpacity>
       </View>}
-      {view === 'list' && <View style={{ marginBottom: 15, padding: 12, borderRadius: 14, borderWidth: 1, borderColor: '#35CBA0', backgroundColor: design === 'new' ? '#FFFFFF' : '#142337' }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Text style={{ color: design === 'new' ? '#123B52' : '#E9F6F3', fontWeight: '900', fontSize: 15 }}>Відповідні заявки ({eligibleRequests.length})</Text>
-          <TouchableOpacity onPress={onRefresh}><Text style={{ color: '#159D75', fontWeight: '900' }}>↻ Оновити</Text></TouchableOpacity>
-        </View>
-        <Text style={{ color: design === 'new' ? '#526E80' : '#9DB2C2', fontSize: 11, marginTop: 5 }}>{matchingState}</Text>
-        {eligibleRequests.map(({request,pickupKm,finalKm,passengerKm,fare},i) => (
-          <View key={request.id} style={{ borderTopWidth: 1, borderTopColor: design === 'new' ? '#D6E4EB' : '#29445A', marginTop: 10, paddingTop: 10, borderLeftWidth: 4, borderLeftColor: i === 0 ? '#FF4256' : i === 1 ? '#23DE75' : i === 2 ? '#36A9FF' : '#1B2735', paddingLeft: 9 }}>
-            <Text style={{ color: design === 'new' ? '#123B52' : '#F3F8FA', fontSize: 13, fontWeight: '800' }}>● {request.origin}</Text>
-            <Text style={{ color: design === 'new' ? '#123B52' : '#F3F8FA', fontSize: 13, marginTop: 4 }}>◎ {request.destination}</Text>
-            <Text style={{ color: '#1AAE80', fontSize: 12, fontWeight: '800', marginTop: 6 }}>{fare} ₴ · {passengerKm.toFixed(1)} км пасажир · {request.offeredRateUahPerKm} ₴/км</Text>
-            <Text style={{ color: design === 'new' ? '#526E80' : '#9DB2C2', fontSize: 11 }}>Подача {pickupKm.toFixed(1)} км · Фінал {finalKm.toFixed(1)} км · {request.isMine ? 'Моя тестова заявка' : 'Інший пристрій'}</Text>
-          </View>
-        ))}
-        {!eligibleRequests.length && <Text style={{ color: design === 'new' ? '#526E80' : '#9DB2C2', marginTop: 10 }}>Немає підтверджених відповідних заявок. Інші маршрути не показуємо як відповідні без перевірки.</Text>}
-      </View>}
-      {view === 'list' && <Text style={{ color: design === 'new' ? '#456579' : '#9DB2C2', fontWeight: '800', marginBottom: 8 }}>Демонстраційні комбінації (не реальні заявки)</Text>}
+      {view === 'list' && <Text style={{ color: design === 'new' ? '#456579' : '#9DB2C2', fontSize: 12, marginBottom: 8 }}>{matchingState} · Реальні тестові заявки та 3 демо-комбінації в одному списку. Час для реальних заявок орієнтовний (25 км/год).</Text>}
       {view === 'list' && offers.length === 0 && <Text style={driverStyles.empty}>Немає варіантів для цих фільтрів.</Text>}
       {view === 'list' && offers.map(o => (
         <TouchableOpacity key={o.id} onPress={() => onSelectOffer(o)} activeOpacity={0.8} style={[driverStyles.offer, { borderColor: o.color }, design === 'new' && { backgroundColor: '#FFFFFF', borderRadius: 22, borderWidth: 2, paddingVertical: 17, marginBottom: 12 }]}>
+          {o.live && <Text style={{ color: '#14B98B', fontSize: 11, fontWeight: '900', marginBottom: 5 }}>● СТВОРЕНА ТЕСТОВА ЗАЯВКА</Text>}
           <View style={driverStyles.metrics}>
             <Text style={[driverStyles.total, design === 'new' && { color: '#123B52' }]}>₴{o.amount}</Text>
-            <Text style={[driverStyles.gps, design === 'new' && { color: '#007A4B' }]}>GPS OK</Text>
+            <Text style={[driverStyles.gps, design === 'new' && { color: '#007A4B' }]}>{o.live ? 'ТЕСТ' : 'ДЕМО'}</Text>
             <Text style={[driverStyles.metric, design === 'new' && { color: '#173D52' }]}><Text style={[driverStyles.green, design === 'new' && { color: '#007C51' }]}>{perKm(o).toFixed(1)}</Text> ₴/км</Text>
             <Text style={driverStyles.metric}><Text style={[driverStyles.orange, design === 'new' && { color: '#B66A00' }]}>{Math.round(perHour(o)).toLocaleString('uk-UA')}</Text> ₴/год</Text>
           </View>
@@ -548,7 +548,7 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
         </TouchableOpacity>
       ))}
       {replaceName && <View style={driverStyles.confirm}><Text style={driverStyles.confirmText}>Замінити маршрут пасажира {replaceName}?</Text><View style={driverStyles.confirmActions}><TouchableOpacity onPress={() => setReplaceName(null)}><Text style={driverStyles.confirmText}>Ні</Text></TouchableOpacity><TouchableOpacity onPress={() => { setReplaceName(null); }}><Text style={driverStyles.confirmYes}>Так</Text></TouchableOpacity></View></View>}
-      <Text style={[driverStyles.disclaimer, design === 'new' && { color: '#456579' }]}>Демонстраційні комбінації — без реального бронювання.</Text>
+      <Text style={[driverStyles.disclaimer, design === 'new' && { color: '#456579' }]}>Тестові заявки та демо-комбінації — без реального бронювання. Для тестових заявок час приблизний, рейтинг пасажира поки умовний.</Text>
     </View>
   );
 }
@@ -586,14 +586,14 @@ function DriverOfferDetail({ design, offer, increase, setIncrease, onBack }: {
               <Text style={detailStyles.rating}>{p.acceptance}% · неявка {p.noShow}%</Text>
               <Text style={detailStyles.fare}>₴{p.fare}</Text>
             </View>
-            <Text style={detailStyles.address}>↗ Посадка: {index === 0 ? offer.pickup : 'Адреса посадки не задана (демо)'}</Text>
-            <Text style={detailStyles.address}>↘ Висадка: {index === offer.passengers.length - 1 ? offer.dropoff : 'Адреса висадки не задана (демо)'}</Text>
+            <Text style={detailStyles.address}>↗ Посадка: {p.pickup || (index === 0 ? offer.pickup : 'Адреса посадки не задана (демо)')}</Text>
+            <Text style={detailStyles.address}>↘ Висадка: {p.dropoff || (index === offer.passengers.length - 1 ? offer.dropoff : 'Адреса висадки не задана (демо)')}</Text>
             <Text style={detailStyles.distance}>{p.km.toFixed(1)} км</Text>
           </View>
         ))}
         <Text style={detailStyles.segment}>Остання висадка → ┄ {offer.finalKm.toFixed(1)} км до фінішу водія</Text>
       </View>
-      <RouteMapPreview detail />
+      <RouteMapPreview detail requests={offer.live ? [{ id: offer.id, origin: offer.pickup, destination: offer.dropoff, offeredRateUahPerKm: offer.amount / (offer.passengers[0]?.km || 1), departureStart: '', departureEnd: '', status: 'searching', createdAt: '', isMine: false }] : []} />
       <View style={detailStyles.priceRow}>
         <Text style={detailStyles.priceLabel}>Підвищення тарифу</Text>
         {[0,10,20,30,40,50].map(value => (
@@ -666,7 +666,7 @@ function TestRequestCard({ request, onCancel }: { request: TestPassengerRequest;
     <View style={styles.testRequestCard}>
       <View style={styles.testRequestHeader}>
         <Text style={styles.testRequestBadge}>ТЕСТ · {request.isMine ? 'ТВОЯ ЗАЯВКА' : 'ІНШИЙ ПРИСТРІЙ'}</Text>
-        <Text style={styles.testRequestRate}>{request.offeredRateUahPerKm} грн/км</Text>
+        <Text style={styles.testRequestRate}>{formatRate(request.offeredRateUahPerKm)} грн/км</Text>
       </View>
       <Text style={styles.testRequestRoute}>{request.origin} → {request.destination}</Text>
       <Text style={styles.testRequestMeta}>Виїзд: {departure}</Text>
