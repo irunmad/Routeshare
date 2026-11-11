@@ -331,7 +331,7 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
           <Text style={driverStyles.legend}>Унікальні</Text><Text style={[driverStyles.filterValue, { color: unique ? '#36E88C' : '#8B9BAE' }, design === 'new' && { color: unique ? '#00854E' : '#526E80' }]}>{unique ? '✓' : '—'}</Text>
         </TouchableOpacity>
       </View>
-      {view === 'map' && <RouteMapPreview detail={false} />}
+      {view === 'map' && <RouteMapPreview detail={false} requests={liveRequests} />}
       {view === 'list' && <View style={driverStyles.sortRow}>
         <Text style={[driverStyles.count, design === 'new' && { color: '#123B52' }]}>Заявки ({offers.length})</Text>
         <Text style={[driverStyles.sortLabel, design === 'new' && { color: '#476175' }]}>Сортування:</Text>
@@ -385,9 +385,10 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
   );
 }
 
-function RouteMapPreview({ detail }: { detail: boolean }) {
+function RouteMapPreview({ detail, requests = [] }: { detail: boolean; requests?: TestPassengerRequest[] }) {
   if (Platform.OS !== 'web') return <View style={detailStyles.mapPlaceholder}><Text style={detailStyles.mapText}>Веб-карта доступна у браузері.</Text></View>;
-  const src = '/Routeshare/route-map.html' + (detail ? '?detail=1' : '');
+  const payload = requests.slice(0, 15).map(r => ({ id: r.id, origin: r.origin, destination: r.destination, rate: r.offeredRateUahPerKm }));
+  const src = '/Routeshare/route-map.html?' + new URLSearchParams({ ...(detail ? { detail: '1' } : {}), live: '1', requests: JSON.stringify(payload) }).toString();
   return <View style={{ height: detail ? 245 : 360, borderRadius: 9, overflow: 'hidden', borderWidth: 1, borderColor: '#526373' }}>
     {React.createElement('iframe' as any, { src, title: 'RouteShare OSM map', style: { width: '100%', height: '100%', border: 0 }, loading: 'lazy' })}
   </View>;
