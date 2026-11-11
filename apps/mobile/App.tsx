@@ -92,6 +92,16 @@ export default function App() {
   const [editingAddress, setEditingAddress] = useState<'from' | 'to' | null>(null);
   const [distanceKm, setDistanceKm] = useState<number | null>(null);
   const [routeBusy, setRouteBusy] = useState(false);
+  const [passengerGpsMessage, setPassengerGpsMessage] = useState('');
+  const [showPassengerRoute, setShowPassengerRoute] = useState(false);
+  const usePassengerGps = () => {
+    if (Platform.OS !== 'web' || typeof navigator === 'undefined' || !navigator.geolocation) { setPassengerGpsMessage('GPS недоступний'); return; }
+    setPassengerGpsMessage('Визначаємо місце…');
+    navigator.geolocation.getCurrentPosition(async p => {
+      const point = { label: 'Моя GPS-точка', lat: p.coords.latitude, lon: p.coords.longitude };
+      setFrom(point.label); setFromPoint(point); setPassengerGpsMessage('GPS визначено · можеш змінити адресу вручну');
+    }, e => setPassengerGpsMessage('GPS недоступний: ' + e.message + '. Вкажи адресу вручну.'), { enableHighAccuracy: true, timeout: 12000, maximumAge: 10000 });
+  };
   const [addressError, setAddressError] = useState('');
   const [testRequests, setTestRequests] = useState<TestPassengerRequest[]>([]);
   const [savingRequest, setSavingRequest] = useState(false);
@@ -167,6 +177,7 @@ export default function App() {
         offeredRateUahPerKm: parsedRate,
       });
       await refreshTestRequests();
+      setShowPassengerRoute(true);
       setRequestResult({ok: true, message: '✓ Заявку створено! № ' + created.id.slice(0, 8) + '. Йде пошук водія. Перевір її в «Тестові заявки».'});
       setNotice('Заявку створено. Йде пошук водія.');
     } catch (error) {
@@ -237,16 +248,18 @@ export default function App() {
                   <View style={styles.routeLine}>
                     <View style={styles.dotStart} />
                     <View style={styles.routeInputWrap}>
-                      <Text style={styles.fieldLabel}>ЗВІДКИ</Text>
-                      <TextInput value={from} onChangeText={v => { setFrom(v); setFromPoint(null); setEditingAddress('from'); }} onFocus={() => setEditingAddress('from')} placeholder="Адреса посадки" placeholderTextColor="#718096" style={styles.routeInput} />
+                      <Text style={styles.fieldLabel}>ЗВІДКИ · GPS АБО АДРЕСА</Text>
+                      <TextInput value={from} onChangeText={v => { setFrom(v); setFromPoint(null); setShowPassengerRoute(false); setEditingAddress('from'); }} onFocus={() => setEditingAddress('from')} placeholder="Адреса посадки" placeholderTextColor="#718096" style={styles.routeInput} />
                     </View>
                   </View>
+                  <TouchableOpacity onPress={usePassengerGps} style={{ paddingVertical: 8 }}><Text style={{ color: '#36DCA1', fontWeight: '800' }}>⌖ Визначити моє місце (GPS)</Text></TouchableOpacity>
+                  {!!passengerGpsMessage && <Text style={{ color: '#D5E8F0', fontSize: 11, marginBottom: 7 }}>{passengerGpsMessage}</Text>}
                   <View style={styles.routeDivider} />
                   <View style={styles.routeLine}>
                     <View style={styles.dotEnd} />
                     <View style={styles.routeInputWrap}>
                       <Text style={styles.fieldLabel}>КУДИ</Text>
-                      <TextInput value={to} onChangeText={v => { setTo(v); setToPoint(null); setEditingAddress('to'); }} onFocus={() => setEditingAddress('to')} placeholder="Адреса висадки" placeholderTextColor="#718096" style={styles.routeInput} />
+                      <TextInput value={to} onChangeText={v => { setTo(v); setToPoint(null); setShowPassengerRoute(false); setEditingAddress('to'); }} onFocus={() => setEditingAddress('to')} placeholder="Адреса висадки" placeholderTextColor="#718096" style={styles.routeInput} />
                     </View>
                   </View>
                   {editingAddress && suggestions.length > 0 && <View style={{ backgroundColor: '#22384A', borderRadius: 10, padding: 7, marginBottom: 10 }}>
@@ -264,31 +277,12 @@ export default function App() {
                     <Text style={styles.primaryButtonText}>{savingRequest ? 'Зберігаємо…' : 'Створити тестову заявку'}</Text>
                     <Text style={styles.buttonArrow}>＋</Text>
                   </TouchableOpacity>
+                  {showPassengerRoute && fromPoint && toPoint && <RouteMapPreview detail requests={[{id:'passenger-preview', origin: from, destination: to, offeredRateUahPerKm: Number(rate) || 15, departureStart:'', departureEnd:'', status:'searching', createdAt:'', isMine:true}]} />}
                   {requestResult && <View style={{ marginTop: 12, padding: 12, borderRadius: 8, backgroundColor: requestResult.ok ? '#14563C' : '#692C36', borderWidth: 1, borderColor: requestResult.ok ? '#39D58A' : '#FF7883' }}><Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '800' }}>{requestResult.message}</Text></View>}
                   {!fromPoint || !toPoint ? <Text style={{ color: '#F3DFA3', marginTop: 8, fontSize: 12 }}>Для створення вибери обидві адреси саме зі списку підказок.</Text> : null}
                 </View>
               </View>
 
-              <View style={styles.sectionHeader}>
-                <View>
-                  <Text style={styles.sectionTitle}>Тестування маршрутів</Text>
-                  <Text style={styles.sectionSubtitle}>Створюй декілька заявок для перевірки</Text>
-                </View>
-                <TouchableOpacity onPress={() => setTab('trips')}><Text style={styles.seeAll}>Усі →</Text></TouchableOpacity>
-              </View>
-              <View style={styles.popularRow}>
-                <TouchableOpacity style={styles.popularCard} onPress={() => { setFrom('Київ, Оболонський проспект 10'); setTo('Київ, Хрещатик 1'); setFromPoint(null); setToPoint(null); }}>
-                  <Text style={styles.popularIcon}>🏙️</Text><Text style={styles.popularRoute}>Київ: Берестейський → Хрещатик</Text><Text style={styles.popularMeta}>від 180 грн</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.popularCard} onPress={() => { setFrom('Київ'); setTo('Київ, Контрактова площа 1'); setFromPoint(null); setToPoint(null); }}>
-                  <Text style={styles.popularIcon}>🌆</Text><Text style={styles.popularRoute}>Київ: Оболонь → Поділ</Text><Text style={styles.popularMeta}>від 320 грн</Text>
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.sectionHeader}>
-                <View><Text style={styles.sectionTitle}>Демо-пропозиції</Text><Text style={styles.sectionSubtitle}>Приклади пропозицій</Text></View>
-              </View>
-              {sampleTrips.slice(0, 2).map((trip) => <TripCard key={trip.id} trip={trip} onPress={() => showNotice('Деталі поїздки та бронювання з’являться після підключення API.')} />)}
             </>
           )}
 
@@ -479,12 +473,6 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
         <TouchableOpacity style={[driverStyles.filter, design === 'new' && { backgroundColor: '#FFFFFF', borderColor: '#9DB5C4', borderRadius: 14, minWidth: '22%' }]} onPress={() => setSeats(v => v === 3 ? 1 : v + 1)}>
           <Text style={[driverStyles.legend, design === 'new' && { color: '#476175' }]}>Місць</Text><Text style={[driverStyles.filterValue, design === 'new' && { color: '#163D54' }]}>{seats} ▾</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={driverStyles.filter} onPress={() => setPickupLimit(cycle)}>
-          <Text style={driverStyles.legend}>Подача</Text><Text style={driverStyles.filterValue}>≤ {pickupLimit.toFixed(1)} км</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={driverStyles.filter} onPress={() => setFinalLimit(cycle)}>
-          <Text style={driverStyles.legend}>Фінал</Text><Text style={driverStyles.filterValue}>≤ {finalLimit.toFixed(1)} км</Text>
-        </TouchableOpacity>
         <TouchableOpacity style={driverStyles.filter} onPress={() => setUnique(v => !v)}>
           <Text style={driverStyles.legend}>Унікальні</Text><Text style={[driverStyles.filterValue, { color: unique ? '#36E88C' : '#8B9BAE' }, design === 'new' && { color: unique ? '#00854E' : '#526E80' }]}>{unique ? '✓' : '—'}</Text>
         </TouchableOpacity>
@@ -524,10 +512,10 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
       {view === 'list' && offers.length === 0 && <Text style={driverStyles.empty}>Немає варіантів для цих фільтрів.</Text>}
       {view === 'list' && offers.map(o => (
         <TouchableOpacity key={o.id} onPress={() => onSelectOffer(o)} activeOpacity={0.8} style={[driverStyles.offer, { borderColor: o.color }, design === 'new' && { backgroundColor: '#FFFFFF', borderRadius: 22, borderWidth: 2, paddingVertical: 17, marginBottom: 12 }]}>
-          {o.live && <Text style={{ color: '#14B98B', fontSize: 11, fontWeight: '900', marginBottom: 5 }}>● СТВОРЕНА ТЕСТОВА ЗАЯВКА</Text>}
+
           <View style={driverStyles.metrics}>
             <Text style={[driverStyles.total, design === 'new' && { color: '#123B52' }]}>₴{o.amount}</Text>
-            <Text style={[driverStyles.gps, design === 'new' && { color: '#007A4B' }]}>{o.live ? 'ТЕСТ' : 'ДЕМО'}</Text>
+
             <Text style={[driverStyles.metric, design === 'new' && { color: '#173D52' }]}><Text style={[driverStyles.green, design === 'new' && { color: '#007C51' }]}>{perKm(o).toFixed(1)}</Text> ₴/км</Text>
             <Text style={driverStyles.metric}><Text style={[driverStyles.orange, design === 'new' && { color: '#B66A00' }]}>{Math.round(perHour(o)).toLocaleString('uk-UA')}</Text> ₴/год</Text>
           </View>
@@ -607,7 +595,7 @@ function DriverOfferDetail({ design, offer, increase, setIncrease, onBack }: {
         <TouchableOpacity onPress={() => setMessage('Прийняття та запит нової ціни ще не підключені до сервера.')} style={detailStyles.accept}><Text style={detailStyles.actionText}>{increase ? 'Запропонувати' : 'Прийняти'}</Text></TouchableOpacity>
       </View>
       {!!message && <Text style={detailStyles.warning}>{message}</Text>}
-      <Text style={detailStyles.warning}>Демо-заявка · без бронювання та реальних адрес усіх пасажирів</Text>
+      <Text style={detailStyles.warning}>Тестовий перегляд · без реального бронювання</Text>
     </View>
   );
 }
