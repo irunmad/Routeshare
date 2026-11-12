@@ -57,7 +57,7 @@ function NavGraphic({ kind, active, design }: { kind: 'list' | 'map' | 'offer'; 
 
 type AddressSuggestion = { label: string; lon: number; lat: number };
 async function lookupAddresses(query: string): Promise<AddressSuggestion[]> {
-  const url = 'https://photon.komoot.io/api/?limit=6&lat=50.45&lon=30.52&q=' + encodeURIComponent(query);
+  const url = 'https://photon.komoot.io/api/?limit=6&lang=uk&lat=50.45&lon=30.52&q=' + encodeURIComponent(query);
   const response = await fetch(url);
   if (!response.ok) throw Error('Сервіс підказок тимчасово недоступний');
   const data = await response.json();
@@ -157,9 +157,34 @@ export default function App() {
     roadDistanceKm(fromPoint, toPoint).then(km => { if (active) { setDistanceKm(km); setAddressError(''); } }).catch(e => { if (active) setAddressError(String(e.message || e)); }).finally(() => { if (active) setRouteBusy(false); });
     return () => { active = false; };
   }, [fromPoint, toPoint]);
+  const [houseTarget, setHouseTarget] = useState<'from' | 'to' | null>(null);
+  const [houseStreet, setHouseStreet] = useState('');
+  const [houseNumber, setHouseNumber] = useState('');
+  const [houseBusy, setHouseBusy] = useState(false);
+  const confirmHouse = async () => {
+    if (!houseTarget || !houseNumber.trim()) return;
+    setHouseBusy(true); setAddressError('');
+    try {
+      const matches = await lookupAddresses(houseStreet + ' ' + houseNumber.trim());
+      const number = houseNumber.trim().toLowerCase().replace(/\\s/g, '');
+      const exact = matches.find(p => p.label.toLowerCase().replace(/\\s/g, '').includes(number));
+      if (!exact) { setAddressError('Будинок не знайдено. Уточни номер або введи повну адресу вручну.'); return; }
+      if (houseTarget === 'from') { setFrom(exact.label); setFromPoint(exact); }
+      else { setTo(exact.label); setToPoint(exact); }
+      setHouseTarget(null); setHouseNumber('');
+    } catch (e) { setAddressError(e instanceof Error ? e.message : 'Помилка пошуку будинку'); }
+    finally { setHouseBusy(false); }
+  };
   const selectAddress = (point: AddressSuggestion) => {
-    if (editingAddress === 'from') { setFrom(point.label); setFromPoint(point); }
-    if (editingAddress === 'to') { setTo(point.label); setToPoint(point); }
+    const streetOnly = !/\\d/.test(point.label.split(',')[0]) && !/\\d/.test(point.label.split(',')[1] || '');
+    if (streetOnly && editingAddress) {
+      setHouseTarget(editingAddress); setHouseStreet(point.label); setHouseNumber('');
+      if (editingAddress === 'from') { setFrom(point.label); setFromPoint(null); }
+      else { setTo(point.label); setToPoint(null); }
+    } else {
+      if (editingAddress === 'from') { setFrom(point.label); setFromPoint(point); }
+      if (editingAddress === 'to') { setTo(point.label); setToPoint(point); }
+    }
     setEditingAddress(null); setSuggestions([]);
   };
   const refreshTestRequests = async (showErrors = false) => {
@@ -321,6 +346,12 @@ export default function App() {
                   {editingAddress && suggestions.length > 0 && <View style={{ backgroundColor: '#22384A', borderRadius: 10, padding: 7, marginBottom: 10 }}>
                     <Text style={{ color: '#88C7B5', fontSize: 11, marginBottom: 5 }}>ОБЕРИ АДРЕСУ · {editingAddress === 'from' ? 'ЗВІДКИ' : 'КУДИ'}</Text>
                     {suggestions.map((item, index) => <TouchableOpacity key={index} onPress={() => selectAddress(item)} style={{ paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#385064' }}><Text style={{ color: '#FFFFFF', fontSize: 13 }}>{item.label}</Text></TouchableOpacity>)}
+                  </View>}
+                  {houseTarget && <View style={{ backgroundColor: '#213D50', padding: 10, borderRadius: 9, marginBottom: 10, gap: 7 }}>
+                    <Text style={{ color: '#FFFFFF', fontWeight: '800' }}>Номер будинку · {houseTarget === 'from' ? 'посадка' : 'висадка'}</Text>
+                    <Text style={{ color: '#9DB9C8', fontSize: 11 }}>{houseStreet}</Text>
+                    <TextInput autoFocus value={houseNumber} onChangeText={setHouseNumber} placeholder="Наприклад: 15А" placeholderTextColor="#9DB9C8" onSubmitEditing={confirmHouse} style={{ backgroundColor: '#314D61', color: '#FFFFFF', padding: 10, borderRadius: 8 }} />
+                    <TouchableOpacity onPress={confirmHouse} disabled={houseBusy || !houseNumber.trim()} style={{ padding: 10, backgroundColor: '#128D68', borderRadius: 8 }}><Text style={{ color: '#FFFFFF', fontWeight: '800' }}>{houseBusy ? 'Шукаємо будинок…' : 'Підтвердити адресу'}</Text></TouchableOpacity>
                   </View>}
                   {!!addressError && <Text style={{ color: '#FFAD84', fontSize: 12, marginBottom: 8 }}>{addressError}</Text>}
                   <Text style={{ color: '#8EE6C1', fontWeight: '800', marginBottom: 9 }}>{routeBusy ? 'Розрахунок маршруту…' : distanceKm === null ? 'Вибери адреси зі списку для розрахунку' : distanceKm.toFixed(1) + ' км по дорогах · від ' + Math.ceil(distanceKm * 15) + ' ₴'}</Text>
