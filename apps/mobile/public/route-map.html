@@ -1,78 +1,231 @@
-<!doctype html><html lang="uk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"><style>html,body,#map{margin:0;width:100%;height:100%;background:#e6e9e9} .leaflet-control-attribution{font-size:9px!important}.marker{background:#132235;color:white;border:2px solid white;border-radius:6px;padding:2px 5px;font:700 11px system-ui;white-space:nowrap;box-shadow:0 1px 4px #3337}.info{position:absolute;top:8px;left:8px;z-index:1000;background:#101d2be8;color:#fff;border-radius:7px;padding:6px 9px;font:11px system-ui;max-width:65%}</style></head><body><div id="map"></div><div class="info" id="info">Завантаження дорожніх маршрутів…</div><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script>
-const map=L.map('map',{zoomControl:true}).setView([50.43,30.55],11);
-L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(map);
-const params=new URLSearchParams(location.search), detail=params.get('detail')==='1';
-const colors=['#ee4151','#21a95a','#3185f4'];
-const liveMode=params.get('live')==='1';
-let liveRequests=[];try{liveRequests=JSON.parse(params.get('requests')||'[]')}catch{}
-// Approximate illustrative locations near Kyiv roads; no geocoding or matching claims.
-const start=[30.4346,50.4372],end=[30.632,50.403];
-const sets=[
- [[30.444,50.436],[30.465,50.431],[30.511,50.429],[30.553,50.418],[30.592,50.409],[30.625,50.403]],
- [[30.446,50.440],[30.478,50.432],[30.526,50.428],[30.562,50.418],[30.600,50.411],[30.624,50.404]],
- [[30.450,50.434],[30.490,50.431],[30.538,50.424],[30.575,50.417],[30.605,50.409],[30.627,50.403]]
-];
-function marker(point,label,color){L.marker([point[1],point[0]],{icon:L.divIcon({className:'',html:'<span class="marker" style="border-color:'+color+'">'+label+'</span>',iconSize:[30,20]})}).addTo(map);}
-async function road(a,b){const url='https://router.project-osrm.org/route/v1/driving/'+a.join(',')+';'+b.join(',')+'?overview=full&geometries=geojson';const r=await fetch(url);if(!r.ok)throw Error('OSRM '+r.status);const d=await r.json();if(d.code!=='Ok'||!d.routes?.[0])throw Error('No route');return d.routes[0];}
-function draw(coords,options){return L.polyline(coords.map(c=>[c[1],c[0]]),options).addTo(map)}
-(async()=>{try{
- if(liveMode){await drawLiveRequests();return;}
- const bounds=[];
- const baseline=await road(start,end);draw(baseline.geometry.coordinates,{color:'#171b23',weight:2.2,opacity:.85});bounds.push(...baseline.geometry.coordinates);
- marker(start,'A','#161b25');marker(end,'B','#161b25');
- const count=detail?1:3;
- for(let k=0;k<count;k++){
-  const pts=sets[k],color=colors[k];
-  // Ordered pickups 1,2,3 followed by dropoffs 1,2,3.
-  const stops=[start,...pts];
-  for(let i=0;i<stops.length-1;i++){
-   const r=await road(stops[i],stops[i+1]);
-   const n=i===0?0:i<=3?i:Math.max(0,6-i);
-   const options={color:i===0?'#171b23':color,weight:i===0?1.5:detail?1.1+n*.65:1+n*.35,opacity:.85,dashArray:i===0?'4 6':undefined};
-   draw(r.geometry.coordinates,options);bounds.push(...r.geometry.coordinates);
-  }
-  pts.forEach((p,i)=>marker(p,(i<3?'↑':'↓')+(i%3+1),color));
- }
- map.fitBounds(L.latLngBounds(bounds.map(c=>[c[1],c[0]])),{padding:[18,18]});
- document.getElementById('info').textContent='Демо-точки · маршрути OSRM · '+(detail?'1 заявка':'3 варіанти');
-}catch(e){document.getElementById('info').textContent='Маршрути недоступні: '+e.message;}})();
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    html, body, #map { margin: 0; width: 100%; height: 100%; background: #e6e9e9; }
+    .leaflet-control-attribution { font-size: 9px !important; }
+    .marker {
+      background: #132235;
+      color: white;
+      border: 2px solid white;
+      border-radius: 6px;
+      padding: 2px 5px;
+      font: 700 11px system-ui;
+      white-space: nowrap;
+      box-shadow: 0 1px 4px #3337;
+    }
+    .info {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      z-index: 1000;
+      background: #101d2be8;
+      color: #fff;
+      border-radius: 7px;
+      padding: 6px 9px;
+      font: 11px system-ui;
+      max-width: 75%;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div class="info" id="info" role="status">Завантаження дорожніх маршрутів…</div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const info = document.getElementById('info');
+    const neutral = '#171b23';
+    const toLatLng = ([lon, lat]) => [lat, lon];
 
-// Resolve live addresses with the same Photon settings as the address picker.
-async function geocode(address){
- const cacheKey='rs-geo-photon:'+address.toLowerCase().trim();
- try{const cached=JSON.parse(localStorage.getItem(cacheKey)||'null');if(cached)return cached;}catch{}
- const url='https://photon.komoot.io/api/?limit=6&lang=default&lat=50.45&lon=30.52&q='+encodeURIComponent(address);
- const response=await fetch(url);
- if(!response.ok)throw Error('Геокодування HTTP '+response.status);
- const {features=[]}=await response.json();
- const match=features.find(feature=>feature.properties?.countrycode==='UA' && feature.geometry?.coordinates);
- if(!match)return null;
- const point=match.geometry.coordinates;
- try{localStorage.setItem(cacheKey,JSON.stringify(point));}catch{}
- return point;
-}
-async function drawLiveRequests(){
- const info=document.getElementById('info');
- if(!liveRequests.length){info.textContent='Немає тестових заявок · створи їх у режимі пасажира';return;}
- info.textContent='Пошук адрес для '+liveRequests.length+' заявок…';
- const bounds=[];let drawn=0;let unresolved=0;
- for(const request of liveRequests){
-  try{
-   const a=await geocode(request.origin);
-   await new Promise(resolve=>setTimeout(resolve,1100));
-   const b=await geocode(request.destination);
-   await new Promise(resolve=>setTimeout(resolve,1100));
-   if(!a||!b){unresolved++;continue;}
-   const route=await road(a,b);
-   const color=colors[drawn%colors.length];
-   draw(route.geometry.coordinates,{color:'#FFFFFF',weight:7,opacity:.95});
-   draw(route.geometry.coordinates,{color,weight:4.5,opacity:.95});
-   marker(a,'↑'+(drawn+1),color);marker(b,'↓'+(drawn+1),color);
-   bounds.push(...route.geometry.coordinates);drawn++;
-  }catch(e){unresolved++;console.warn('RouteShare live route',e);}
-  info.textContent='Маршрути: '+drawn+'/'+liveRequests.length+' · не знайдено: '+unresolved;
- }
- if(bounds.length)map.fitBounds(L.latLngBounds(bounds.map(c=>[c[1],c[0]])),{padding:[22,22]});
- info.textContent='Тестові заявки на дорогах: '+drawn+'/'+liveRequests.length+(unresolved?' · адреси не визначено: '+unresolved:'');
-}
-</script></body></html>
+    function isPoint(value) {
+      return Array.isArray(value) && value.length === 2 &&
+        value.every(Number.isFinite) && Math.abs(value[0]) <= 180 && Math.abs(value[1]) <= 90;
+    }
+
+    async function fetchJson(url, signal) {
+      const request = new AbortController();
+      const cancel = () => request.abort();
+      signal.addEventListener('abort', cancel, { once: true });
+      if (signal.aborted) cancel();
+      const timer = setTimeout(cancel, 10000);
+      try {
+        const response = await fetch(url, { signal: request.signal });
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        return await response.json();
+      } finally {
+        clearTimeout(timer);
+        signal.removeEventListener('abort', cancel);
+      }
+    }
+
+    async function resolveStop(stop, signal) {
+      if (isPoint(stop)) return stop;
+      if (typeof stop !== 'string' || !stop.trim() || stop === 'Моя GPS-точка') return null;
+
+      const key = 'rs-geo-photon:' + stop.toLowerCase().trim();
+      try {
+        const cached = JSON.parse(localStorage.getItem(key) || 'null');
+        if (isPoint(cached)) return cached;
+      } catch {}
+
+      const url = 'https://photon.komoot.io/api/?limit=6&lang=default&lat=50.45&lon=30.52&q=' + encodeURIComponent(stop);
+      const { features = [] } = await fetchJson(url, signal);
+      const match = features.find(feature =>
+        feature.properties?.countrycode === 'UA' && isPoint(feature.geometry?.coordinates)
+      );
+      if (!match) return null;
+      const point = match.geometry.coordinates;
+      try { localStorage.setItem(key, JSON.stringify(point)); } catch {}
+      return point;
+    }
+
+    async function roadGeometry(stops, signal) {
+      const coordinates = stops.map(stop => stop.join(',')).join(';');
+      const url = 'https://router.project-osrm.org/route/v1/driving/' + coordinates + '?overview=full&geometries=geojson';
+      const data = await fetchJson(url, signal);
+      const geometry = data.routes?.[0]?.geometry?.coordinates;
+      if (data.code !== 'Ok' || !geometry?.length) throw new Error('Маршрут не знайдено');
+      return geometry;
+    }
+
+    function markerLabel(kind, index, total) {
+      if (kind === 'driver') return index === 0 ? 'А' : 'Б';
+      const pickups = total / 2;
+      return index < pickups ? '↑' + (index + 1) : '↓' + (index - pickups + 1);
+    }
+
+    function marker(point, label, color) {
+      const badge = document.createElement('span');
+      badge.className = 'marker';
+      badge.style.borderColor = color;
+      badge.textContent = label;
+      return L.marker(toLatLng(point), {
+        icon: L.divIcon({ className: '', html: badge, iconSize: [30, 20] }),
+      });
+    }
+
+    function initializeMap() {
+      const map = L.map('map', { zoomControl: true }).setView([50.43, 30.55], 11);
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '© OpenStreetMap contributors',
+      }).addTo(map);
+      const layers = L.featureGroup().addTo(map);
+      let previousPayload;
+      let renderController;
+
+      function fitRoutes() {
+        const bounds = layers.getBounds();
+        if (bounds.isValid()) map.fitBounds(bounds, { padding: [22, 22], maxZoom: 16 });
+      }
+
+      async function drawRoutes(routes, signal) {
+        if (!routes.length) {
+          info.textContent = 'Немає маршрутів для відображення';
+          return;
+        }
+
+        info.textContent = 'Завантаження дорожніх маршрутів…';
+        let drawn = 0;
+        let missing = 0;
+        let unavailable = 0;
+        let demoSchemes = 0;
+        const demos = routes.filter(route => route.kind === 'demo').length;
+
+        async function drawRoute(route) {
+          const color = /^#[0-9a-f]{6}$/i.test(route.color) ? route.color : neutral;
+          let stops;
+          try {
+            stops = await Promise.all(route.stops.map(stop => resolveStop(stop, signal)));
+          } catch {
+            if (!signal.aborted) unavailable++;
+            return;
+          }
+          if (signal.aborted) return;
+          if (stops.length < 2 || stops.some(stop => !stop)) {
+            missing++;
+            return;
+          }
+
+          const first = layers.getLayers().length === 0;
+          const routeLayers = L.featureGroup().addTo(layers);
+          stops.forEach((point, index) => {
+            marker(point, markerLabel(route.kind, index, stops.length), color).addTo(routeLayers);
+          });
+          if (first) fitRoutes();
+
+          try {
+            const geometry = await roadGeometry(stops, signal);
+            if (signal.aborted) return;
+            const width = route.kind === 'driver' ? 5 : color === neutral ? 2 : 4;
+            const path = geometry.map(toLatLng);
+            L.polyline(path, { color: '#fff', weight: width + 2, opacity: .92 }).addTo(routeLayers);
+            L.polyline(path, { color, weight: width, opacity: .95 }).addTo(routeLayers);
+            drawn++;
+          } catch {
+            if (signal.aborted) return;
+            if (route.kind === 'demo') {
+              L.polyline(stops.map(toLatLng), { color, weight: 3, dashArray: '6 5' }).addTo(routeLayers);
+              demoSchemes++;
+            } else {
+              unavailable++;
+            }
+          }
+        }
+
+        for (let offset = 0; offset < routes.length && !signal.aborted; offset += 3) {
+          await Promise.all(routes.slice(offset, offset + 3).map(drawRoute));
+        }
+        if (signal.aborted) return;
+
+        fitRoutes();
+        const status = ['Дорожні маршрути: ' + drawn + '/' + routes.length];
+        if (demos) status.push('Демо: ' + demos);
+        if (demoSchemes) status.push('Демо-схеми: ' + demoSchemes);
+        if (missing) status.push('Без координат: ' + missing);
+        if (unavailable) status.push('Недоступні: ' + unavailable);
+        info.textContent = status.join(' · ');
+      }
+
+      function render(payload) {
+        if (payload === previousPayload) return;
+        let routes;
+        try { routes = JSON.parse(payload); } catch { return; }
+        if (!Array.isArray(routes)) return;
+
+        previousPayload = payload;
+        renderController?.abort();
+        renderController = new AbortController();
+        layers.clearLayers();
+        void drawRoutes(routes, renderController.signal);
+      }
+
+      window.addEventListener('message', event => {
+        if (event.source === window.parent && event.origin === window.location.origin &&
+            event.data?.type === 'routeshare:routes' && typeof event.data.payload === 'string') {
+          render(event.data.payload);
+        }
+      });
+
+      // Accept the request payload from web builds that still load the previous map URL.
+      const legacy = new URLSearchParams(window.location.search).get('requests');
+      if (legacy) {
+        try {
+          const routes = JSON.parse(legacy).map(request => ({
+            stops: [request.origin, request.destination], color: neutral, kind: 'passenger',
+          }));
+          render(JSON.stringify(routes));
+        } catch {}
+      } else if (window.parent === window) {
+        render('[]');
+      }
+    }
+
+    if (window.L) initializeMap();
+    else info.textContent = 'Карта тимчасово недоступна';
+  </script>
+</body>
+</html>

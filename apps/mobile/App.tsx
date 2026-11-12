@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { cancelTestPassengerRequest, createTestPassengerRequest, listTestPassengerRequests, TestPassengerRequest } from './src/lib/testRequests';
 import { StatusBar } from 'expo-status-bar';
 import {
@@ -55,7 +55,34 @@ function NavGraphic({ kind, active, design }: { kind: 'list' | 'map' | 'offer'; 
   return <Image source={{ uri: 'data:image/svg+xml,' + encodeURIComponent(svg) }} style={{ width: 28, height: 28 }} resizeMode="contain" />;
 }
 
-type AddressSuggestion = { label: string; lon: number; lat: number; houseNumber?: string };
+type Coordinates = { lat: number; lon: number };
+type MapPoint = [longitude: number, latitude: number];
+type MapStop = MapPoint | string | null;
+type MapRoute = { stops: MapStop[]; color: string; kind: 'driver' | 'passenger' | 'demo' };
+type AddressSuggestion = Coordinates & { label: string; houseNumber?: string; source?: 'gps' };
+
+const passengerGpsLabel = 'Моя GPS-точка';
+const neutralRouteColor = '#171b23';
+const priorityColors = ['#FF4256', '#23DE75', '#36A9FF'];
+const toMapPoint = ({ lon, lat }: Coordinates): MapPoint => [lon, lat];
+
+function parseGpsAddress(label: string): Coordinates | null {
+  const match = /^GPS (-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)$/.exec(label);
+  if (!match) return null;
+  const lat = Number(match[1]);
+  const lon = Number(match[2]);
+  return Math.abs(lat) <= 90 && Math.abs(lon) <= 180 ? { lat, lon } : null;
+}
+
+function requestMapStop(label: string): MapStop {
+  const point = parseGpsAddress(label);
+  if (point) return toMapPoint(point);
+  return label === passengerGpsLabel ? null : label;
+}
+
+function displayTestAddress(label: string): string {
+  return parseGpsAddress(label) ? 'GPS-точка' : label;
+}
 async function lookupAddresses(query: string): Promise<AddressSuggestion[]> {
   // Request local OpenStreetMap names, including Ukrainian names in Kyiv.
   const url = 'https://photon.komoot.io/api/?limit=6&lang=default&lat=50.45&lon=30.52&q=' + encodeURIComponent(query);
@@ -79,10 +106,13 @@ async function lookupHouse(street: string, number: string): Promise<AddressSugge
   return rows.find(point => point.houseNumber && normalize(point.houseNumber) === target);
 }
 async function resolveAddress(label: string): Promise<AddressSuggestion | null> {
+  const gps = parseGpsAddress(label);
+  if (gps) return { ...gps, label: 'GPS-точка', source: 'gps' };
+  if (label === passengerGpsLabel) return null;
   const rows = await lookupAddresses(label);
   return rows[0] || null;
 }
-async function roadDistanceKm(a: AddressSuggestion, b: AddressSuggestion): Promise<number> {
+async function roadDistanceKm(a: Coordinates, b: Coordinates): Promise<number> {
   const url = 'https://router.project-osrm.org/route/v1/driving/' + a.lon + ',' + a.lat + ';' + b.lon + ',' + b.lat + '?overview=false';
   const response = await fetch(url);
   if (!response.ok) throw Error('Не вдалося розрахувати відстань');
@@ -146,7 +176,7 @@ export default function App() {
     if (Platform.OS !== 'web' || typeof navigator === 'undefined' || !navigator.geolocation) { setPassengerGpsMessage('GPS недоступний'); return; }
     setPassengerGpsMessage('Визначаємо місце…');
     navigator.geolocation.getCurrentPosition(async p => {
-      const point = { label: 'Моя GPS-точка', lat: p.coords.latitude, lon: p.coords.longitude };
+      const point: AddressSuggestion = { label: passengerGpsLabel, lat: p.coords.latitude, lon: p.coords.longitude, source: 'gps' };
       setFrom(point.label); setFromPoint(point); setPassengerGpsMessage('GPS визначено · можеш змінити адресу вручну');
     }, e => setPassengerGpsMessage('GPS недоступний: ' + e.message + '. Вкажи адресу вручну.'), { enableHighAccuracy: true, timeout: 12000, maximumAge: 10000 });
   };
@@ -240,7 +270,8 @@ export default function App() {
     setSavingRequest(true);
     try {
       const created = await createTestPassengerRequest({
-        origin: from.trim(),
+        // The test API accepts text addresses, including GPS latitude and longitude.
+        origin: fromPoint.source === 'gps' ? 'GPS ' + fromPoint.lat.toFixed(5) + ', ' + fromPoint.lon.toFixed(5) : from.trim(),
         destination: to.trim(),
         departureStart: departure.toISOString(),
         departureEnd: departureEnd.toISOString(),
@@ -373,7 +404,9 @@ export default function App() {
                     <Text style={styles.primaryButtonText}>{savingRequest ? 'Зберігаємо…' : 'Створити тестову заявку'}</Text>
                     <Text style={styles.buttonArrow}>＋</Text>
                   </TouchableOpacity>
-                  {showPassengerRoute && fromPoint && toPoint && <RouteMapPreview detail requests={[{id:'passenger-preview', origin: from, destination: to, offeredRateUahPerKm: Number(rate) || 15, departureStart:'', departureEnd:'', status:'searching', createdAt:'', isMine:true}]} />}
+                  {showPassengerRoute && fromPoint && toPoint && <RouteMapPreview detail routes={[{
+                    stops: [toMapPoint(fromPoint), toMapPoint(toPoint)], kind: 'passenger', color: priorityColors[0],
+                  }]} />}
                   {requestResult && <View style={{ marginTop: 12, padding: 12, borderRadius: 8, backgroundColor: requestResult.ok ? '#14563C' : '#692C36', borderWidth: 1, borderColor: requestResult.ok ? '#39D58A' : '#FF7883' }}><Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '800' }}>{requestResult.message}</Text></View>}
                   {!fromPoint || !toPoint ? <Text style={{ color: '#F3DFA3', marginTop: 8, fontSize: 12 }}>Для створення вибери обидві адреси саме зі списку підказок.</Text> : null}
                 </View>
@@ -436,22 +469,42 @@ export default function App() {
 type DriverOffer = {
   id: string; color: string; amount: number; distance: number; minutes: number;
   pickupKm: number; finalKm: number; pickup: string; dropoff: string;
+  mapStops: MapPoint[];
   passengers: { name: string; acceptance: number; noShow: number; km: number; fare: number; avatar: string; pickup?: string; dropoff?: string }[];
   live?: boolean;
 };
+type MatchedRequest = {
+  request: TestPassengerRequest;
+  pickupKm: number;
+  finalKm: number;
+  passengerKm: number;
+  fare: number;
+  mapStops: MapPoint[];
+};
+
+function offerMapRoute(offer: DriverOffer): MapRoute {
+  return { stops: offer.mapStops, color: offer.color, kind: offer.live ? 'passenger' : 'demo' };
+}
+
 // Preview data only. Never use these values to accept a real ride or charge a passenger.
 const previewOffers: DriverOffer[] = [
-  { id: 'red', color: '#FF4256', amount: 870, distance: 23.6, minutes: 42, pickupKm: 2.1, finalKm: 3.4, pickup: 'просп. Відрадний, 3', dropoff: 'просп. Григоренка, 22', passengers: [
+  { id: 'red', color: '#FF4256', amount: 870, distance: 23.6, minutes: 42, pickupKm: 2.1, finalKm: 3.4, pickup: 'просп. Відрадний, 3', dropoff: 'просп. Григоренка, 22',
+    mapStops: [[30.444, 50.436], [30.465, 50.431], [30.511, 50.429], [30.553, 50.418], [30.592, 50.409], [30.625, 50.403]],
+    passengers: [
     { name: 'Олексій', acceptance: 97, noShow: 0, km: 8.1, fare: 320, avatar: 'О' },
     { name: 'Марія', acceptance: 95, noShow: 2, km: 7.5, fare: 280, avatar: 'М' },
     { name: 'Ігор', acceptance: 100, noShow: 0, km: 11.2, fare: 270, avatar: 'І' },
   ] },
-  { id: 'green', color: '#23DE75', amount: 750, distance: 22, minutes: 38, pickupKm: 1.8, finalKm: 3.1, pickup: 'вул. Лісова, 7', dropoff: 'Харківське шосе, 144', passengers: [
+  { id: 'green', color: '#23DE75', amount: 750, distance: 22, minutes: 38, pickupKm: 1.8, finalKm: 3.1, pickup: 'вул. Лісова, 7', dropoff: 'Харківське шосе, 144',
+    mapStops: [[30.446, 50.440], [30.478, 50.432], [30.526, 50.428], [30.562, 50.418], [30.600, 50.411], [30.624, 50.404]],
+    passengers: [
     { name: 'Анна', acceptance: 98, noShow: 0, km: 6.9, fare: 260, avatar: 'А' },
     { name: 'Дмитро', acceptance: 96, noShow: 1, km: 7.4, fare: 250, avatar: 'Д' },
     { name: 'Сергій', acceptance: 94, noShow: 3, km: 7.7, fare: 240, avatar: 'С' },
   ] },
-  { id: 'blue', color: '#36A9FF', amount: 690, distance: 21, minutes: 36, pickupKm: 2.6, finalKm: 2.8, pickup: 'вул. Вишгородська, 45', dropoff: 'вул. Бориспільська, 40', passengers: [
+  { id: 'blue', color: '#36A9FF', amount: 690, distance: 21, minutes: 36, pickupKm: 2.6, finalKm: 2.8, pickup: 'вул. Вишгородська, 45', dropoff: 'вул. Бориспільська, 40',
+    mapStops: [[30.450, 50.434], [30.490, 50.431], [30.538, 50.424], [30.575, 50.417], [30.605, 50.409], [30.627, 50.403]],
+    passengers: [
     { name: 'Віктор', acceptance: 93, noShow: 3, km: 6.5, fare: 230, avatar: 'В' },
     { name: 'Юлія', acceptance: 95, noShow: 0, km: 7, fare: 220, avatar: 'Ю' },
     { name: 'Роман', acceptance: 95, noShow: 1, km: 7.5, fare: 240, avatar: 'Р' },
@@ -515,6 +568,7 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
   const [manualSuggestions, setManualSuggestions] = useState<AddressSuggestion[]>([]);
   const [manualOpen, setManualOpen] = useState(false);
   const [startPoint, setStartPoint] = useState<AddressSuggestion | null>(null);
+  const driverStart = startPoint ?? gps;
   const [driverRouteKm, setDriverRouteKm] = useState<number | null>(null);
   const [driverRouteError, setDriverRouteError] = useState('');
   useEffect(() => {
@@ -530,18 +584,16 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
     return () => { active = false; clearTimeout(timer); };
   }, [manualStart, manualOpen, startPoint]);
   useEffect(() => {
-    const origin = startPoint || (gps ? { label: 'GPS', lat: gps.lat, lon: gps.lon } : null);
-    if (!origin || !destinationPoint) { setDriverRouteKm(null); return; }
+    if (!driverStart || !destinationPoint) { setDriverRouteKm(null); return; }
     let active = true; setDriverRouteError('');
-    roadDistanceKm(origin, destinationPoint).then(km => { if (active) setDriverRouteKm(km); }).catch(e => { if (active) { setDriverRouteKm(null); setDriverRouteError(e.message); } });
+    roadDistanceKm(driverStart, destinationPoint).then(km => { if (active) setDriverRouteKm(km); }).catch(e => { if (active) { setDriverRouteKm(null); setDriverRouteError(e.message); } });
     return () => { active = false; };
-  }, [gps, startPoint, destinationPoint]);
+  }, [driverStart, destinationPoint]);
   const adjust = (value: number, delta: number) => Math.min(7, Math.max(0.5, Math.round((value + delta) * 10) / 10));
-  const [eligibleRequests, setEligibleRequests] = useState<{ request: TestPassengerRequest; pickupKm: number; finalKm: number; passengerKm: number; fare: number }[]>([]);
+  const [eligibleRequests, setEligibleRequests] = useState<MatchedRequest[]>([]);
   const [matchingState, setMatchingState] = useState('Для підбору вкажи початок і кінець маршруту');
   useEffect(() => {
-    const origin = startPoint || (gps ? { label: 'GPS', lat: gps.lat, lon: gps.lon } : null);
-    if (!origin || !destinationPoint) {
+    if (!driverStart || !destinationPoint) {
       setEligibleRequests([]);
       setMatchingState('Вкажи початок (GPS або вручну) та кінцеву адресу водія');
       return;
@@ -550,7 +602,7 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
     let active = true;
     setMatchingState('Перевіряємо відстані по дорогах…');
     const run = async () => {
-      const results: { request: TestPassengerRequest; pickupKm: number; finalKm: number; passengerKm: number; fare: number }[] = [];
+      const results: MatchedRequest[] = [];
       let unresolved = 0;
       for (const request of liveRequests) {
         if (!active) return;
@@ -559,12 +611,16 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
           const dropoff = await resolveAddress(request.destination);
           if (!pickup || !dropoff) { unresolved++; continue; }
           const [pickupKm, finalKm, passengerKm] = await Promise.all([
-            roadDistanceKm(origin, pickup),
+            roadDistanceKm(driverStart, pickup),
             roadDistanceKm(dropoff, destinationPoint),
             roadDistanceKm(pickup, dropoff),
           ]);
           if (pickupKm <= pickupLimit && finalKm <= finalLimit) {
-            results.push({ request, pickupKm, finalKm, passengerKm, fare: Math.ceil(passengerKm * request.offeredRateUahPerKm) });
+            results.push({
+              request, pickupKm, finalKm, passengerKm,
+              fare: Math.ceil(passengerKm * request.offeredRateUahPerKm),
+              mapStops: [toMapPoint(pickup), toMapPoint(dropoff)],
+            });
           }
         } catch { unresolved++; }
       }
@@ -576,23 +632,41 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
     };
     run();
     return () => { active = false; };
-  }, [gps, startPoint, destinationPoint, liveRequests, pickupLimit, finalLimit]);
+  }, [driverStart, destinationPoint, liveRequests, pickupLimit, finalLimit]);
   // Real test requests and preview combinations share one ranking and the same cards.
   // A live single-passenger offer uses its verified road distances; travel time is estimated.
-  const liveOffers: DriverOffer[] = eligibleRequests.map(({request, pickupKm, finalKm, passengerKm, fare}) => {
+  const liveOffers: DriverOffer[] = eligibleRequests.map(({request, pickupKm, finalKm, passengerKm, fare, mapStops}) => {
     const distance = pickupKm + passengerKm + finalKm;
+    const pickup = displayTestAddress(request.origin);
+    const dropoff = displayTestAddress(request.destination);
     return {
       id: request.id, color: '#718096', live: true, amount: fare,
       distance, minutes: Math.max(1, Math.round(distance / 25 * 60)),
-      pickupKm, finalKm, pickup: request.origin, dropoff: request.destination,
+      pickupKm, finalKm, pickup, dropoff, mapStops,
       passengers: [{ name: 'Тестовий пасажир', acceptance: 100, noShow: 0,
-        km: passengerKm, fare, avatar: 'Т', pickup: request.origin, dropoff: request.destination }],
+        km: passengerKm, fare, avatar: 'Т', pickup, dropoff }],
     };
   });
   const rankedOffers = [...previewOffers, ...liveOffers]
     .filter(o => o.passengers.length <= seats && o.pickupKm <= pickupLimit && o.finalKm <= finalLimit)
     .sort((a, b) => sortBy === 'km' ? perKm(b) - perKm(a) : perHour(b) - perHour(a));
-  const offers = rankedOffers.map((o, i) => ({...o, color: i === 0 ? '#FF4256' : i === 1 ? '#23DE75' : i === 2 ? '#36A9FF' : '#718096'}));
+  const offers = rankedOffers.map((o, i) => ({ ...o, color: priorityColors[i] ?? '#718096' }));
+  const mapRoutes: MapRoute[] = [];
+  if (view === 'map') {
+    if (driverStart && destinationPoint) {
+      mapRoutes.push({ stops: [toMapPoint(driverStart), toMapPoint(destinationPoint)], color: neutralRouteColor, kind: 'driver' });
+    }
+    mapRoutes.push(...offers.filter(offer => !offer.live).map(offerMapRoute));
+    const priorityOffers = new Map(offers.slice(0, priorityColors.length).map(offer => [offer.id, offer]));
+    const matchedOffers = new Map(liveOffers.map(offer => [offer.id, offer]));
+    for (const request of liveRequests.slice(0, 15)) {
+      mapRoutes.push({
+        stops: matchedOffers.get(request.id)?.mapStops ?? [requestMapStop(request.origin), requestMapStop(request.destination)],
+        color: priorityOffers.get(request.id)?.color ?? neutralRouteColor,
+        kind: 'passenger',
+      });
+    }
+  }
   if (view === 'offer') return selectedOffer ? <DriverOfferDetail design={design} offer={selectedOffer} increase={increase} setIncrease={setIncrease} onBack={onBack} /> : <View style={driverStyles.wrap}><Text style={driverStyles.empty}>Заявку ще не вибрано. Відкрий «Список» і натисни на потрібну комбінацію.</Text></View>;
   return (
     <View style={[driverStyles.wrap, design === 'new' && { backgroundColor: '#E9F0F6', padding: 8, borderRadius: 14 }]}>
@@ -628,7 +702,7 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
           </View>
         </View>)}
       </View>
-      {view === 'map' && <RouteMapPreview detail={false} requests={liveRequests} />}
+      {view === 'map' && <RouteMapPreview detail={false} routes={mapRoutes} />}
       {view === 'list' && <View style={driverStyles.sortRow}>
         <Text style={[driverStyles.count, design === 'new' && { color: '#123B52' }]}>Заявки ({offers.length})</Text>
         <Text style={[driverStyles.sortLabel, design === 'new' && { color: '#476175' }]}>Сортування:</Text>
@@ -668,12 +742,21 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
   );
 }
 
-function RouteMapPreview({ detail, requests = [] }: { detail: boolean; requests?: TestPassengerRequest[] }) {
+function RouteMapPreview({ detail, routes }: { detail: boolean; routes: MapRoute[] }) {
+  const frame = useRef<HTMLIFrameElement>(null);
+  const payload = JSON.stringify(routes);
+  const sendRoutes = useCallback(() => {
+    const target = frame.current?.contentWindow;
+    if (target) target.postMessage({ type: 'routeshare:routes', payload }, window.location.origin);
+  }, [payload]);
+  useEffect(sendRoutes, [sendRoutes]);
+
   if (Platform.OS !== 'web') return <View style={detailStyles.mapPlaceholder}><Text style={detailStyles.mapText}>Веб-карта доступна у браузері.</Text></View>;
-  const payload = requests.slice(0, 15).map(r => ({ id: r.id, origin: r.origin, destination: r.destination, rate: r.offeredRateUahPerKm }));
-  const src = '/Routeshare/route-map.html?' + new URLSearchParams({ v: '2', ...(detail ? { detail: '1' } : {}), live: '1', requests: JSON.stringify(payload) }).toString();
   return <View style={{ height: detail ? 245 : 360, borderRadius: 9, overflow: 'hidden', borderWidth: 1, borderColor: '#526373' }}>
-    {React.createElement('iframe' as any, { src, title: 'RouteShare OSM map', style: { width: '100%', height: '100%', border: 0 }, loading: 'lazy' })}
+    {React.createElement('iframe', {
+      ref: frame, src: './route-map.html?v=3', onLoad: sendRoutes, title: 'Карта маршрутів RouteShare',
+      style: { width: '100%', height: '100%', border: 0 },
+    })}
   </View>;
 }
 
@@ -708,7 +791,7 @@ function DriverOfferDetail({ design, offer, increase, setIncrease, onBack }: {
         ))}
         <Text style={detailStyles.segment}>Остання висадка → ┄ {offer.finalKm.toFixed(1)} км до фінішу водія</Text>
       </View>
-      <RouteMapPreview detail requests={offer.live ? [{ id: offer.id, origin: offer.pickup, destination: offer.dropoff, offeredRateUahPerKm: offer.amount / (offer.passengers[0]?.km || 1), departureStart: '', departureEnd: '', status: 'searching', createdAt: '', isMine: false }] : []} />
+      <RouteMapPreview detail routes={[offerMapRoute(offer)]} />
       <View style={detailStyles.priceRow}>
         <Text style={detailStyles.priceLabel}>Підвищення тарифу</Text>
         {[0,10,20,30,40,50].map(value => (
@@ -783,7 +866,7 @@ function TestRequestCard({ request, onCancel }: { request: TestPassengerRequest;
         <Text style={styles.testRequestBadge}>ТЕСТ · {request.isMine ? 'ТВОЯ ЗАЯВКА' : 'ІНШИЙ ПРИСТРІЙ'}</Text>
         <Text style={styles.testRequestRate}>{formatRate(request.offeredRateUahPerKm)} грн/км</Text>
       </View>
-      <Text style={styles.testRequestRoute}>{request.origin} → {request.destination}</Text>
+      <Text style={styles.testRequestRoute}>{displayTestAddress(request.origin)} → {displayTestAddress(request.destination)}</Text>
       <Text style={styles.testRequestMeta}>Виїзд: {departure}</Text>
       {request.isMine && <TouchableOpacity style={styles.cancelRequestButton} onPress={() => onCancel(request.id)}><Text style={styles.cancelRequestText}>Скасувати заявку</Text></TouchableOpacity>}
     </View>
