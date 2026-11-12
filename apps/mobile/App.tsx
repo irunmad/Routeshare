@@ -671,7 +671,7 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
 function RouteMapPreview({ detail, requests = [] }: { detail: boolean; requests?: TestPassengerRequest[] }) {
   if (Platform.OS !== 'web') return <View style={detailStyles.mapPlaceholder}><Text style={detailStyles.mapText}>Веб-карта доступна у браузері.</Text></View>;
   const payload = requests.slice(0, 15).map(r => ({ id: r.id, origin: r.origin, destination: r.destination, rate: r.offeredRateUahPerKm }));
-  const src = '/Routeshare/route-map.html?' + new URLSearchParams({ ...(detail ? { detail: '1' } : {}), live: '1', requests: JSON.stringify(payload) }).toString();
+  const src = '/Routeshare/route-map.html?' + new URLSearchParams({ v: '2', ...(detail ? { detail: '1' } : {}), live: '1', requests: JSON.stringify(payload) }).toString();
   return <View style={{ height: detail ? 245 : 360, borderRadius: 9, overflow: 'hidden', borderWidth: 1, borderColor: '#526373' }}>
     {React.createElement('iframe' as any, { src, title: 'RouteShare OSM map', style: { width: '100%', height: '100%', border: 0 }, loading: 'lazy' })}
   </View>;
