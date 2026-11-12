@@ -11,9 +11,9 @@
       background: #132235;
       color: white;
       border: 2px solid white;
-      border-radius: 6px;
-      padding: 2px 5px;
-      font: 700 11px system-ui;
+      border-radius: 50%;
+      padding: 0;
+      font: 700 9px system-ui;
       white-space: nowrap;
       box-shadow: 0 1px 4px #3337;
     }
@@ -97,13 +97,14 @@
       return index < pickups ? '↑' + (index + 1) : '↓' + (index - pickups + 1);
     }
 
-    function marker(point, label, color) {
+    function marker(point, label, color, compact = false) {
       const badge = document.createElement('span');
       badge.className = 'marker';
       badge.style.borderColor = color;
-      badge.textContent = label;
+      if (compact) { badge.style.width = '8px'; badge.style.height = '8px'; badge.style.borderWidth = '1.5px'; badge.style.background = color; }
+      else badge.textContent = label;
       return L.marker(toLatLng(point), {
-        icon: L.divIcon({ className: '', html: badge, iconSize: [30, 20] }),
+        icon: L.divIcon({ className: '', html: badge, iconSize: compact ? [10, 10] : [22, 18] }),
       });
     }
 
@@ -135,7 +136,7 @@
         let demoSchemes = 0;
         const demos = routes.filter(route => route.kind === 'demo').length;
 
-        async function drawRoute(route) {
+        async function drawRoute(route, routeIndex) {
           const color = /^#[0-9a-f]{6}$/i.test(route.color) ? route.color : neutral;
           let stops;
           try {
@@ -152,32 +153,51 @@
 
           const first = layers.getLayers().length === 0;
           const routeLayers = L.featureGroup().addTo(layers);
-          stops.forEach((point, index) => {
-            marker(point, markerLabel(route.kind, index, stops.length), color).addTo(routeLayers);
-          });
+          // Overview: each passenger is a separate pickup-to-dropoff route.
+          // Detail: preserve the complete ordered pickup/dropoff itinerary.
+          const split = route.separate && stops.length >= 4 && stops.length % 2 === 0;
+          const pairs = split ? Array.from({length:stops.length/2},(_,i)=>[stops[i],stops[i+stops.length/2]]) : [stops];
+          if (route.kind === 'driver') {
+            stops.forEach((point,index)=>marker(point,markerLabel(route.kind,index,stops.length),color,false).addTo(routeLayers));
+          } else {
+            const compact = route.separate;
+            pairs.forEach(pair => {
+              marker(pair[0], '', color, compact).addTo(routeLayers);
+              marker(pair[pair.length-1], '', color, compact).addTo(routeLayers);
+            });
+          }
           if (first) fitRoutes();
-
-          try {
-            const geometry = await roadGeometry(stops, signal);
-            if (signal.aborted) return;
-            const width = route.kind === 'driver' ? 5 : color === neutral ? 2 : 4;
-            const path = geometry.map(toLatLng);
-            L.polyline(path, { color: '#fff', weight: width + 2, opacity: .92 }).addTo(routeLayers);
-            L.polyline(path, { color, weight: width, opacity: .95 }).addTo(routeLayers);
-            drawn++;
-          } catch {
-            if (signal.aborted) return;
-            if (route.kind === 'demo') {
-              L.polyline(stops.map(toLatLng), { color, weight: 3, dashArray: '6 5' }).addTo(routeLayers);
-              demoSchemes++;
-            } else {
-              unavailable++;
+          for (const pair of pairs) {
+            try {
+              const geometry = await roadGeometry(pair, signal);
+              if (signal.aborted) return;
+              const width = route.kind === 'driver' ? 5 : route.separate ? 2.5 : 4;
+              const path = geometry.map(toLatLng);
+              // Small lateral separation lets coincident colored routes remain visible.
+              const shift = route.separate && color !== neutral ? ((routeIndex % 5) - 2) * 1.8 : 0;
+              const shifted = shift ? path.map((point,i) => {
+                const prev = map.project(path[Math.max(0,i-1)],map.getZoom());
+                const next = map.project(path[Math.min(path.length-1,i+1)],map.getZoom());
+                const dx=next.x-prev.x,dy=next.y-prev.y;
+                const length=Math.hypot(dx,dy)||1;
+                const pixel=map.project(point,map.getZoom());
+                return map.unproject([pixel.x-dy/length*shift,pixel.y+dx/length*shift],map.getZoom());
+              }) : path;
+              L.polyline(shifted, { color: '#fff', weight: width+1, opacity: .68 }).addTo(routeLayers);
+              L.polyline(shifted, { color, weight: width, opacity: .95 }).addTo(routeLayers);
+              drawn++;
+            } catch {
+              if (signal.aborted) return;
+              if (route.kind === 'demo') {
+                L.polyline(pair.map(toLatLng), { color, weight: 2, dashArray: '6 5' }).addTo(routeLayers);
+                demoSchemes++;
+              } else unavailable++;
             }
           }
         }
 
         for (let offset = 0; offset < routes.length && !signal.aborted; offset += 3) {
-          await Promise.all(routes.slice(offset, offset + 3).map(drawRoute));
+          await Promise.all(routes.slice(offset, offset + 3).map((route,i)=>drawRoute(route,offset+i)));
         }
         if (signal.aborted) return;
 
