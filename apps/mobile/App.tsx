@@ -670,7 +670,7 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
   if (view === 'offer') return selectedOffer ? <DriverOfferDetail design={design} offer={selectedOffer} increase={increase} setIncrease={setIncrease} onBack={onBack} /> : <View style={driverStyles.wrap}><Text style={driverStyles.empty}>Заявку ще не вибрано. Відкрий «Список» і натисни на потрібну комбінацію.</Text></View>;
   return (
     <View style={[driverStyles.wrap, design === 'new' && { backgroundColor: '#E9F0F6', padding: 8, borderRadius: 14 }]}>
-      <Text style={[driverStyles.heading, design === 'new' && { color: '#123B52' }]}>{design === 'new' ? 'НОВИЙ ДИЗАЙН · МАРШРУТИ' : 'RouteShare · Водій'} <Text style={driverStyles.preview}>ПЕРЕГЛЯД</Text></Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}><Text style={[driverStyles.heading, design === 'new' && { color: '#123B52' }]}>Маршрути</Text><Text style={{ color: design === 'new' ? '#526D7D' : '#91A8B7', fontSize: 11 }}>{liveRequests.length} активних пасажирських заявок</Text></View>
       <View style={[driverStyles.filters, design === 'new' && { backgroundColor: '#C6DDE8', borderRadius: 16, padding: 8, flexWrap: 'wrap' }]}>
         <TouchableOpacity style={[driverStyles.filter, design === 'new' && { backgroundColor: '#FFFFFF', borderColor: '#9DB5C4', borderRadius: 14, minWidth: '22%' }]} onPress={() => setSeats(v => v === 3 ? 1 : v + 1)}>
           <Text style={[driverStyles.legend, design === 'new' && { color: '#476175' }]}>Місць</Text><Text style={[driverStyles.filterValue, design === 'new' && { color: '#163D54' }]}>{seats} ▾</Text>
@@ -679,11 +679,10 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
           <Text style={driverStyles.legend}>Унікальні</Text><Text style={[driverStyles.filterValue, { color: unique ? '#36E88C' : '#8B9BAE' }, design === 'new' && { color: unique ? '#00854E' : '#526E80' }]}>{unique ? '✓' : '—'}</Text>
         </TouchableOpacity>
       </View>
-      <TouchableOpacity onPress={requestGps} style={{ padding: 11, borderRadius: 10, backgroundColor: design === 'new' ? '#FFFFFF' : '#172D40', borderWidth: 1, borderColor: '#35CBA0', marginBottom: 9 }}><Text style={{ color: design === 'new' ? '#123B52' : '#C9F9E5', fontWeight: '800' }}>⌖ Визначити GPS водія</Text><Text style={{ color: design === 'new' ? '#456579' : '#A4C2CC', fontSize: 11, marginTop: 4 }}>{gpsMessage}</Text></TouchableOpacity>
-      {!!gps && <Text style={{ color: design === 'new' ? '#456579' : '#A4C2CC', fontSize: 11, marginBottom: 8 }}>Точку отримано. Фільтр подачі по дорогах підключимо після вибору кінцевої точки водія.</Text>}
+
       <View style={{ backgroundColor: design === 'new' ? '#FFFFFF' : '#172D40', borderColor: '#345B6D', borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 10 }}>
-        <Text style={{ color: design === 'new' ? '#173D52' : '#FFFFFF', fontWeight: '900', marginBottom: 8 }}>Маршрут водія</Text>
-        <Text style={{ color: design === 'new' ? '#476175' : '#9AB7C5', fontSize: 12 }}>Початок: {startPoint ? startPoint.label : gps ? 'GPS визначено' : 'GPS не визначено'}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 7 }}><Text style={{ color: design === 'new' ? '#173D52' : '#FFFFFF', fontWeight: '900' }}>Мій маршрут</Text><TouchableOpacity onPress={requestGps} style={{ paddingHorizontal: 10, paddingVertical: 6, backgroundColor: '#126B59', borderRadius: 20 }}><Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '800' }}>⌖ GPS</Text></TouchableOpacity></View>
+        <Text numberOfLines={2} style={{ color: design === 'new' ? '#476175' : '#9AB7C5', fontSize: 12 }}>● {startPoint ? startPoint.label : gps ? 'GPS · координати визначено' : 'Початок не задано'}  ·  {gpsMessage}</Text>
         <TouchableOpacity onPress={() => setManualOpen(v => !v)} style={{ paddingVertical: 7 }}><Text style={{ color: '#19BA87', fontWeight: '800' }}>⌖ {manualOpen ? 'Сховати ручне введення' : 'Вказати початок вручну'}</Text></TouchableOpacity>
         {manualOpen && <DriverAddressPicker label="Початкова адреса" value={manualStart} onValue={setManualStart} onPoint={setStartPoint} suggestions={manualSuggestions} onSelect={p => { setStartPoint(p); setManualStart(p.label); setManualSuggestions([]); }} error={setDriverRouteError} />}
         <View style={{ marginTop: 9 }}>
@@ -691,7 +690,7 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
         </View>
         <Text style={{ color: '#1FC995', marginTop: 9, fontWeight: '800' }}>{driverRouteKm !== null ? 'Маршрут водія: ' + driverRouteKm.toFixed(1) + ' км по дорогах' : 'Вкажи початок та кінцеву адресу для розрахунку'}</Text>
         {!!driverRouteError && <Text style={{ color: '#FF9C9C', marginTop: 6 }}>{driverRouteError}</Text>}
-        <Text style={{ color: design === 'new' ? '#476175' : '#9AB7C5', fontSize: 11, marginTop: 7 }}>Фільтри заявок за цим маршрутом ще не активовані; демонстраційні пропозиції не є результатом перевірки.</Text>
+        <Text style={{ color: design === 'new' ? '#526D7D' : '#8FA9B8', fontSize: 11, marginTop: 5 }}>Реальні заявки перевіряються за відстанями по дорогах; демо-комбінації залишаються для перегляду інтерфейсу.</Text>
       </View>
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
         {([['Подача',pickupLimit,setPickupLimit],['Фінал',finalLimit,setFinalLimit]] as const).map(([label,value,setter]) => <View key={label} style={{ flex: 1, backgroundColor: design === 'new' ? '#FFFFFF' : '#172D40', borderRadius: 12, padding: 9 }}>
@@ -709,10 +708,10 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
         <TouchableOpacity onPress={() => setSortBy('km')} style={[driverStyles.sortChip, sortBy === 'km' && driverStyles.sortActive, design === 'new' && { backgroundColor: '#173D52', borderRadius: 15 }]}><Text style={driverStyles.sortText}>₴/км</Text></TouchableOpacity>
         <TouchableOpacity onPress={() => setSortBy('hour')} style={[driverStyles.sortChip, sortBy === 'hour' && driverStyles.sortActive, design === 'new' && { backgroundColor: '#173D52', borderRadius: 15 }]}><Text style={driverStyles.sortText}>₴/год</Text></TouchableOpacity>
       </View>}
-      {view === 'list' && <Text style={{ color: design === 'new' ? '#456579' : '#9DB2C2', fontSize: 12, marginBottom: 8 }}>{matchingState} · Реальні тестові заявки та 3 демо-комбінації в одному списку. Час для реальних заявок орієнтовний (25 км/год).</Text>}
+      {view === 'list' && <Text style={{ color: design === 'new' ? '#526D7D' : '#9DB2C2', fontSize: 11, marginBottom: 5 }}>{matchingState}</Text>}
       {view === 'list' && offers.length === 0 && <Text style={driverStyles.empty}>Немає варіантів для цих фільтрів.</Text>}
       {view === 'list' && offers.map(o => (
-        <TouchableOpacity key={o.id} onPress={() => onSelectOffer(o)} activeOpacity={0.8} style={[driverStyles.offer, { borderColor: o.color }, design === 'new' && { backgroundColor: '#FFFFFF', borderRadius: 22, borderWidth: 2, paddingVertical: 17, marginBottom: 12 }]}>
+        <TouchableOpacity key={o.id} onPress={() => onSelectOffer(o)} activeOpacity={0.8} style={[driverStyles.offer, { borderColor: o.color, borderLeftWidth: 4, borderTopWidth: 1, borderRightWidth: 1, borderBottomWidth: 1, borderRadius: 12, paddingVertical: 10, marginBottom: 7 }, design === 'new' && { backgroundColor: '#FFFFFF' }]}>
 
           <View style={driverStyles.metrics}>
             <Text style={[driverStyles.total, design === 'new' && { color: '#123B52' }]}>₴{o.amount}</Text>
@@ -737,7 +736,7 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
         </TouchableOpacity>
       ))}
       {replaceName && <View style={driverStyles.confirm}><Text style={driverStyles.confirmText}>Замінити маршрут пасажира {replaceName}?</Text><View style={driverStyles.confirmActions}><TouchableOpacity onPress={() => setReplaceName(null)}><Text style={driverStyles.confirmText}>Ні</Text></TouchableOpacity><TouchableOpacity onPress={() => { setReplaceName(null); }}><Text style={driverStyles.confirmYes}>Так</Text></TouchableOpacity></View></View>}
-      <Text style={[driverStyles.disclaimer, design === 'new' && { color: '#456579' }]}>Тестові заявки та демо-комбінації — без реального бронювання. Для тестових заявок час приблизний, рейтинг пасажира поки умовний.</Text>
+      <Text style={[driverStyles.disclaimer, design === 'new' && { color: '#456579' }]}>Тестовий режим · бронювання неактивне · час орієнтовний</Text>
     </View>
   );
 }
