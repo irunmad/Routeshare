@@ -308,17 +308,19 @@ export default function App() {
       <StatusBar style="light" />
       <View style={[styles.screen, design === 'new' && { backgroundColor: '#E9F0F6' }]}>
         <View style={[styles.header, design === 'new' && { backgroundColor: '#123B52', borderBottomColor: '#2B7088' }]}>
-          <TouchableOpacity onPress={() => setMenuOpen(v => !v)} style={{ paddingHorizontal: 9, paddingVertical: 5 }} accessibilityLabel="Відкрити меню"><Text style={{ color: '#FFFFFF', fontSize: 27 }}>☰</Text></TouchableOpacity>
+          <Text style={{ color:'#00E36B',fontSize:24,marginHorizontal:8 }}>●</Text>
           <View>
             <Text style={styles.brand}>ROUTE<Text style={styles.brandAccent}>SHARE</Text></Text>
             <Text style={styles.headerCaption}>Твій маршрут. Твоя компанія.</Text>
           </View>
           <TouchableOpacity style={styles.avatar} onPress={() => setMenuOpen(v => !v)}>
-            <Text style={styles.avatarText}>С</Text>
+            <Text style={styles.avatarText}>{activeProfile?.avatar || (mode === 'driver' ? '🚗' : '👤')}</Text>
           </TouchableOpacity>
         </View>
 
         {menuOpen && <View style={{ backgroundColor: '#1A2A3D', padding: 12, gap: 12, borderBottomWidth: 1, borderBottomColor: '#40536A' }}>
+          <Text style={{ color:'#FFFFFF',fontSize:15,fontWeight:'900' }}>Режим RouteShare</Text>
+          <View style={{flexDirection:'row',gap:8}}>{(['passenger','driver'] as const).map(m => <TouchableOpacity key={m} onPress={() => {setMode(m);setTab('home');setDriverView('list');setDriverOffer(null);setNotice('');setMenuOpen(false);}} style={{flex:1,padding:11,alignItems:'center',borderRadius:10,backgroundColor:mode===m?'#00D86A':'#263A4B'}}><Text style={{color:mode===m?'#09241A':'#FFFFFF',fontWeight:'900'}}>{m==='driver'?'🚗 Водій':'👤 Пасажир'}</Text></TouchableOpacity>)}</View>
           <Text style={{ color: '#AFC8D6', fontWeight: '700', fontSize: 12 }}>ОФОРМЛЕННЯ</Text>
           <View style={{ flexDirection: 'row', gap: 8 }}><TouchableOpacity onPress={() => changeDesign('classic')} style={{ padding: 10, borderRadius: 8, borderWidth: 1, borderColor: design === 'classic' ? '#34D97B' : '#54677C' }}><Text style={{ color: '#FFFFFF' }}>Класичний {design === 'classic' ? '✓' : ''}</Text></TouchableOpacity><TouchableOpacity onPress={() => changeDesign('new')} style={{ padding: 10, borderRadius: 8, borderWidth: 1, borderColor: design === 'new' ? '#34D97B' : '#54677C' }}><Text style={{ color: '#FFFFFF' }}>Новий {design === 'new' ? '✓' : ''}</Text></TouchableOpacity></View>
           <View style={{ padding: 8, borderRadius: 9, backgroundColor: '#263F53', gap: 8 }}>
@@ -331,20 +333,7 @@ export default function App() {
           </View>
           {([['home', 'Головна'], ['trips', 'Тестові заявки'], ['messages', 'Чати'], ['profile', 'Профіль']] as const).map(([key, label]) => <TouchableOpacity key={key} onPress={() => { setTab(key); setMenuOpen(false); }}><Text style={{ color: '#FFFFFF', fontSize: 15, padding: 6 }}>{label}</Text></TouchableOpacity>)}
         </View>}
-        <View style={[styles.modeSwitch, design === 'new' && { backgroundColor: '#D7E4EC' }]}>
-          <TouchableOpacity
-            style={[styles.modeButton, mode === 'passenger' && styles.modeButtonActive]}
-            onPress={() => { setMode('passenger'); setTab('home'); setNotice(''); setDriverView('list'); setDriverOffer(null); }}
-          >
-            <Text style={[styles.modeText, mode === 'passenger' && styles.modeTextActive]}>Пасажир</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.modeButton, mode === 'driver' && styles.modeButtonActive]}
-            onPress={() => { setMode('driver'); setTab('home'); setNotice(''); setDriverView('list'); setDriverOffer(null); }}
-          >
-            <Text style={[styles.modeText, mode === 'driver' && styles.modeTextActive]}>Водій</Text>
-          </TouchableOpacity>
-        </View>
+
 
         {accountScreen !== 'none' && <View style={{ padding: 15, backgroundColor: '#172D40', gap: 11, borderBottomWidth: 1, borderColor: '#3C5C70' }}>
           <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '900' }}>{accountScreen === 'register' ? 'Новий тестовий пасажир' : 'Вхід у тестовий профіль'}</Text>
@@ -704,13 +693,11 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
   return (
     <View style={[driverStyles.wrap, design === 'new' && { backgroundColor: '#E9F0F6', padding: 8, borderRadius: 14 }]}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}><Text style={[driverStyles.heading, design === 'new' && { color: '#123B52' }]}>Маршрути</Text><Text style={{ color: design === 'new' ? '#526D7D' : '#91A8B7', fontSize: 11 }}>{liveRequests.length} активних пасажирських заявок</Text></View>
-      <View style={[driverStyles.filters, design === 'new' && { backgroundColor: '#C6DDE8', borderRadius: 16, padding: 8, flexWrap: 'wrap' }]}>
-        <TouchableOpacity style={[driverStyles.filter, design === 'new' && { backgroundColor: '#FFFFFF', borderColor: '#9DB5C4', borderRadius: 14, minWidth: '22%' }]} onPress={() => setSeats(v => v === 3 ? 1 : v + 1)}>
-          <Text style={[driverStyles.legend, design === 'new' && { color: '#476175' }]}>Місць</Text><Text style={[driverStyles.filterValue, design === 'new' && { color: '#163D54' }]}>{seats} ▾</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={driverStyles.filter} onPress={() => setUnique(v => !v)}>
-          <Text style={driverStyles.legend}>Унікальні</Text><Text style={[driverStyles.filterValue, { color: unique ? '#36E88C' : '#8B9BAE' }, design === 'new' && { color: unique ? '#00854E' : '#526E80' }]}>{unique ? '✓' : '—'}</Text>
-        </TouchableOpacity>
+      <View style={{flexDirection:'row',gap:5,marginBottom:7}}>
+        <TouchableOpacity onPress={() => setSeats(v => v === 3 ? 1 : v + 1)} style={driverStyles.filter}><Text style={driverStyles.legend}>🚗 Місць</Text><Text style={driverStyles.filterValue}>{seats} ▾</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => setPickupLimit(v => adjust(v,0.5))} onLongPress={() => setPickupLimit(v => adjust(v,-0.5))} style={driverStyles.filter}><Text style={driverStyles.legend}>↗ Подача</Text><Text style={driverStyles.filterValue}>≤ {pickupLimit.toFixed(1)} км</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => setFinalLimit(v => adjust(v,0.5))} onLongPress={() => setFinalLimit(v => adjust(v,-0.5))} style={driverStyles.filter}><Text style={driverStyles.legend}>⚑ Фінал</Text><Text style={driverStyles.filterValue}>≤ {finalLimit.toFixed(1)} км</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => setUnique(v => !v)} style={driverStyles.filter}><Text style={driverStyles.legend}>Унікальні</Text><Text style={[driverStyles.filterValue,{color:unique?'#00E878':'#A9B5C0'}]}>{unique?'☑':'☐'}</Text></TouchableOpacity>
       </View>
 
       <View style={{ backgroundColor: design === 'new' ? '#FFFFFF' : '#172D40', borderColor: '#345B6D', borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 10 }}>
@@ -725,15 +712,7 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
         {!!driverRouteError && <Text style={{ color: '#FF9C9C', marginTop: 6 }}>{driverRouteError}</Text>}
         <Text style={{ color: design === 'new' ? '#526D7D' : '#8FA9B8', fontSize: 11, marginTop: 5 }}>Реальні заявки перевіряються за відстанями по дорогах; демо-комбінації залишаються для перегляду інтерфейсу.</Text>
       </View>
-      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
-        {([['Подача',pickupLimit,setPickupLimit],['Фінал',finalLimit,setFinalLimit]] as const).map(([label,value,setter]) => <View key={label} style={{ flex: 1, backgroundColor: design === 'new' ? '#FFFFFF' : '#172D40', borderRadius: 12, padding: 9 }}>
-          <Text style={{ color: design === 'new' ? '#173D52' : '#FFFFFF', fontWeight: '800', fontSize: 12 }}>{label}: {value.toFixed(1)} км</Text>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 7 }}>
-            <TouchableOpacity onPress={() => setter(v => adjust(v,-0.1))} style={{ padding: 9, borderRadius: 7, backgroundColor: '#28627A' }}><Text style={{ color: '#FFFFFF', fontWeight: '900' }}>− 0,1</Text></TouchableOpacity>
-            <TouchableOpacity onPress={() => setter(v => adjust(v,0.1))} style={{ padding: 9, borderRadius: 7, backgroundColor: '#28627A' }}><Text style={{ color: '#FFFFFF', fontWeight: '900' }}>+ 0,1</Text></TouchableOpacity>
-          </View>
-        </View>)}
-      </View>
+
       {view === 'map' && <RouteMapPreview detail={false} routes={mapRoutes} />}
       {view === 'list' && <View style={driverStyles.sortRow}>
         <Text style={[driverStyles.count, design === 'new' && { color: '#123B52' }]}>Заявки ({offers.length})</Text>
@@ -863,8 +842,8 @@ const detailStyles = StyleSheet.create({
 const driverStyles = StyleSheet.create({
   wrap: { gap: 8 }, heading: { color: '#FFFFFF', fontSize: 17, fontWeight: '800', marginBottom: 6 },
   preview: { color: '#FFBD68', fontSize: 10 }, filters: { flexDirection: 'row', gap: 5, marginBottom: 5 },
-  filter: { flex: 1, minWidth: 0, borderWidth: 1, borderColor: '#526373', borderRadius: 7, paddingVertical: 8, alignItems: 'center' },
-  legend: { color: '#B5C2CF', fontSize: 10, marginBottom: 4 }, filterValue: { color: '#F6F8FB', fontSize: 11, fontWeight: '800' },
+  filter: { flex: 1, minWidth: 0, borderWidth: 1, borderColor: '#53616F', backgroundColor:'#172330', borderRadius: 12, paddingVertical: 7, paddingHorizontal:2, alignItems: 'center', justifyContent:'center' },
+  legend: { color: '#D1DBE4', fontSize: 10, marginBottom: 3, fontWeight:'700' }, filterValue: { color: '#F6F8FB', fontSize: 12, fontWeight: '900' },
   sortRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 5 },
   count: { color: '#FFFFFF', fontSize: 14, fontWeight: '800', flex: 1 },
   sortLabel: { color: '#9CAFC1', fontSize: 10 },
