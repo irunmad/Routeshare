@@ -37,17 +37,17 @@ function draw(coords,options){return L.polyline(coords.map(c=>[c[1],c[0]]),optio
  document.getElementById('info').textContent='Демо-точки · маршрути OSRM · '+(detail?'1 заявка':'3 варіанти');
 }catch(e){document.getElementById('info').textContent='Маршрути недоступні: '+e.message;}})();
 
-// Live test requests are geocoded from entered addresses, not guessed.
+// Resolve live addresses with the same Photon settings as the address picker.
 async function geocode(address){
- const cacheKey='rs-geo-v1:'+address.toLowerCase().trim();
+ const cacheKey='rs-geo-photon:'+address.toLowerCase().trim();
  try{const cached=JSON.parse(localStorage.getItem(cacheKey)||'null');if(cached)return cached;}catch{}
- const q=address.toLowerCase().includes('київ')||address.toLowerCase().includes('kyiv')?address:address+', Київ, Україна';
- const url='https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=ua&viewbox=30.20,50.62,30.85,50.25&bounded=1&q='+encodeURIComponent(q);
- const response=await fetch(url,{headers:{'Accept':'application/json'}});
+ const url='https://photon.komoot.io/api/?limit=6&lang=default&lat=50.45&lon=30.52&q='+encodeURIComponent(address);
+ const response=await fetch(url);
  if(!response.ok)throw Error('Геокодування HTTP '+response.status);
- const rows=await response.json();
- if(!rows.length)return null;
- const point=[Number(rows[0].lon),Number(rows[0].lat)];
+ const {features=[]}=await response.json();
+ const match=features.find(feature=>feature.properties?.countrycode==='UA' && feature.geometry?.coordinates);
+ if(!match)return null;
+ const point=match.geometry.coordinates;
  try{localStorage.setItem(cacheKey,JSON.stringify(point));}catch{}
  return point;
 }

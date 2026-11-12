@@ -55,7 +55,7 @@ function NavGraphic({ kind, active, design }: { kind: 'list' | 'map' | 'offer'; 
   return <Image source={{ uri: 'data:image/svg+xml,' + encodeURIComponent(svg) }} style={{ width: 28, height: 28 }} resizeMode="contain" />;
 }
 
-type AddressSuggestion = { label: string; lon: number; lat: number };
+type AddressSuggestion = { label: string; lon: number; lat: number; houseNumber?: string };
 async function lookupAddresses(query: string): Promise<AddressSuggestion[]> {
   // Request local OpenStreetMap names, including Ukrainian names in Kyiv.
   const url = 'https://photon.komoot.io/api/?limit=6&lang=default&lat=50.45&lon=30.52&q=' + encodeURIComponent(query);
@@ -64,8 +64,19 @@ async function lookupAddresses(query: string): Promise<AddressSuggestion[]> {
   const data = await response.json();
   return (data.features || []).filter((f: any) => f.geometry?.coordinates && f.properties?.countrycode === 'UA').map((f: any) => {
     const p = f.properties;
-    return { label: [p.name, p.street && p.street !== p.name ? p.street : '', p.housenumber, p.city || p.locality || p.county].filter(Boolean).join(', '), lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1] };
+    return {
+      label: [p.name, p.street && p.street !== p.name ? p.street : '', p.housenumber, p.city || p.locality || p.county].filter(Boolean).join(', '),
+      lon: f.geometry.coordinates[0],
+      lat: f.geometry.coordinates[1],
+      houseNumber: p.housenumber,
+    };
   });
+}
+async function lookupHouse(street: string, number: string): Promise<AddressSuggestion | undefined> {
+  const rows = await lookupAddresses(street + ' ' + number.trim());
+  const normalize = (value: string) => value.toLowerCase().replace(/\s/g, '');
+  const target = normalize(number);
+  return rows.find(point => point.houseNumber && normalize(point.houseNumber) === target);
 }
 async function resolveAddress(label: string): Promise<AddressSuggestion | null> {
   const rows = await lookupAddresses(label);
@@ -166,9 +177,7 @@ export default function App() {
     if (!houseTarget || !houseNumber.trim()) return;
     setHouseBusy(true); setAddressError('');
     try {
-      const matches = await lookupAddresses(houseStreet + ' ' + houseNumber.trim());
-      const number = houseNumber.trim().toLowerCase().replace(/\\s/g, '');
-      const exact = matches.find(p => p.label.toLowerCase().replace(/\\s/g, '').includes(number));
+      const exact = await lookupHouse(houseStreet, houseNumber);
       if (!exact) { setAddressError('Будинок не знайдено. Уточни номер або введи повну адресу вручну.'); return; }
       if (houseTarget === 'from') { setFrom(exact.label); setFromPoint(exact); }
       else { setTo(exact.label); setToPoint(exact); }
@@ -177,8 +186,7 @@ export default function App() {
     finally { setHouseBusy(false); }
   };
   const selectAddress = (point: AddressSuggestion) => {
-    const streetOnly = !/\\d/.test(point.label.split(',')[0]) && !/\\d/.test(point.label.split(',')[1] || '');
-    if (streetOnly && editingAddress) {
+    if (!point.houseNumber && editingAddress) {
       setHouseTarget(editingAddress); setHouseStreet(point.label); setHouseNumber('');
       if (editingAddress === 'from') { setFrom(point.label); setFromPoint(null); }
       else { setTo(point.label); setToPoint(null); }
@@ -460,9 +468,7 @@ function DriverAddressPicker({ label, value, onValue, onPoint, suggestions, onSe
   const [house, setHouse] = useState('');
   const [busy, setBusy] = useState(false);
   const choose = (point: AddressSuggestion) => {
-    // A street is not an exact pickup/dropoff location; request a house number.
-    const firstParts = point.label.split(',').slice(0, 2).join(' ');
-    if (!/\\d/.test(firstParts)) {
+    if (!point.houseNumber) {
       setStreet(point.label); setHouse(''); onValue(point.label); onPoint(null);
     } else { setStreet(''); onSelect(point); }
   };
@@ -470,9 +476,7 @@ function DriverAddressPicker({ label, value, onValue, onPoint, suggestions, onSe
     if (!house.trim()) return;
     setBusy(true); error('');
     try {
-      const rows = await lookupAddresses(street + ' ' + house.trim());
-      const target = house.trim().toLowerCase().replace(/\\s/g, '');
-      const match = rows.find(p => p.label.toLowerCase().replace(/\\s/g, '').includes(target));
+      const match = await lookupHouse(street, house);
       if (!match) { error('Точний номер будинку не знайдено. Уточни адресу.'); return; }
       onSelect(match); setStreet(''); setHouse('');
     } catch(e) { error(e instanceof Error ? e.message : 'Не вдалося знайти будинок'); }
