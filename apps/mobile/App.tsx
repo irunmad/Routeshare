@@ -59,7 +59,7 @@ type Coordinates = { lat: number; lon: number };
 type MapPoint = [longitude: number, latitude: number];
 type MapStop = MapPoint | string | null;
 type MapRoute = { stops: MapStop[]; color: string; kind: 'driver' | 'passenger' | 'demo' };
-type AddressSuggestion = Coordinates & { label: string; houseNumber?: string; source?: 'gps' };
+type AddressSuggestion = Coordinates & { label: string; houseNumber?: string; source?: 'gps' | 'map' };
 
 const passengerGpsLabel = 'Моя GPS-точка';
 const neutralRouteColor = '#171b23';
