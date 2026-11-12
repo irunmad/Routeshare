@@ -168,6 +168,7 @@ export default function App() {
   const [toPoint, setToPoint] = useState<AddressSuggestion | null>(null);
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
   const [editingAddress, setEditingAddress] = useState<'from' | 'to' | null>(null);
+  const [mapTarget, setMapTarget] = useState<'from' | 'to' | null>(null);
   const [distanceKm, setDistanceKm] = useState<number | null>(null);
   const [routeBusy, setRouteBusy] = useState(false);
   const [passengerGpsMessage, setPassengerGpsMessage] = useState('');
@@ -370,7 +371,7 @@ export default function App() {
                     <View style={styles.dotStart} />
                     <View style={styles.routeInputWrap}>
                       <Text style={styles.fieldLabel}>ЗВІДКИ · GPS АБО АДРЕСА</Text>
-                      <TextInput value={from} onChangeText={v => { setFrom(v); setFromPoint(null); setShowPassengerRoute(false); setEditingAddress('from'); }} onFocus={() => setEditingAddress('from')} placeholder="Адреса посадки" placeholderTextColor="#718096" style={styles.routeInput} />
+                      <View style={{flexDirection:'row',alignItems:'center'}}><View style={{flex:1}}><TextInput value={from} onChangeText={v => { setFrom(v); setFromPoint(null); setShowPassengerRoute(false); setEditingAddress('from'); }} onFocus={() => setEditingAddress('from')} placeholder="Адреса посадки" placeholderTextColor="#718096" style={styles.routeInput} /></View>{!!from && <TouchableOpacity accessibilityLabel="Очистити адресу" onPress={() => { setFrom(''); setFromPoint(null); setEditingAddress('from'); setShowPassengerRoute(false); }} style={{padding:8}}><Text style={{color:'#DCE8F0',fontSize:22}}>×</Text></TouchableOpacity>}</View>
                     </View>
                   </View>
                   <TouchableOpacity onPress={usePassengerGps} style={{ paddingVertical: 8 }}><Text style={{ color: '#36DCA1', fontWeight: '800' }}>⌖ Визначити моє місце (GPS)</Text></TouchableOpacity>
@@ -380,7 +381,7 @@ export default function App() {
                     <View style={styles.dotEnd} />
                     <View style={styles.routeInputWrap}>
                       <Text style={styles.fieldLabel}>КУДИ</Text>
-                      <TextInput value={to} onChangeText={v => { setTo(v); setToPoint(null); setShowPassengerRoute(false); setEditingAddress('to'); }} onFocus={() => setEditingAddress('to')} placeholder="Адреса висадки" placeholderTextColor="#718096" style={styles.routeInput} />
+                      <View style={{flexDirection:'row',alignItems:'center'}}><View style={{flex:1}}><TextInput value={to} onChangeText={v => { setTo(v); setToPoint(null); setShowPassengerRoute(false); setEditingAddress('to'); }} onFocus={() => setEditingAddress('to')} placeholder="Адреса висадки" placeholderTextColor="#718096" style={styles.routeInput} /></View>{!!to && <TouchableOpacity accessibilityLabel="Очистити адресу" onPress={() => { setTo(''); setToPoint(null); setEditingAddress('to'); setShowPassengerRoute(false); }} style={{padding:8}}><Text style={{color:'#DCE8F0',fontSize:22}}>×</Text></TouchableOpacity>}</View>
                     </View>
                   </View>
                   {editingAddress && suggestions.length > 0 && <View style={{ backgroundColor: '#22384A', borderRadius: 10, padding: 7, marginBottom: 10 }}>
@@ -393,6 +394,8 @@ export default function App() {
                     <TextInput autoFocus value={houseNumber} onChangeText={setHouseNumber} placeholder="Наприклад: 15А" placeholderTextColor="#9DB9C8" onSubmitEditing={confirmHouse} style={{ backgroundColor: '#314D61', color: '#FFFFFF', padding: 10, borderRadius: 8 }} />
                     <TouchableOpacity onPress={confirmHouse} disabled={houseBusy || !houseNumber.trim()} style={{ padding: 10, backgroundColor: '#128D68', borderRadius: 8 }}><Text style={{ color: '#FFFFFF', fontWeight: '800' }}>{houseBusy ? 'Шукаємо будинок…' : 'Підтвердити адресу'}</Text></TouchableOpacity>
                   </View>}
+                  <TouchableOpacity onPress={() => { setMapTarget(editingAddress || (!fromPoint ? 'from' : 'to')); setEditingAddress(null); }} style={{paddingVertical:10,alignItems:'center',borderWidth:1,borderColor:'#3B6C71',borderRadius:9,marginBottom:9}}><Text style={{color:'#58E0AC',fontWeight:'800'}}>◎ Обрати на мапі · {editingAddress === 'from' || (!editingAddress && !fromPoint) ? 'посадка' : 'висадка'}</Text></TouchableOpacity>
+                  {mapTarget && <MapPointPicker initial={mapTarget === 'from' ? fromPoint : toPoint} onCancel={() => setMapTarget(null)} onConfirm={p => { if(mapTarget === 'from'){setFrom(p.label);setFromPoint(p);} else {setTo(p.label);setToPoint(p);}setMapTarget(null);setHouseTarget(null);setShowPassengerRoute(false); }} />}
                   {!!addressError && <Text style={{ color: '#FFAD84', fontSize: 12, marginBottom: 8 }}>{addressError}</Text>}
                   <Text style={{ color: '#8EE6C1', fontWeight: '800', marginBottom: 9 }}>{routeBusy ? 'Розрахунок маршруту…' : distanceKm === null ? 'Вибери адреси зі списку для розрахунку' : distanceKm.toFixed(1) + ' км по дорогах · від ' + Math.ceil(distanceKm * 15) + ' ₴'}</Text>
                   <View style={styles.rateRow}>
@@ -513,6 +516,35 @@ const previewOffers: DriverOffer[] = [
 const formatRate = (rate: number) => Number(rate).toFixed(2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1');
 const perKm = (o: DriverOffer) => o.distance > 0 ? o.amount / o.distance : 0;
 const perHour = (o: DriverOffer) => o.minutes > 0 ? o.amount / o.minutes * 60 : 0;
+function MapPointPicker({ initial, onConfirm, onCancel }: { initial: AddressSuggestion | null; onConfirm: (p: AddressSuggestion) => void; onCancel: () => void }) {
+  const frame = useRef<HTMLIFrameElement>(null);
+  const point = useRef<{lat:number;lon:number}>({lat:initial?.lat ?? 50.4501,lon:initial?.lon ?? 30.5234});
+  const [busy,setBusy] = useState(false);
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const receive = (e: MessageEvent) => { if (e.source === frame.current?.contentWindow && e.data?.type === 'routeshare-map-point') point.current = {lat:e.data.lat,lon:e.data.lon}; };
+    window.addEventListener('message',receive);
+    return () => window.removeEventListener('message',receive);
+  }, []);
+  const confirm = async () => {
+    setBusy(true);
+    const {lat,lon} = point.current;
+    let label = 'Точка на мапі (' + lat.toFixed(5) + ', ' + lon.toFixed(5) + ')';
+    try {
+      const response = await fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&accept-language=uk&lat='+lat+'&lon='+lon);
+      if (response.ok) { const result=await response.json(); if(result.display_name) label=result.display_name; }
+    } catch {}
+    onConfirm({label,lat,lon,source:'map'});setBusy(false);
+  };
+  return <View style={{ backgroundColor:'#122332',padding:10,borderRadius:14,gap:9 }}>
+    <Text style={{color:'#FFFFFF',fontWeight:'900',fontSize:16}}>Обрати точку на мапі</Text>
+    {Platform.OS === 'web' ? <View style={{height:340,borderRadius:10,overflow:'hidden'}}><iframe ref={frame} src="/Routeshare/pick-point.html" onLoad={() => frame.current?.contentWindow?.postMessage({type:'routeshare-map-center',lat:point.current.lat,lon:point.current.lon},'*')} style={{width:'100%',height:'100%',border:0}} title="Вибір точки на мапі" /></View> : <Text style={{color:'#FFFFFF'}}>Вибір точки на мапі доступний у вебверсії.</Text>}
+    <View style={{flexDirection:'row',gap:8}}>
+      <TouchableOpacity onPress={onCancel} style={{flex:1,padding:12,backgroundColor:'#35495B',borderRadius:9,alignItems:'center'}}><Text style={{color:'#FFFFFF'}}>Скасувати</Text></TouchableOpacity>
+      <TouchableOpacity onPress={confirm} disabled={busy || Platform.OS !== 'web'} style={{flex:1,padding:12,backgroundColor:'#00C86A',borderRadius:9,alignItems:'center'}}><Text style={{color:'#082A20',fontWeight:'900'}}>{busy?'Визначаємо адресу…':'Підтвердити точку'}</Text></TouchableOpacity>
+    </View>
+  </View>;
+}
 function DriverAddressPicker({ label, value, onValue, onPoint, suggestions, onSelect, error }: {
   label: string; value: string; onValue: (v: string) => void; onPoint: (p: AddressSuggestion | null) => void;
   suggestions: AddressSuggestion[]; onSelect: (p: AddressSuggestion) => void; error: (message: string) => void;
@@ -520,6 +552,7 @@ function DriverAddressPicker({ label, value, onValue, onPoint, suggestions, onSe
   const [street, setStreet] = useState('');
   const [house, setHouse] = useState('');
   const [busy, setBusy] = useState(false);
+  const [showMap,setShowMap] = useState(false);
   const choose = (point: AddressSuggestion) => {
     if (!point.houseNumber) {
       setStreet(point.label); setHouse(''); onValue(point.label); onPoint(null);
@@ -537,7 +570,7 @@ function DriverAddressPicker({ label, value, onValue, onPoint, suggestions, onSe
   };
   return <View style={{ gap: 5 }}>
     <Text style={{ color: '#9AB7C5', fontSize: 12 }}>{label}</Text>
-    <TextInput value={value} onChangeText={v => { onValue(v); onPoint(null); setStreet(''); }} placeholder="Вулиця або адреса" placeholderTextColor="#718096" style={{ backgroundColor: '#253F52', color: '#FFFFFF', borderRadius: 8, padding: 11 }} />
+    <View style={{flexDirection:'row',alignItems:'center',backgroundColor:'#253F52',borderRadius:8}}><View style={{flex:1}}><TextInput value={value} onChangeText={v => { onValue(v); onPoint(null); setStreet(''); }} placeholder="Вулиця або адреса" placeholderTextColor="#718096" style={{ backgroundColor: '#253F52', color: '#FFFFFF', borderRadius: 8, padding: 11 }} /></View>{!!value && <TouchableOpacity onPress={() => {onValue('');onPoint(null);setStreet('');}} style={{padding:10}}><Text style={{color:'#FFFFFF',fontSize:22}}>×</Text></TouchableOpacity>}</View><TouchableOpacity onPress={() => setShowMap(v=>!v)} style={{paddingVertical:9}}><Text style={{color:'#38DCA4',fontWeight:'800'}}>◎ Обрати на мапі</Text></TouchableOpacity>{showMap && <MapPointPicker initial={null} onCancel={() => setShowMap(false)} onConfirm={p => {onSelect(p);setStreet('');setShowMap(false);}} />
     {!street && suggestions.map((item,i) => <TouchableOpacity key={i} onPress={() => choose(item)} style={{ padding: 9, borderBottomColor: '#426071', borderBottomWidth: 1 }}><Text style={{ color: '#20B98A' }}>{item.label}</Text></TouchableOpacity>)}
     {!!street && <View style={{ gap: 6, padding: 8, backgroundColor: '#234558', borderRadius: 8 }}>
       <Text style={{ color: '#FFFFFF', fontWeight: '800' }}>Номер будинку · {street}</Text>
