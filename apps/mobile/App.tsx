@@ -87,8 +87,8 @@ async function lookupAddresses(query: string): Promise<AddressSuggestion[]> {
   const q = query.trim();
   if (q.length < 2) return [];
   const endpoints = [
-    'https://photon.komoot.io/api/?limit=12&lang=uk&lat=50.45&lon=30.52&q=' + encodeURIComponent(q),
-    'https://photon.komoot.io/api/?limit=12&lat=50.45&lon=30.52&q=' + encodeURIComponent(q),
+    'https://photon.komoot.io/api/?limit=15&lat=50.45&lon=30.52&q=' + encodeURIComponent(q),
+    'https://photon.komoot.io/api/?limit=15&lat=50.45&lon=30.52&q=' + encodeURIComponent(q + ', Київ'),
   ];
   let lastError = 'Сервіс пошуку адрес тимчасово недоступний';
   for (const url of endpoints) {
@@ -204,7 +204,7 @@ export default function App() {
     const query = editingAddress === 'from' ? from : to;
     if (query.trim().length < 2) { setSuggestions([]); return; }
     let active = true;
-    const timer = setTimeout(() => { lookupAddresses(query).then(rows => { if (active) { setSuggestions(rows); setAddressError(''); } }).catch(e => { if (active) setAddressError('Не вдалося завантажити адреси: ' + String(e.message || e)); }); }, 350);
+    const timer = setTimeout(() => { lookupAddresses(query).then(rows => { if (active) { setSuggestions(rows); setAddressError(rows.length ? '' : 'Адрес не знайдено. Спробуй назву вулиці без номера або обери точку на мапі.'); } }).catch(e => { if (active) setAddressError('Не вдалося завантажити адреси: ' + String(e.message || e)); }); }, 350);
     return () => { active = false; clearTimeout(timer); };
   }, [from, to, editingAddress]);
   useEffect(() => {
@@ -609,13 +609,13 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
   useEffect(() => {
     if (destinationPoint || destination.trim().length < 2) { setDestinationSuggestions([]); return; }
     let active = true;
-    const timer = setTimeout(() => lookupAddresses(destination).then(rows => { if (active) setDestinationSuggestions(rows); }).catch(e => { if (active) setDriverRouteError(e.message); }), 350);
+    const timer = setTimeout(() => lookupAddresses(destination).then(rows => { if (active) setDestinationSuggestions(rows); setDriverRouteError(rows.length ? '' : 'Немає підказок. Спробуй назву вулиці без номера або обери на мапі.'); }).catch(e => { if (active) setDriverRouteError(e.message); }), 350);
     return () => { active = false; clearTimeout(timer); };
   }, [destination, destinationPoint]);
   useEffect(() => {
     if (!manualOpen || startPoint || manualStart.trim().length < 2) { setManualSuggestions([]); return; }
     let active = true;
-    const timer = setTimeout(() => lookupAddresses(manualStart).then(rows => { if (active) setManualSuggestions(rows); }).catch(e => { if (active) setDriverRouteError(e.message); }), 350);
+    const timer = setTimeout(() => lookupAddresses(manualStart).then(rows => { if (active) setManualSuggestions(rows); setDriverRouteError(rows.length ? '' : 'Немає підказок. Спробуй назву вулиці без номера або обери на мапі.'); }).catch(e => { if (active) setDriverRouteError(e.message); }), 350);
     return () => { active = false; clearTimeout(timer); };
   }, [manualStart, manualOpen, startPoint]);
   useEffect(() => {
