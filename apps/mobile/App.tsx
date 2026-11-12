@@ -58,7 +58,7 @@ function NavGraphic({ kind, active, design }: { kind: 'list' | 'map' | 'offer'; 
 type Coordinates = { lat: number; lon: number };
 type MapPoint = [longitude: number, latitude: number];
 type MapStop = MapPoint | string | null;
-type MapRoute = { stops: MapStop[]; color: string; kind: 'driver' | 'passenger' | 'demo' };
+type MapRoute = { stops: MapStop[]; color: string; kind: 'driver' | 'passenger' | 'demo'; separate?: boolean };
 type AddressSuggestion = Coordinates & { label: string; houseNumber?: string; source?: 'gps' | 'map' };
 
 const passengerGpsLabel = 'Моя GPS-точка';
@@ -487,8 +487,8 @@ type MatchedRequest = {
   mapStops: MapPoint[];
 };
 
-function offerMapRoute(offer: DriverOffer): MapRoute {
-  return { stops: offer.mapStops, color: offer.color, kind: offer.live ? 'passenger' : 'demo' };
+function offerMapRoute(offer: DriverOffer, separate = false): MapRoute {
+  return { stops: offer.mapStops, color: offer.color, kind: offer.live ? 'passenger' : 'demo', separate };
 }
 
 // Preview data only. Never use these values to accept a real ride or charge a passenger.
@@ -691,14 +691,14 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
     if (driverStart && destinationPoint) {
       mapRoutes.push({ stops: [toMapPoint(driverStart), toMapPoint(destinationPoint)], color: neutralRouteColor, kind: 'driver' });
     }
-    mapRoutes.push(...offers.filter(offer => !offer.live).map(offerMapRoute));
+    mapRoutes.push(...offers.filter(offer => !offer.live).map(offer => offerMapRoute(offer, true)));
     const priorityOffers = new Map(offers.slice(0, priorityColors.length).map(offer => [offer.id, offer]));
     const matchedOffers = new Map(liveOffers.map(offer => [offer.id, offer]));
     for (const request of liveRequests.slice(0, 15)) {
       mapRoutes.push({
         stops: matchedOffers.get(request.id)?.mapStops ?? [requestMapStop(request.origin), requestMapStop(request.destination)],
         color: priorityOffers.get(request.id)?.color ?? neutralRouteColor,
-        kind: 'passenger',
+        kind: 'passenger', separate: true,
       });
     }
   }
@@ -736,7 +736,7 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
       {view === 'list' && <Text style={{ color: design === 'new' ? '#526D7D' : '#9DB2C2', fontSize: 11, marginBottom: 5 }}>{matchingState}</Text>}
       {view === 'list' && offers.length === 0 && <Text style={driverStyles.empty}>Немає варіантів для цих фільтрів.</Text>}
       {view === 'list' && offers.map(o => (
-        <TouchableOpacity key={o.id} onPress={() => onSelectOffer(o)} activeOpacity={0.8} style={[driverStyles.offer, { borderColor: o.color, borderLeftWidth: 4, borderTopWidth: 1, borderRightWidth: 1, borderBottomWidth: 1, borderRadius: 12, paddingVertical: 10, marginBottom: 7 }, design === 'new' && { backgroundColor: '#FFFFFF' }]}>
+        <TouchableOpacity key={o.id} onPress={() => onSelectOffer(o)} activeOpacity={0.8} style={[driverStyles.offer, { borderColor: o.color, borderLeftWidth: 4, borderTopWidth: 1, borderRightWidth: 1, borderBottomWidth: 1, borderRadius: 12, paddingVertical: 10, marginBottom: 7, shadowColor: o.color, shadowOpacity: 0.42, shadowRadius: 9, shadowOffset: {width:0,height:0}, elevation: 5 }, design === 'new' && { backgroundColor: '#FFFFFF' }]}>
 
           <View style={driverStyles.metrics}>
             <Text style={[driverStyles.total, design === 'new' && { color: '#123B52' }]}>₴{o.amount}</Text>
@@ -778,7 +778,7 @@ function RouteMapPreview({ detail, routes }: { detail: boolean; routes: MapRoute
   if (Platform.OS !== 'web') return <View style={detailStyles.mapPlaceholder}><Text style={detailStyles.mapText}>Веб-карта доступна у браузері.</Text></View>;
   return <View style={{ height: detail ? 245 : 360, borderRadius: 9, overflow: 'hidden', borderWidth: 1, borderColor: '#526373' }}>
     {React.createElement('iframe', {
-      ref: frame, src: './route-map.html?v=3', onLoad: sendRoutes, title: 'Карта маршрутів RouteShare',
+      ref: frame, src: './route-map.html?v=4', onLoad: sendRoutes, title: 'Карта маршрутів RouteShare',
       style: { width: '100%', height: '100%', border: 0 },
     })}
   </View>;
