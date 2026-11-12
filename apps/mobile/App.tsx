@@ -57,7 +57,8 @@ function NavGraphic({ kind, active, design }: { kind: 'list' | 'map' | 'offer'; 
 
 type AddressSuggestion = { label: string; lon: number; lat: number };
 async function lookupAddresses(query: string): Promise<AddressSuggestion[]> {
-  const url = 'https://photon.komoot.io/api/?limit=6&lang=uk&lat=50.45&lon=30.52&q=' + encodeURIComponent(query);
+  // Request local OpenStreetMap names, including Ukrainian names in Kyiv.
+  const url = 'https://photon.komoot.io/api/?limit=6&lang=default&lat=50.45&lon=30.52&q=' + encodeURIComponent(query);
   const response = await fetch(url);
   if (!response.ok) throw Error('Сервіс підказок тимчасово недоступний');
   const data = await response.json();
