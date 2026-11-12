@@ -84,20 +84,33 @@ function displayTestAddress(label: string): string {
   return parseGpsAddress(label) ? 'GPS-точка' : label;
 }
 async function lookupAddresses(query: string): Promise<AddressSuggestion[]> {
-  // Request local OpenStreetMap names, including Ukrainian names in Kyiv.
-  const url = 'https://photon.komoot.io/api/?limit=6&lang=default&lat=50.45&lon=30.52&q=' + encodeURIComponent(query);
-  const response = await fetch(url);
-  if (!response.ok) throw Error('Сервіс підказок тимчасово недоступний');
-  const data = await response.json();
-  return (data.features || []).filter((f: any) => f.geometry?.coordinates && f.properties?.countrycode === 'UA').map((f: any) => {
-    const p = f.properties;
-    return {
-      label: [p.name, p.street && p.street !== p.name ? p.street : '', p.housenumber, p.city || p.locality || p.county].filter(Boolean).join(', '),
-      lon: f.geometry.coordinates[0],
-      lat: f.geometry.coordinates[1],
-      houseNumber: p.housenumber,
-    };
-  });
+  const q = query.trim();
+  if (q.length < 2) return [];
+  const endpoints = [
+    'https://photon.komoot.io/api/?limit=12&lang=uk&lat=50.45&lon=30.52&q=' + encodeURIComponent(q),
+    'https://photon.komoot.io/api/?limit=12&lat=50.45&lon=30.52&q=' + encodeURIComponent(q),
+  ];
+  let lastError = 'Сервіс пошуку адрес тимчасово недоступний';
+  for (const url of endpoints) {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) { lastError = 'Помилка сервісу адрес: ' + response.status; continue; }
+      const data = await response.json();
+      const features = Array.isArray(data.features) ? data.features : [];
+      const rows: AddressSuggestion[] = features.filter((f: any) => {
+        const c = f.properties?.countrycode;
+        return Array.isArray(f.geometry?.coordinates) && (!c || String(c).toUpperCase() === 'UA');
+      }).map((f: any) => {
+        const p = f.properties || {};
+        return {
+          label: [p.name, p.street && p.street !== p.name ? p.street : '', p.housenumber, p.city || p.locality || p.county].filter(Boolean).join(', '),
+          lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1], houseNumber: p.housenumber,
+        };
+      }).filter((p: AddressSuggestion) => !!p.label);
+      if (rows.length || url === endpoints[endpoints.length - 1]) return rows;
+    } catch (e) { lastError = e instanceof Error ? e.message : String(e); }
+  }
+  throw Error(lastError);
 }
 async function lookupHouse(street: string, number: string): Promise<AddressSuggestion | undefined> {
   const rows = await lookupAddresses(street + ' ' + number.trim());
@@ -189,9 +202,9 @@ export default function App() {
   useEffect(() => {
     if (!editingAddress) { setSuggestions([]); return; }
     const query = editingAddress === 'from' ? from : to;
-    if (query.trim().length < 3) { setSuggestions([]); return; }
+    if (query.trim().length < 2) { setSuggestions([]); return; }
     let active = true;
-    const timer = setTimeout(() => { lookupAddresses(query).then(rows => { if (active) { setSuggestions(rows); setAddressError(''); } }).catch(e => { if (active) setAddressError(String(e.message || e)); }); }, 350);
+    const timer = setTimeout(() => { lookupAddresses(query).then(rows => { if (active) { setSuggestions(rows); setAddressError(''); } }).catch(e => { if (active) setAddressError('Не вдалося завантажити адреси: ' + String(e.message || e)); }); }, 350);
     return () => { active = false; clearTimeout(timer); };
   }, [from, to, editingAddress]);
   useEffect(() => {
@@ -594,13 +607,13 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
   const [driverRouteKm, setDriverRouteKm] = useState<number | null>(null);
   const [driverRouteError, setDriverRouteError] = useState('');
   useEffect(() => {
-    if (destinationPoint || destination.trim().length < 3) { setDestinationSuggestions([]); return; }
+    if (destinationPoint || destination.trim().length < 2) { setDestinationSuggestions([]); return; }
     let active = true;
     const timer = setTimeout(() => lookupAddresses(destination).then(rows => { if (active) setDestinationSuggestions(rows); }).catch(e => { if (active) setDriverRouteError(e.message); }), 350);
     return () => { active = false; clearTimeout(timer); };
   }, [destination, destinationPoint]);
   useEffect(() => {
-    if (!manualOpen || startPoint || manualStart.trim().length < 3) { setManualSuggestions([]); return; }
+    if (!manualOpen || startPoint || manualStart.trim().length < 2) { setManualSuggestions([]); return; }
     let active = true;
     const timer = setTimeout(() => lookupAddresses(manualStart).then(rows => { if (active) setManualSuggestions(rows); }).catch(e => { if (active) setDriverRouteError(e.message); }), 350);
     return () => { active = false; clearTimeout(timer); };
