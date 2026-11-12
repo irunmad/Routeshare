@@ -451,6 +451,43 @@ const previewOffers: DriverOffer[] = [
 const formatRate = (rate: number) => Number(rate).toFixed(2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1');
 const perKm = (o: DriverOffer) => o.distance > 0 ? o.amount / o.distance : 0;
 const perHour = (o: DriverOffer) => o.minutes > 0 ? o.amount / o.minutes * 60 : 0;
+function DriverAddressPicker({ label, value, onValue, onPoint, suggestions, onSelect, error }: {
+  label: string; value: string; onValue: (v: string) => void; onPoint: (p: AddressSuggestion | null) => void;
+  suggestions: AddressSuggestion[]; onSelect: (p: AddressSuggestion) => void; error: (message: string) => void;
+}) {
+  const [street, setStreet] = useState('');
+  const [house, setHouse] = useState('');
+  const [busy, setBusy] = useState(false);
+  const choose = (point: AddressSuggestion) => {
+    // A street is not an exact pickup/dropoff location; request a house number.
+    const firstParts = point.label.split(',').slice(0, 2).join(' ');
+    if (!/\\d/.test(firstParts)) {
+      setStreet(point.label); setHouse(''); onValue(point.label); onPoint(null);
+    } else { setStreet(''); onSelect(point); }
+  };
+  const confirm = async () => {
+    if (!house.trim()) return;
+    setBusy(true); error('');
+    try {
+      const rows = await lookupAddresses(street + ' ' + house.trim());
+      const target = house.trim().toLowerCase().replace(/\\s/g, '');
+      const match = rows.find(p => p.label.toLowerCase().replace(/\\s/g, '').includes(target));
+      if (!match) { error('Точний номер будинку не знайдено. Уточни адресу.'); return; }
+      onSelect(match); setStreet(''); setHouse('');
+    } catch(e) { error(e instanceof Error ? e.message : 'Не вдалося знайти будинок'); }
+    finally { setBusy(false); }
+  };
+  return <View style={{ gap: 5 }}>
+    <Text style={{ color: '#9AB7C5', fontSize: 12 }}>{label}</Text>
+    <TextInput value={value} onChangeText={v => { onValue(v); onPoint(null); setStreet(''); }} placeholder="Вулиця або адреса" placeholderTextColor="#718096" style={{ backgroundColor: '#253F52', color: '#FFFFFF', borderRadius: 8, padding: 11 }} />
+    {!street && suggestions.map((item,i) => <TouchableOpacity key={i} onPress={() => choose(item)} style={{ padding: 9, borderBottomColor: '#426071', borderBottomWidth: 1 }}><Text style={{ color: '#20B98A' }}>{item.label}</Text></TouchableOpacity>)}
+    {!!street && <View style={{ gap: 6, padding: 8, backgroundColor: '#234558', borderRadius: 8 }}>
+      <Text style={{ color: '#FFFFFF', fontWeight: '800' }}>Номер будинку · {street}</Text>
+      <TextInput autoFocus value={house} onChangeText={setHouse} onSubmitEditing={confirm} placeholder="Наприклад: 12А" placeholderTextColor="#9AB7C5" style={{ backgroundColor: '#345B70', color: '#FFFFFF', padding: 10, borderRadius: 8 }} />
+      <TouchableOpacity onPress={confirm} disabled={busy || !house.trim()} style={{ backgroundColor: '#128D68', padding: 10, borderRadius: 8 }}><Text style={{ color: '#FFFFFF', fontWeight: '800' }}>{busy ? 'Шукаємо…' : 'Підтвердити адресу'}</Text></TouchableOpacity>
+    </View>}
+  </View>;
+}
 function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer, onSelectOffer, onBack }: { liveRequests: TestPassengerRequest[]; onRefresh: () => void; design: Design; view: 'list' | 'map' | 'offer'; selectedOffer: DriverOffer | null; onSelectOffer: (offer: DriverOffer) => void; onBack: () => void }) {
   const [seats, setSeats] = useState(3);
   const [pickupLimit, setPickupLimit] = useState(3);
@@ -551,7 +588,6 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
     .filter(o => o.passengers.length <= seats && o.pickupKm <= pickupLimit && o.finalKm <= finalLimit)
     .sort((a, b) => sortBy === 'km' ? perKm(b) - perKm(a) : perHour(b) - perHour(a));
   const offers = rankedOffers.map((o, i) => ({...o, color: i === 0 ? '#FF4256' : i === 1 ? '#23DE75' : i === 2 ? '#36A9FF' : '#718096'}));
-  const cycle = (v: number) => v >= 7 ? 0.5 : Math.round((v + 0.5) * 10) / 10;
   if (view === 'offer') return selectedOffer ? <DriverOfferDetail design={design} offer={selectedOffer} increase={increase} setIncrease={setIncrease} onBack={onBack} /> : <View style={driverStyles.wrap}><Text style={driverStyles.empty}>Заявку ще не вибрано. Відкрий «Список» і натисни на потрібну комбінацію.</Text></View>;
   return (
     <View style={[driverStyles.wrap, design === 'new' && { backgroundColor: '#E9F0F6', padding: 8, borderRadius: 14 }]}>
@@ -570,11 +606,10 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
         <Text style={{ color: design === 'new' ? '#173D52' : '#FFFFFF', fontWeight: '900', marginBottom: 8 }}>Маршрут водія</Text>
         <Text style={{ color: design === 'new' ? '#476175' : '#9AB7C5', fontSize: 12 }}>Початок: {startPoint ? startPoint.label : gps ? 'GPS визначено' : 'GPS не визначено'}</Text>
         <TouchableOpacity onPress={() => setManualOpen(v => !v)} style={{ paddingVertical: 7 }}><Text style={{ color: '#19BA87', fontWeight: '800' }}>⌖ {manualOpen ? 'Сховати ручне введення' : 'Вказати початок вручну'}</Text></TouchableOpacity>
-        {manualOpen && <TextInput value={manualStart} onChangeText={v => { setManualStart(v); setStartPoint(null); }} placeholder="Початкова адреса" placeholderTextColor="#718096" style={{ backgroundColor: '#253F52', color: '#FFFFFF', borderRadius: 8, padding: 11 }} />}
-        {manualOpen && manualSuggestions.map((item,i) => <TouchableOpacity key={i} onPress={() => { setStartPoint(item); setManualStart(item.label); setManualSuggestions([]); }} style={{ padding: 9, borderBottomColor: '#426071', borderBottomWidth: 1 }}><Text style={{ color: '#20B98A' }}>{item.label}</Text></TouchableOpacity>)}
-        <Text style={{ color: design === 'new' ? '#476175' : '#9AB7C5', fontSize: 12, marginTop: 9, marginBottom: 5 }}>Кінцева адреса</Text>
-        <TextInput value={destination} onChangeText={v => { setDestination(v); setDestinationPoint(null); }} placeholder="Куди прямує водій?" placeholderTextColor="#718096" style={{ backgroundColor: '#253F52', color: '#FFFFFF', borderRadius: 8, padding: 11 }} />
-        {destinationSuggestions.map((item,i) => <TouchableOpacity key={i} onPress={() => { setDestinationPoint(item); setDestination(item.label); setDestinationSuggestions([]); }} style={{ padding: 9, borderBottomColor: '#426071', borderBottomWidth: 1 }}><Text style={{ color: '#20B98A' }}>{item.label}</Text></TouchableOpacity>)}
+        {manualOpen && <DriverAddressPicker label="Початкова адреса" value={manualStart} onValue={setManualStart} onPoint={setStartPoint} suggestions={manualSuggestions} onSelect={p => { setStartPoint(p); setManualStart(p.label); setManualSuggestions([]); }} error={setDriverRouteError} />}
+        <View style={{ marginTop: 9 }}>
+          <DriverAddressPicker label="Кінцева адреса" value={destination} onValue={setDestination} onPoint={setDestinationPoint} suggestions={destinationSuggestions} onSelect={p => { setDestinationPoint(p); setDestination(p.label); setDestinationSuggestions([]); }} error={setDriverRouteError} />
+        </View>
         <Text style={{ color: '#1FC995', marginTop: 9, fontWeight: '800' }}>{driverRouteKm !== null ? 'Маршрут водія: ' + driverRouteKm.toFixed(1) + ' км по дорогах' : 'Вкажи початок та кінцеву адресу для розрахунку'}</Text>
         {!!driverRouteError && <Text style={{ color: '#FF9C9C', marginTop: 6 }}>{driverRouteError}</Text>}
         <Text style={{ color: design === 'new' ? '#476175' : '#9AB7C5', fontSize: 11, marginTop: 7 }}>Фільтри заявок за цим маршрутом ще не активовані; демонстраційні пропозиції не є результатом перевірки.</Text>
