@@ -938,15 +938,15 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
           </View>
           <View style={{gap:2,marginBottom:4}}>
             <View style={{flexDirection:'row',alignItems:'center',gap:5,minHeight:20}}>
-              <Text style={{color:'#A9B8C7',fontSize:12,width:91,textAlign:'right'}}>┄ {o.pickupKm.toFixed(1)} км →</Text>
+              <Text style={{color:'#A9B8C7',fontSize:12,width:115,textAlign:'right'}}>┄┄ {o.pickupKm.toFixed(1)} км ┄➜</Text>
               <Image source={{uri:'data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="16" height="21" viewBox="0 0 16 21"><path d="M8 1C4 1 1 4 1 8c0 5 7 12 7 12s7-7 7-12c0-4-3-7-7-7z" fill="#00E878"/><path d="M8 2C4.7 2 2 4.7 2 8" fill="none" stroke="#fff" stroke-opacity=".32" stroke-width="1.3"/><circle cx="8" cy="8" r="3" fill="#101B28"/></svg>')}} style={{width:13,height:17}} />
               <Text numberOfLines={1} style={[driverStyles.address,{flex:1,fontSize:14,marginBottom:0},design==='new'&&{color:'#244B61'}]}>{o.pickup}</Text>
             </View>
             <View style={{flexDirection:'row',alignItems:'center',gap:5,minHeight:20}}>
-              <View style={{width:91}} />
+              <View style={{width:115}} />
               <Image source={{uri:'data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="16" height="21" viewBox="0 0 16 21"><path d="M8 1C4 1 1 4 1 8c0 5 7 12 7 12s7-7 7-12c0-4-3-7-7-7z" fill="#FF354B"/><path d="M8 2C4.7 2 2 4.7 2 8" fill="none" stroke="#fff" stroke-opacity=".32" stroke-width="1.3"/><circle cx="8" cy="8" r="3" fill="#101B28"/></svg>')}} style={{width:13,height:17}} />
               <Text numberOfLines={1} style={[driverStyles.address,{fontSize:14,marginBottom:0,flexShrink:1}]}>{o.dropoff}</Text>
-              <Text style={{color:'#A9B8C7',fontSize:12,flexShrink:0}}>→ ┄ {o.finalKm.toFixed(1)} км</Text>
+              <Text style={{color:'#A9B8C7',fontSize:11,flexShrink:0}}>┄ {o.finalKm.toFixed(1)} км ┄➜</Text>
             </View>
           </View>
 
