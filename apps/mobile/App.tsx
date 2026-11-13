@@ -371,12 +371,12 @@ export default function App() {
             <Text style={styles.brand}>ROUTE<Text style={styles.brandAccent}>SHARE</Text></Text>
             <Text style={styles.headerCaption}>Твій маршрут. Твоя компанія.</Text>
           </View>
-          <TouchableOpacity style={styles.avatar} onPress={() => setMenuOpen(v => !v)}>
+          <TouchableOpacity style={styles.avatar} onPress={() => {setMenuOpen(v => !v);setAccountScreen('none');}}>
             <Text style={styles.avatarText}>{activeProfile?.avatar || (mode === 'driver' ? '🚗' : '👤')}</Text>
           </TouchableOpacity>
         </View>
 
-        {menuOpen && <View style={{ backgroundColor: '#1A2A3D', padding: 12, gap: 12, borderBottomWidth: 1, borderBottomColor: '#40536A' }}>
+        {menuOpen && <View style={{ flex:1, backgroundColor: '#0B1722', padding: 18, gap: 16, borderTopWidth: 1, borderTopColor: '#284253' }}>
           <Text style={{ color:'#FFFFFF',fontSize:15,fontWeight:'900' }}>Режим RouteShare</Text>
           <View style={{flexDirection:'row',gap:8}}>{(['passenger','driver'] as const).map(m => <TouchableOpacity key={m} onPress={() => {setMode(m);setTab('home');setDriverView('list');setDriverOffer(null);setNotice('');setMenuOpen(false);}} style={{flex:1,padding:11,alignItems:'center',borderRadius:10,backgroundColor:mode===m?'#00D86A':'#263A4B'}}><Text style={{color:mode===m?'#09241A':'#FFFFFF',fontWeight:'900'}}>{m==='driver'?'🚗 Водій':'👤 Пасажир'}</Text></TouchableOpacity>)}</View>
           <Text style={{ color: '#AFC8D6', fontWeight: '700', fontSize: 12 }}>ОФОРМЛЕННЯ</Text>
@@ -389,11 +389,11 @@ export default function App() {
               <TouchableOpacity onPress={() => selectProfile('')}><Text style={{ color: '#FFB6B6', fontWeight: '800' }}>Вихід</Text></TouchableOpacity>
             </View>
           </View>
-          {([['home', 'Головна'], ['trips', 'Тестові заявки'], ['messages', 'Чати'], ['profile', 'Профіль']] as const).map(([key, label]) => <TouchableOpacity key={key} onPress={() => { setTab(key); setMenuOpen(false); }}><Text style={{ color: '#FFFFFF', fontSize: 15, padding: 6 }}>{label}</Text></TouchableOpacity>)}
+          <TouchableOpacity onPress={()=>setMenuOpen(false)} style={{alignSelf:'flex-start',padding:11,borderRadius:10,backgroundColor:'#243949'}}><Text style={{color:'#FFFFFF',fontWeight:'800'}}>← Повернутися</Text></TouchableOpacity>
         </View>}
 
 
-        {accountScreen !== 'none' && <View style={{ padding: 15, backgroundColor: '#172D40', gap: 11, borderBottomWidth: 1, borderColor: '#3C5C70' }}>
+        {!menuOpen && accountScreen !== 'none' && <View style={{ padding: 15, backgroundColor: '#172D40', gap: 11, borderBottomWidth: 1, borderColor: '#3C5C70' }}>
           <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '900' }}>{accountScreen === 'register' ? 'Новий тестовий пасажир' : 'Вхід у тестовий профіль'}</Text>
           <Text style={{ color: '#B9CEDA', fontSize: 12 }}>Профілі зберігаються лише на цьому пристрої. Без паролів та SMS. Не використовуй реальні персональні дані.</Text>
           {accountScreen === 'register' ? <>
@@ -405,7 +405,7 @@ export default function App() {
           </> : profiles.length ? profiles.map(p => <TouchableOpacity key={p.id} onPress={() => selectProfile(p.id)} style={{ padding: 12, backgroundColor: '#28465A', borderRadius: 9 }}><Text style={{ color: '#FFFFFF', fontWeight: '800' }}>{p.avatar} {p.name} · {p.phone}</Text></TouchableOpacity>) : <Text style={{ color: '#FFFFFF' }}>Спочатку зареєструй тестового пасажира.</Text>}
           <TouchableOpacity onPress={() => setAccountScreen('none')}><Text style={{ color: '#D6E5F0' }}>Закрити</Text></TouchableOpacity>
         </View>}
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+        {!menuOpen && <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
           {tab === 'home' && mode === 'passenger' && (
             <>
               <View style={{backgroundColor:'#101B29',borderRadius:14,padding:9,marginBottom:8,borderWidth:1,borderColor:'#2A4050'}}>
@@ -488,18 +488,13 @@ export default function App() {
 
           {!!notice && <TouchableOpacity style={styles.notice} onPress={() => setNotice('')}><Text style={styles.noticeText}>{notice}</Text><Text style={styles.noticeClose}>×</Text></TouchableOpacity>}
           <Text style={styles.footer}>ROUTE<Text style={styles.brandAccent}>SHARE</Text>  ·  Разом дорогою</Text>
-        </ScrollView>
+        </ScrollView>}
 
-        {tab === 'home' && mode === 'driver' && <View style={[styles.bottomNav, design === 'new' && { backgroundColor: '#E9F0F6', paddingHorizontal: 9, paddingTop: 12, paddingBottom: 14, borderTopColor: '#B7CEDA', gap: 8 }]}>
-          {([
-            ['list', 'Список', '☷', '▤'],
-            ['map', 'Карта', '▧', '◈'],
-            ['offer', 'Заявка', '▤', '✦'],
-          ] as const).map(([key, label, classicIcon, newIcon]) => (
-            <TouchableOpacity key={key} onPress={() => { setDriverView(key); if (key !== 'offer') setDriverOffer(null); }}
-              style={design === 'new' ? { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 17, paddingVertical: 10, backgroundColor: driverView === key ? '#146E87' : '#FFFFFF', borderWidth: 1, borderColor: driverView === key ? '#146E87' : '#C7D9E4' } : { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 6, borderTopWidth: driverView === key ? 3 : 3, borderTopColor: driverView === key ? '#35E08B' : 'transparent' }}>
-              <NavGraphic kind={key} active={driverView === key} design={design} />
-              <Text style={{ fontSize: design === 'new' ? 12 : 10, marginTop: 3, color: design === 'new' ? (driverView === key ? '#FFFFFF' : '#146E87') : (driverView === key ? '#35E08B' : '#8495A8'), fontWeight: '800' }}>{label}</Text>
+        {!menuOpen && tab === 'home' && mode === 'driver' && <View style={{flexDirection:'row',marginHorizontal:12,marginBottom:7,padding:3,gap:4,backgroundColor:'#0E1A27',borderRadius:13,borderWidth:1,borderColor:'#273A4B'}}>
+          {([['list','Список','≡'],['map','Карта','◇'],['offer','Заявка','▤']] as const).map(([key,label,glyph])=>(
+            <TouchableOpacity key={key} onPress={()=>{setDriverView(key);if(key!=='offer')setDriverOffer(null);}} style={{flex:1,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:6,paddingVertical:7,borderRadius:10,backgroundColor:driverView===key?'#174335':'transparent',borderWidth:1,borderColor:driverView===key?'#00DB7C':'transparent'}}>
+              <Text style={{color:driverView===key?'#00F08B':'#91A7B8',fontSize:17,fontWeight:'900'}}>{glyph}</Text>
+              <Text style={{color:driverView===key?'#F3FFF9':'#A8BAC9',fontSize:12,fontWeight:driverView===key?'900':'700'}}>{label}</Text>
             </TouchableOpacity>
           ))}
         </View>}
@@ -901,7 +896,7 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
       {view === 'list' && <Text style={{ color: design === 'new' ? '#526D7D' : '#9DB2C2', fontSize: 11, marginBottom: 5 }}>{matchingState}{comboStatus ? ' · '+comboStatus : ''}</Text>}
       {view === 'list' && offers.length === 0 && <Text style={driverStyles.empty}>Немає варіантів для цих фільтрів.</Text>}
       {view === 'list' && offers.map(o => (
-        <TouchableOpacity key={o.id} onPress={() => onSelectOffer(o)} activeOpacity={0.8} style={[driverStyles.offer, { borderColor: o.color, borderLeftWidth: 4, borderTopWidth: 1, borderRightWidth: 1, borderBottomWidth: 1, borderRadius: 12, paddingVertical: 10, marginBottom: 7, shadowColor: o.color, shadowOpacity: 0.7, shadowRadius: 14, shadowOffset: {width:0,height:0}, elevation: 5 }, design === 'new' && { backgroundColor: '#FFFFFF' }]}>
+        <TouchableOpacity key={o.id} onPress={() => onSelectOffer(o)} activeOpacity={0.8} style={[driverStyles.offer, { borderColor: o.color, borderLeftWidth: 4, borderTopWidth: 1, borderRightWidth: 1, borderBottomWidth: 1, borderRadius: 12, paddingVertical: 10, marginBottom: 7, borderTopColor:o.color, shadowColor: o.color, shadowOpacity: 0.52, shadowRadius: 11, shadowOffset: {width:0,height:0}, elevation: 5 }, design === 'new' && { backgroundColor: '#FFFFFF' }]}>
 
           <View style={driverStyles.metrics}>
             <Text style={[driverStyles.total,{textShadowColor:o.color,textShadowRadius:9}, design === 'new' && { color: '#123B52' }]}>₴{o.amount}</Text>
@@ -914,6 +909,7 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
           <View style={driverStyles.tripInfo}><Text style={[driverStyles.tripInfoText, design === 'new' && { color: '#526D7D' }]}>{o.distance.toFixed(1)} км</Text><Text style={driverStyles.tripInfoText}>≈ {o.minutes} хв</Text></View>
           {o.passengers.map(p => (
             <View key={p.name} style={driverStyles.person}>
+              <View style={{width:12,alignItems:'center',justifyContent:'center',gap:2}}><View style={{width:7,height:7,borderRadius:4,backgroundColor:'#00EE80'}}/><View style={{width:7,height:7,borderRadius:4,backgroundColor:'#FF4358'}}/></View>
               <View style={driverStyles.personAvatar}><Text style={driverStyles.personAvatarText}>{p.avatar}</Text></View>
               <Text numberOfLines={1} style={[driverStyles.personName, design === 'new' && { color: '#163D54' }]}>{p.name}</Text>
               <Text style={[driverStyles.acceptance, design === 'new' && { color: '#00854E' }]}>{p.acceptance}%</Text>
@@ -1036,11 +1032,11 @@ const driverStyles = StyleSheet.create({
   tripInfoText: { color: '#A8B9C7', fontSize: 10 },
   person: { borderTopWidth: 1, borderTopColor: '#2A3948', flexDirection: 'row', alignItems: 'center', minHeight: 30, gap: 4 },
   personAvatar: { width: 23, height: 23, borderRadius: 12, backgroundColor: '#32485D', alignItems: 'center', justifyContent: 'center' },
-  personAvatarText: { color: '#FFFFFF', fontSize: 10, fontWeight: '700' }, personName: { flex: 1, color: '#F5F7FA', fontSize: 11 },
-  acceptance: { color: '#3FE985', fontSize: 11, fontWeight: '700', width: 33, textAlign: 'right' },
+  personAvatarText: { color: '#FFFFFF', fontSize: 10, fontWeight: '700' }, personName: { flex: 1, color: '#F5F7FA', fontSize: 12, fontWeight:'700' },
+  acceptance: { color: '#3FE985', fontSize: 12, fontWeight: '700', width: 33, textAlign: 'right' },
   noShow: { color: '#FFCB48', fontSize: 11, fontWeight: '700', width: 25, textAlign: 'right' },
   personKm: { color: '#D5DEE8', fontSize: 10, width: 42, textAlign: 'right' },
-  personFare: { color: '#FFFFFF', fontSize: 11, fontWeight: '800', width: 43, textAlign: 'right' },
+  personFare: { color: '#FFFFFF', fontSize: 12, fontWeight: '800', width: 43, textAlign: 'right' },
   replace: { color: '#F1F5F9', fontSize: 23, marginLeft: 3 }, empty: { color: '#ABB8C7', padding: 15 },
   confirm: { backgroundColor: '#253346', borderRadius: 12, padding: 14, gap: 12 },
   confirmText: { color: '#FFFFFF', fontSize: 13 }, confirmActions: { flexDirection: 'row', justifyContent: 'space-around' },
