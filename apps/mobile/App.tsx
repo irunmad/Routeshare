@@ -447,6 +447,8 @@ export default function App() {
                   <View style={styles.rateRow}>
                     <Text style={styles.rateLabel}>ТАРИФ, грн/км (мін. 15)</Text>
                     <TextInput value={rate} onChangeText={setRate} keyboardType="decimal-pad" style={styles.rateInput} />
+                    <TouchableOpacity onPress={()=>setRate(v=>String(Math.max(15,(Number(v.replace(',','.'))||15)+1)))} style={{padding:9,borderRadius:9,backgroundColor:'#164835'}}><Text style={{color:'#00F486',fontSize:17,fontWeight:'900'}}>+1</Text></TouchableOpacity>
+                    <TouchableOpacity onPress={()=>setRate(v=>String(Math.max(15,(Number(v.replace(',','.'))||15)+5)))} style={{padding:9,borderRadius:9,backgroundColor:'#164835'}}><Text style={{color:'#00F486',fontSize:17,fontWeight:'900'}}>+5</Text></TouchableOpacity>
                   </View>
                   {distanceKm !== null && <View style={{backgroundColor:'#0C1E23',borderColor:'#00DE72',borderWidth:1,borderRadius:12,padding:11,marginBottom:10,shadowColor:'#00FF80',shadowOpacity:0.35,shadowRadius:9,elevation:4}}><Text style={{color:'#90A9B5',fontSize:11,fontWeight:'700'}}>ВАРТІСТЬ ПОЇЗДКИ</Text><Text style={{color:'#00F17C',fontWeight:'900',fontSize:27,textShadowColor:'#00D870',textShadowRadius:9}}>{Math.ceil(distanceKm * Math.max(15, Number(rate.replace(',', '.')) || 15))} ₴</Text><Text style={{color:'#E0EBF1',fontSize:12}}>{distanceKm.toFixed(1)} км · ≈ {Math.round(distanceKm/25*60)} хв · {Math.max(15,Number(rate.replace(',','.'))||15)} ₴/км</Text></View>}
                   <View style={{flexDirection:'row',gap:7}}>
@@ -927,11 +929,12 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
           <View pointerEvents="none" style={{position:'absolute',left:1,right:1,top:1,height:155,overflow:'hidden',borderTopLeftRadius:11,borderTopRightRadius:11}}>
             <Image resizeMode="stretch" source={{uri:'data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="155"><defs><linearGradient id="fade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="'+o.color+'" stop-opacity=".13"/><stop offset=".35" stop-color="'+o.color+'" stop-opacity=".075"/><stop offset=".76" stop-color="'+o.color+'" stop-opacity=".025"/><stop offset="1" stop-color="'+o.color+'" stop-opacity="0"/></linearGradient></defs><rect width="400" height="105" fill="url(#fade)"/></svg>')}} style={{width:'100%',height:155}} />
           </View>
-          <View style={driverStyles.metrics}>
-            <Text style={[driverStyles.total,{color:'#FFFFFF',textShadowColor:'#75828F',textShadowRadius:1.5,textShadowOffset:{width:0,height:1}}, design === 'new' && { color: '#123B52' }]}>₴{o.amount}</Text>
-
-            <Text style={[driverStyles.metric, design === 'new' && { color: '#173D52' }]}><Text style={[driverStyles.green, design === 'new' && { color: '#007C51' }]}>{perKm(o).toFixed(1)}</Text> ₴/км</Text>
-            <Text style={driverStyles.metric}><Text style={[driverStyles.orange, design === 'new' && { color: '#B66A00' }]}>{Math.round(perHour(o)).toLocaleString('uk-UA')}</Text> ₴/год</Text>
+          <View style={[driverStyles.metrics,{gap:4,alignItems:'center'}]}>
+            <Text style={[driverStyles.total,{flexShrink:0,color:'#FFFFFF',textShadowColor:'#75828F',textShadowRadius:1.5,textShadowOffset:{width:0,height:1}}]}>₴{o.amount}</Text>
+            <Text style={{fontSize:10,color:'#A5B4C1',flexShrink:0}}>▴ {o.distance.toFixed(1)} км</Text>
+            <Text style={[driverStyles.metric,{flexShrink:0,fontSize:11}]}><Text style={[driverStyles.green,{fontSize:17}]}>{perKm(o).toFixed(1)}</Text> ₴/км</Text>
+            <Text style={{fontSize:10,color:'#A5B4C1',flexShrink:0}}>◷ {o.minutes} хв</Text>
+            <Text style={[driverStyles.metric,{flexShrink:0,fontSize:11}]}><Text style={[driverStyles.orange,{fontSize:16}]}>{Math.round(perHour(o)).toLocaleString('uk-UA')}</Text> ₴/год</Text>
           </View>
           <View style={{gap:2,marginBottom:4}}>
             <View style={{flexDirection:'row',alignItems:'center',gap:5,minHeight:20}}>
@@ -946,7 +949,7 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
               <Text style={{color:'#A9B8C7',fontSize:12,flexShrink:0}}>→ ┄ {o.finalKm.toFixed(1)} км</Text>
             </View>
           </View>
-          <View style={driverStyles.tripInfo}><Text style={[driverStyles.tripInfoText, design === 'new' && { color: '#526D7D' }]}>▰ {o.distance.toFixed(1)} км</Text><Text style={driverStyles.tripInfoText}>◷ ≈ {o.minutes} хв</Text></View>
+
           {o.passengers.map(p => (
             <View key={p.name} style={driverStyles.person}>
               <View style={driverStyles.personAvatar}><Text style={driverStyles.personAvatarText}>{p.avatar}</Text></View>
@@ -1069,13 +1072,13 @@ const driverStyles = StyleSheet.create({
   orange: { color: '#FFA52B', fontSize: 17, fontWeight: '900' }, address: { color: '#E1E9F0', fontSize: 10, marginBottom: 3 },
   tripInfo: { flexDirection: 'row', justifyContent: 'flex-end', gap: 14, marginBottom: 4 },
   tripInfoText: { color: '#A8B9C7', fontSize: 11 },
-  person: { borderTopWidth: 1, borderTopColor: '#2A3948', flexDirection: 'row', alignItems: 'center', minHeight: 34, gap: 4 },
+  person: { borderTopWidth: 1, borderTopColor: '#2A3948', flexDirection: 'row', alignItems: 'center', minHeight: 35, gap: 3 },
   personAvatar: { width: 23, height: 23, borderRadius: 12, backgroundColor: '#32485D', alignItems: 'center', justifyContent: 'center' },
-  personAvatarText: { color: '#FFFFFF', fontSize: 10, fontWeight: '700' }, personName: { flex: 1, color: '#F5F7FA', fontSize: 15, fontWeight:'700' },
-  acceptance: { color: '#3FE985', fontSize: 13, fontWeight: '700', width: 36, textAlign: 'right' },
-  noShow: { color: '#FFCB48', fontSize: 12, fontWeight: '700', width: 27, textAlign: 'right' },
-  personKm: { color: '#D5DEE8', fontSize: 12, width: 44, textAlign: 'right' },
-  personFare: { color: '#FFFFFF', fontSize: 14, fontWeight: '800', width: 47, textAlign: 'right' },
+  personAvatarText: { color: '#FFFFFF', fontSize: 10, fontWeight: '700' }, personName: { flex: 1, color: '#F5F7FA', fontSize: 16, fontWeight:'700' },
+  acceptance: { color: '#3FE985', fontSize: 14, fontWeight: '700', width: 36, textAlign: 'right' },
+  noShow: { color: '#FFCB48', fontSize: 13, fontWeight: '700', width: 27, textAlign: 'right' },
+  personKm: { color: '#D5DEE8', fontSize: 13, width: 44, textAlign: 'right' },
+  personFare: { color: '#FFFFFF', fontSize: 15, fontWeight: '800', width: 47, textAlign: 'right' },
   replace: { color: '#F1F5F9', fontSize: 23, marginLeft: 3 }, empty: { color: '#ABB8C7', padding: 15 },
   confirm: { backgroundColor: '#253346', borderRadius: 12, padding: 14, gap: 12 },
   confirmText: { color: '#FFFFFF', fontSize: 13 }, confirmActions: { flexDirection: 'row', justifyContent: 'space-around' },
