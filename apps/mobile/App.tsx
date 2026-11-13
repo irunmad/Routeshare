@@ -113,7 +113,7 @@ async function lookupAddresses(query: string): Promise<AddressSuggestion[]> {
     if(unique.size>=8)break;
   }
   // Ukrainian-language fallback for missing streets and house numbers.
-  if(unique.size<5){
+  if(unique.size<5 || ![...unique.values()].some(p=>/київ|kyiv|kiev/i.test(p.label)&&Math.hypot((p.lat-center.lat)*111,(p.lon-center.lon)*71)<28)){
     try {
       const url='https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=12&countrycodes=ua&accept-language=uk&q='+encodeURIComponent(q+', Київ, Україна');
       const response=await fetch(url,{headers:{'Accept-Language':'uk'}});
@@ -130,9 +130,14 @@ async function lookupAddresses(query: string): Promise<AddressSuggestion[]> {
   }
   const score=(p:AddressSuggestion)=>{
     const d=Math.hypot((p.lat-center.lat)*111,(p.lon-center.lon)*71);
+    const label=normalize(p.label);
+    const search=normalize(q);
     const kyiv=/київ|киев|kyiv|kiev/i.test(p.label);
-    const exact=normalize(p.label).includes(normalize(q));
-    return (exact?100:0)+(kyiv?30:0)-d*.35;
+    const inCity=kyiv && d<28;
+    const starts=label.startsWith(search);
+    const exact=label.includes(search);
+    // The requested Kyiv street must outrank same-named streets in remote villages.
+    return (inCity?1000:0)+(starts?150:0)+(exact?90:0)-d*2;
   };
   const rows=[...unique.values()].sort((a,b)=>score(b)-score(a)).slice(0,12);
   if(!rows.length&&lastError)throw Error('Пошук адрес недоступний: '+lastError);
@@ -670,34 +675,43 @@ function DriverAddressPicker({ label, value, onValue, onPoint, suggestions, onSe
   label: string; value: string; onValue: (v: string) => void; onPoint: (p: AddressSuggestion | null) => void;
   suggestions: AddressSuggestion[]; onSelect: (p: AddressSuggestion) => void; error: (message: string) => void;
 }) {
-  const [street, setStreet] = useState('');
-  const [house, setHouse] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [showMap,setShowMap] = useState(false);
-  const choose = (point: AddressSuggestion) => {
-    if (!point.houseNumber) {
-      setStreet(point.label); setHouse(''); onValue(point.label); onPoint(null);
-    } else { setStreet(''); onSelect(point); }
+  const [house,setHouse]=useState('');
+  const [street,setStreet]=useState('');
+  const [showMap,setShowMap]=useState(false);
+  const [busy,setBusy]=useState(false);
+  const choose=(point:AddressSuggestion)=>{
+    if(point.houseNumber){onSelect(point);setStreet('');setHouse('');return;}
+    setStreet(point.label);setHouse('');onValue(point.label);onPoint(null);
   };
-  const confirm = async () => {
-    if (!house.trim()) return;
-    setBusy(true); error('');
-    try {
-      const match = await lookupHouse(street, house);
-      if (!match) { error('Точний номер будинку не знайдено. Уточни адресу.'); return; }
-      onSelect(match); setStreet(''); setHouse('');
-    } catch(e) { error(e instanceof Error ? e.message : 'Не вдалося знайти будинок'); }
-    finally { setBusy(false); }
+  const confirm=async()=>{
+    if(!street||!house.trim())return;
+    setBusy(true);error('');
+    try{
+      const found=await lookupHouse(street,house);
+      if(found){onSelect(found);setStreet('');setHouse('');return;}
+      // OSM house-number coverage is incomplete. Keep a street-level point explicitly marked approximate.
+      const candidate=await lookupAddresses(street);
+      const base=candidate.find(p=>p.label===street)||candidate[0];
+      if(base){
+        onSelect({...base,label:street.replace(/,?\\s*\\d+[А-Яа-яA-Za-z]?$/,'')+', '+house.trim()+' (орієнтовно)',houseNumber:house.trim()});
+        setStreet('');setHouse('');
+        error('Будинок не підтверджено на мапі: точка орієнтовна. Уточни її вручну за потреби.');
+      }else error('Вулицю не знайдено. Обери точку на мапі.');
+    }catch(e){error(String(e));}
+    finally{setBusy(false);}
   };
-  return <View style={{ gap: 5 }}>
-    <Text style={{ color: '#9AB7C5', fontSize: 12 }}>{label}</Text>
-    <View style={{flexDirection:'row',alignItems:'center',backgroundColor:'#253F52',borderRadius:8}}><View style={{flex:1}}><TextInput value={value} onChangeText={v => { onValue(v); onPoint(null); setStreet(''); }} placeholder="Вулиця або адреса" placeholderTextColor="#718096" style={{ backgroundColor: '#253F52', color: '#FFFFFF', borderRadius: 8, padding: 11 }} /></View>{!!value && <TouchableOpacity onPress={() => {onValue('');onPoint(null);setStreet('');}} style={{padding:10}}><Text style={{color:'#FFFFFF',fontSize:22}}>×</Text></TouchableOpacity>}</View><TouchableOpacity onPress={() => setShowMap(v=>!v)} style={{paddingVertical:9}}><Text style={{color:'#38DCA4',fontWeight:'800'}}>◎ Обрати на мапі</Text></TouchableOpacity>{showMap && <MapPointPicker initial={null} onCancel={() => setShowMap(false)} onConfirm={p => {onSelect(p);setStreet('');setShowMap(false);}} />}
-    {!street && suggestions.map((item,i) => <TouchableOpacity key={i} onPress={() => choose(item)} style={{ padding: 9, borderBottomColor: '#426071', borderBottomWidth: 1 }}><Text style={{ color: '#20B98A' }}>{item.label}</Text></TouchableOpacity>)}
-    {!!street && <View style={{ gap: 6, padding: 8, backgroundColor: '#234558', borderRadius: 8 }}>
-      <Text style={{ color: '#FFFFFF', fontWeight: '800' }}>Номер будинку · {street}</Text>
-      <TextInput autoFocus value={house} onChangeText={setHouse} onSubmitEditing={confirm} placeholder="Наприклад: 12А" placeholderTextColor="#9AB7C5" style={{ backgroundColor: '#345B70', color: '#FFFFFF', padding: 10, borderRadius: 8 }} />
-      <TouchableOpacity onPress={confirm} disabled={busy || !house.trim()} style={{ backgroundColor: '#128D68', padding: 10, borderRadius: 8 }}><Text style={{ color: '#FFFFFF', fontWeight: '800' }}>{busy ? 'Шукаємо…' : 'Підтвердити адресу'}</Text></TouchableOpacity>
-    </View>}
+  return <View style={{gap:6}}>
+    <Text style={{color:'#9AB7C5',fontSize:12}}>{label}</Text>
+    <View style={{flexDirection:'row',gap:5,alignItems:'center',backgroundColor:'#253F52',borderRadius:9}}>
+      <TextInput value={value} onChangeText={v=>{onValue(v);onPoint(null);setStreet('');setHouse('');}} placeholder="Вулиця" placeholderTextColor="#8295A5" style={{flex:1,minWidth:0,color:'#FFFFFF',padding:11,fontSize:15}}/>
+      {!!street&&<TextInput autoFocus value={house} onChangeText={setHouse} onSubmitEditing={confirm} placeholder="№ буд." keyboardType="default" placeholderTextColor="#8295A5" style={{width:83,borderLeftWidth:1,borderLeftColor:'#526777',color:'#FFFFFF',paddingVertical:11,paddingHorizontal:6,fontSize:15}}/>}
+      {!!street&&<TouchableOpacity onPress={confirm} disabled={busy||!house.trim()} style={{padding:8}}><Text style={{color:'#00EF81',fontWeight:'900',fontSize:17}}>✓</Text></TouchableOpacity>}
+      {!!value&&<TouchableOpacity onPress={()=>{onValue('');onPoint(null);setStreet('');setHouse('');}} style={{padding:8}}><Text style={{color:'#FFFFFF',fontSize:21}}>×</Text></TouchableOpacity>}
+    </View>
+    <TouchableOpacity onPress={()=>setShowMap(v=>!v)} style={{paddingVertical:7}}><Text style={{color:'#38DCA4',fontWeight:'800'}}>◎ Обрати на мапі</Text></TouchableOpacity>
+    {showMap&&<MapPointPicker initial={null} onCancel={()=>setShowMap(false)} onConfirm={p=>{onSelect(p);setStreet('');setHouse('');setShowMap(false);}}/>}
+    {!street&&suggestions.slice(0,8).map((item,i)=><TouchableOpacity key={i} onPress={()=>choose(item)} style={{padding:10,borderBottomColor:'#344857',borderBottomWidth:1}}><Text style={{color:'#48DCA4',fontSize:14}}>{item.label}</Text></TouchableOpacity>)}
+    {!!street&&<Text style={{color:'#A5BBC6',fontSize:12}}>Номер будинку введи праворуч від назви вулиці. Якщо OSM не знає будинок, точка буде орієнтовною.</Text>}
   </View>;
 }
 function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer, onSelectOffer, onBack }: { liveRequests: TestPassengerRequest[]; onRefresh: () => void; design: Design; view: 'list' | 'map' | 'offer'; selectedOffer: DriverOffer | null; onSelectOffer: (offer: DriverOffer) => void; onBack: () => void }) {
