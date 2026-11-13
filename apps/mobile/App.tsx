@@ -448,7 +448,7 @@ export default function App() {
                     <TouchableOpacity style={[styles.primaryButton,{flex:1,backgroundColor:'#00D969',borderRadius:13,justifyContent:'center'}]} disabled={savingRequest || distanceKm === null || routeBusy} onPress={createTestRequest}>
                       <Text style={[styles.primaryButtonText,{color:'#061C13',fontWeight:'900'}]}>{savingRequest?'Зберігаємо…':'Замовити'}</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity accessibilityLabel="Срочність поїздки" onPress={()=>setUrgency(v=>v==='now'?'flex':'now')} style={{flex:1,alignItems:'center',justifyContent:'center',backgroundColor:urgency==='now'?'#00D969':'#1A2C39',borderWidth:1,borderColor:'#00D969',borderRadius:13}}><Text style={{color:urgency==='now'?'#062219':'#E9F4F5',fontSize:26}}>◷</Text></TouchableOpacity>
+                    <TouchableOpacity accessibilityLabel="Срочність поїздки" onPress={()=>setUrgency(v=>v==='now'?'flex':'now')} style={{width:55,alignItems:'center',justifyContent:'center',alignSelf:'stretch',backgroundColor:urgency==='now'?'#00D969':'#1A2C39',borderWidth:1,borderColor:'#00D969',borderRadius:13}}><Text style={{color:urgency==='now'?'#062219':'#E9F4F5',fontSize:26}}>◷</Text></TouchableOpacity>
                   </View>
 
                   {requestResult && <View style={{ marginTop: 12, padding: 12, borderRadius: 8, backgroundColor: requestResult.ok ? '#14563C' : '#692C36', borderWidth: 1, borderColor: requestResult.ok ? '#39D58A' : '#FF7883' }}><Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '800' }}>{requestResult.message}</Text></View>}
@@ -897,22 +897,22 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
       {view === 'list' && <Text style={{ color: design === 'new' ? '#526D7D' : '#9DB2C2', fontSize: 11, marginBottom: 5 }}>{matchingState}{comboStatus ? ' · '+comboStatus : ''}</Text>}
       {view === 'list' && offers.length === 0 && <Text style={driverStyles.empty}>Немає варіантів для цих фільтрів.</Text>}
       {view === 'list' && offers.map(o => (
-        <TouchableOpacity key={o.id} onPress={() => onSelectOffer(o)} activeOpacity={0.8} style={[driverStyles.offer, { borderColor: o.color, borderLeftWidth: 4, borderTopWidth: 1, borderRightWidth: 1, borderBottomWidth: 1, borderRadius: 12, paddingVertical: 10, marginBottom: 7, borderTopColor:o.color, shadowColor: o.color, shadowOpacity: 0.65, shadowRadius: 13, shadowOffset: {width:0,height:0}, elevation: 5 }, design === 'new' && { backgroundColor: '#FFFFFF' }]}>
+        <TouchableOpacity key={o.id} onPress={() => onSelectOffer(o)} activeOpacity={0.8} style={[driverStyles.offer, { borderColor: o.color, borderLeftWidth: 4, borderTopWidth: 1, borderRightWidth: 1, borderBottomWidth: 1, borderRadius: 12, paddingVertical: 10, marginBottom: 7, borderTopColor:o.color, shadowColor: o.color, shadowOpacity: 0.17, shadowRadius: 4, shadowOffset: {width:0,height:0}, elevation: 1 }, design === 'new' && { backgroundColor: '#FFFFFF' }]}>
 
-          <View pointerEvents="none" style={{position:'absolute',left:1,right:1,top:1,height:105,overflow:'hidden',borderTopLeftRadius:11,borderTopRightRadius:11}}>
-            <Image resizeMode="stretch" source={{uri:'data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="105"><defs><linearGradient id="fade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="'+o.color+'" stop-opacity=".13"/><stop offset=".28" stop-color="'+o.color+'" stop-opacity=".075"/><stop offset=".65" stop-color="'+o.color+'" stop-opacity=".025"/><stop offset="1" stop-color="'+o.color+'" stop-opacity="0"/></linearGradient></defs><rect width="400" height="105" fill="url(#fade)"/></svg>')}} style={{width:'100%',height:105}} />
+          <View pointerEvents="none" style={{position:'absolute',left:1,right:1,top:1,height:155,overflow:'hidden',borderTopLeftRadius:11,borderTopRightRadius:11}}>
+            <Image resizeMode="stretch" source={{uri:'data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="155"><defs><linearGradient id="fade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="'+o.color+'" stop-opacity=".13"/><stop offset=".35" stop-color="'+o.color+'" stop-opacity=".075"/><stop offset=".76" stop-color="'+o.color+'" stop-opacity=".025"/><stop offset="1" stop-color="'+o.color+'" stop-opacity="0"/></linearGradient></defs><rect width="400" height="105" fill="url(#fade)"/></svg>')}} style={{width:'100%',height:155}} />
           </View>
           <View style={driverStyles.metrics}>
-            <Text style={[driverStyles.total,{textShadowColor:o.color,textShadowRadius:9}, design === 'new' && { color: '#123B52' }]}>₴{o.amount}</Text>
+            <Text style={[driverStyles.total,{color:'#FFFFFF',textShadowColor:'#75828F',textShadowRadius:1.5,textShadowOffset:{width:0,height:1}}, design === 'new' && { color: '#123B52' }]}>₴{o.amount}</Text>
 
             <Text style={[driverStyles.metric, design === 'new' && { color: '#173D52' }]}><Text style={[driverStyles.green, design === 'new' && { color: '#007C51' }]}>{perKm(o).toFixed(1)}</Text> ₴/км</Text>
             <Text style={driverStyles.metric}><Text style={[driverStyles.orange, design === 'new' && { color: '#B66A00' }]}>{Math.round(perHour(o)).toLocaleString('uk-UA')}</Text> ₴/год</Text>
           </View>
           <View style={{flexDirection:'row',alignItems:'center',gap:7,marginBottom:4}}>
             <View style={{width:13,alignItems:'center',gap:5}}>
-              {(['#00ED7B','#FF4358'] as const).map((color,index)=>(
-                <View key={color} style={{width:11,height:11,borderRadius:6,backgroundColor:color,borderWidth:1,borderColor:index===0?'#B0FFD3':'#FFACB4',shadowColor:color,shadowOpacity:.7,shadowRadius:5,alignItems:'center',justifyContent:'flex-start'}}>
-                  <View style={{width:4,height:3,borderRadius:3,backgroundColor:'#FFFFFF',opacity:.55,marginTop:1}}/>
+              {(['#00E878','#F83A4E'] as const).map(color=>(
+                <View key={color} style={{width:9,height:9,borderRadius:5,backgroundColor:color,borderWidth:1,borderColor:color,shadowColor:color,shadowOpacity:.23,shadowRadius:2}}>
+                  <View style={{position:'absolute',top:1,left:2,width:3,height:2,borderRadius:2,backgroundColor:'#FFFFFF',opacity:.25}}/>
                 </View>
               ))}
             </View>
@@ -921,7 +921,7 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
               <Text numberOfLines={1} style={[driverStyles.address,{fontSize:13,marginBottom:0}]}>{o.dropoff} → ┄ {o.finalKm.toFixed(1)} км</Text>
             </View>
           </View>
-          <View style={driverStyles.tripInfo}><Text style={[driverStyles.tripInfoText, design === 'new' && { color: '#526D7D' }]}>{o.distance.toFixed(1)} км</Text><Text style={driverStyles.tripInfoText}>≈ {o.minutes} хв</Text></View>
+          <View style={driverStyles.tripInfo}><Text style={[driverStyles.tripInfoText, design === 'new' && { color: '#526D7D' }]}>▰ {o.distance.toFixed(1)} км</Text><Text style={driverStyles.tripInfoText}>◷ ≈ {o.minutes} хв</Text></View>
           {o.passengers.map(p => (
             <View key={p.name} style={driverStyles.person}>
               <View style={driverStyles.personAvatar}><Text style={driverStyles.personAvatarText}>{p.avatar}</Text></View>
