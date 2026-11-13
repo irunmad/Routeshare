@@ -800,6 +800,10 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
   const adjust = (value: number, delta: number) => Math.min(7, Math.max(0.5, Math.round((value + delta) * 10) / 10));
   const [eligibleRequests, setEligibleRequests] = useState<MatchedRequest[]>([]);
   const [matchingState, setMatchingState] = useState('Для підбору вкажи початок і кінець маршруту');
+  // Polling returns a fresh array every five seconds. Re-run routing only when request content changes.
+  const liveRequestSignature=JSON.stringify(liveRequests.map(r=>[r.id,r.origin,r.destination,r.offeredRateUahPerKm]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))));
+  const latestLiveRequests=useRef(liveRequests);
+  latestLiveRequests.current=liveRequests;
   useEffect(() => {
     if (!driverStart || !destinationPoint) {
       setEligibleRequests([]);
@@ -809,38 +813,31 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
     if (!liveRequests.length) { setEligibleRequests([]); setMatchingState('Немає активних пасажирських заявок'); return; }
     let active = true;
     setMatchingState('Перевіряємо відстані по дорогах…');
-    const run = async () => {
-      const results: MatchedRequest[] = [];
-      let unresolved = 0;
-      for (const request of liveRequests) {
-        if (!active) return;
-        try {
-          const pickup = await resolveAddress(request.origin);
-          const dropoff = await resolveAddress(request.destination);
-          if (!pickup || !dropoff) { unresolved++; continue; }
-          const [pickupKm, finalKm, passengerKm] = await Promise.all([
-            roadDistanceKm(driverStart, pickup),
-            roadDistanceKm(dropoff, destinationPoint),
-            roadDistanceKm(pickup, dropoff),
+    const requests=latestLiveRequests.current;
+    const run=async()=>{
+      const outcomes=await Promise.all(requests.map(async(request):Promise<{match?:MatchedRequest;error?:string}>=>{
+        try{
+          const [pickup,dropoff]=await Promise.all([resolveAddress(request.origin),resolveAddress(request.destination)]);
+          if(!pickup||!dropoff)return {error:'адресу не знайдено'};
+          const [pickupKm,finalKm,passengerKm]=await Promise.all([
+            roadDistanceKm(driverStart,pickup),roadDistanceKm(dropoff,destinationPoint),roadDistanceKm(pickup,dropoff)
           ]);
-          if (Number.isFinite(pickupKm) && Number.isFinite(finalKm) && Number.isFinite(passengerKm)) {
-            results.push({
-              request, pickupKm, finalKm, passengerKm,
-              fare: Math.ceil(passengerKm * request.offeredRateUahPerKm),
-              mapStops: [toMapPoint(pickup), toMapPoint(dropoff)],
-            });
-          }
-        } catch { unresolved++; }
-      }
-      if (active) {
-        results.sort((a,b) => (b.fare / (b.pickupKm+b.passengerKm+b.finalKm || 1)) - (a.fare / (a.pickupKm+a.passengerKm+a.finalKm || 1)));
-        setEligibleRequests(results);
-        setMatchingState('Перевірено ' + liveRequests.length + ' · підходять ' + results.length + (unresolved ? ' · не вдалося перевірити ' + unresolved : ''));
-      }
+          if(![pickupKm,finalKm,passengerKm].every(Number.isFinite))return {error:'немає дорожнього маршруту'};
+          return {match:{request,pickupKm,finalKm,passengerKm,fare:Math.ceil(passengerKm*request.offeredRateUahPerKm),
+            mapStops:[toMapPoint(pickup),toMapPoint(dropoff)]}};
+        }catch{return {error:'помилка геокодування або маршрутизації'};}
+      }));
+      if(!active)return;
+      const results=outcomes.flatMap(o=>o.match?[o.match]:[]);
+      results.sort((a,b)=>(b.fare/(b.pickupKm+b.passengerKm+b.finalKm||1))-(a.fare/(a.pickupKm+a.passengerKm+a.finalKm||1)));
+      setEligibleRequests(results);
+      const outside=results.filter(c=>c.pickupKm>pickupLimit||c.finalKm>finalLimit).length;
+      const errors=outcomes.filter(o=>o.error).length;
+      setMatchingState('Усього '+requests.length+' · у фільтрі '+(results.length-outside)+' · поза фільтром '+outside+' · не розраховано '+errors);
     };
     run();
     return () => { active = false; };
-  }, [driverStart, destinationPoint, liveRequests, pickupLimit, finalLimit]);
+  }, [driverStart?.lat,driverStart?.lon,destinationPoint?.lat,destinationPoint?.lon,liveRequestSignature,pickupLimit,finalLimit]);
   const [combinedOffers,setCombinedOffers]=useState<DriverOffer[]>([]);
   const [comboStatus,setComboStatus]=useState('');
   useEffect(()=>{
