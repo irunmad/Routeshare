@@ -991,14 +991,28 @@ function DriverOfferDetail({ design, offer, increase, setIncrease, onBack, drive
   design: Design; offer: DriverOffer; increase: number; setIncrease: (value: number) => void; onBack: () => void; driverStart: Coordinates | null; driverEnd: Coordinates | null;
 }) {
   const [message, setMessage] = useState('');
+  const [roadEstimate,setRoadEstimate]=useState<{km:number;minutes:number}|null>(null);
+  useEffect(()=>{
+    let active=true;setRoadEstimate(null);
+    const stops=[...(driverStart?[toMapPoint(driverStart)]:[]),...offer.mapStops,...(driverEnd?[toMapPoint(driverEnd)]:[])];
+    if(stops.length<2)return;
+    const coords=stops.map(([lon,lat])=>lon+','+lat).join(';');
+    fetch('https://router.project-osrm.org/route/v1/driving/'+coords+'?overview=false').then(r=>r.json()).then(data=>{
+      const route=data.routes?.[0];if(active&&route)setRoadEstimate({km:route.distance/1000,minutes:Math.ceil(route.duration/60)});
+    }).catch(()=>{});
+    return()=>{active=false;};
+  },[offer.id,driverStart?.lat,driverStart?.lon,driverEnd?.lat,driverEnd?.lon]);
   const updated = Math.round(offer.amount * (1 + increase / 100));
+  const displayKm=roadEstimate?.km??offer.distance;
+  const displayMinutes=roadEstimate?.minutes??offer.minutes;
   return (
     <View style={[detailStyles.wrap, design === 'new' && { backgroundColor: '#E9F0F6', padding: 10, borderRadius: 16 }]}>
       <View style={[detailStyles.head, design === 'new' && { backgroundColor: '#173D52', borderRadius: 15, padding: 10 }]}>
         <Text style={detailStyles.title}>Заявка {offer.live ? '' : '· демо'}</Text>
         <Text style={detailStyles.amount}>₴{updated}</Text>
-        <Text style={detailStyles.stat}><Text style={detailStyles.km}>{(updated / offer.distance).toFixed(1)}</Text> ₴/км</Text>
-        <Text style={detailStyles.stat}><Text style={detailStyles.hour}>{Math.round(updated / offer.minutes * 60)}</Text> ₴/год</Text>
+        <Text style={detailStyles.stat}><Text style={detailStyles.km}>{(updated / displayKm).toFixed(1)}</Text> ₴/км</Text>
+        <Text style={detailStyles.stat}>{roadEstimate?displayKm.toFixed(1)+' км · '+displayMinutes+' хв (без пробок)':'Час орієнтовний'} </Text>
+        <Text style={detailStyles.stat}><Text style={detailStyles.hour}>{Math.round(updated / displayMinutes * 60)}</Text> ₴/год</Text>
       </View>
       <View style={[detailStyles.frame, { borderColor: offer.color }, design === 'new' && { backgroundColor: '#173D52', borderRadius: 20, borderWidth: 2 }]}>
         <Text style={detailStyles.segment}>┄ {offer.pickupKm.toFixed(1)} км → Перша посадка</Text>
