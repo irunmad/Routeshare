@@ -83,7 +83,7 @@ function requestMapStop(label: string): MapStop {
 function displayTestAddress(label: string): string {
   return parseGpsAddress(label) ? 'GPS-точка' : label;
 }
-async async function lookupAddresses(query: string): Promise<AddressSuggestion[]> {
+async function lookupAddresses(query: string): Promise<AddressSuggestion[]> {
   const q = query.trim();
   if (q.length < 2) return [];
   const normalize = (v: string) => v.toLocaleLowerCase('uk-UA').replace(/[’']/g, '');
