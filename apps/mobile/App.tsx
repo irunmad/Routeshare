@@ -1006,7 +1006,7 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
               <Text numberOfLines={1} style={[driverStyles.personName, design === 'new' && { color: '#163D54' }]}>{p.name}</Text>
               <Text style={[driverStyles.acceptance, design === 'new' && { color: '#00854E' }]}>{p.acceptance}%</Text>
               <Text style={[driverStyles.noShow, design === 'new' && { color: '#B06B00' }]}>{p.noShow}%</Text>
-              <Text style={[driverStyles.personKm, design === 'new' && { color: '#244B61' }]}>{p.km.toFixed(1)} км</Text>
+              <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={[driverStyles.personKm, design === 'new' && { color: '#244B61' }]}>{p.km.toFixed(1)} км</Text>
               <Text style={[driverStyles.personFare, design === 'new' && { color: '#123B52' }]}>₴{p.fare}</Text>
               <TouchableOpacity accessibilityLabel={'Замінити ' + p.name} onPress={() => setReplaceName(p.name)}><Text style={[driverStyles.replace, design === 'new' && { color: '#123B52' }]}>⟳</Text></TouchableOpacity>
             </View>
@@ -1138,10 +1138,10 @@ const driverStyles = StyleSheet.create({
   tripInfoText: { color: '#A8B9C7', fontSize: 11 },
   person: { borderTopWidth: 1, borderTopColor: '#2A3948', flexDirection: 'row', alignItems: 'center', minHeight: 35, gap: 3 },
   personAvatar: { width: 23, height: 23, borderRadius: 12, backgroundColor: '#32485D', alignItems: 'center', justifyContent: 'center' },
-  personAvatarText: { color: '#FFFFFF', fontSize: 10, fontWeight: '700' }, personName: { flex: 1, color: '#F5F7FA', fontSize: 16, fontWeight:'700' },
+  personAvatarText: { color: '#FFFFFF', fontSize: 10, fontWeight: '700' }, personName: { flex: 1, minWidth: 0, flexShrink: 1, color: '#F5F7FA', fontSize: 16, fontWeight:'700' },
   acceptance: { color: '#3FE985', fontSize: 14, fontWeight: '700', width: 36, textAlign: 'right' },
   noShow: { color: '#FFCB48', fontSize: 13, fontWeight: '700', width: 27, textAlign: 'right' },
-  personKm: { color: '#D5DEE8', fontSize: 13, width: 44, textAlign: 'right' },
+  personKm: { color: '#D5DEE8', fontSize: 13, width: 64, flexShrink: 0, textAlign: 'right' },
   personFare: { color: '#FFFFFF', fontSize: 15, fontWeight: '800', width: 47, textAlign: 'right' },
   replace: { color: '#F1F5F9', fontSize: 23, marginLeft: 3 }, empty: { color: '#ABB8C7', padding: 15 },
   confirm: { backgroundColor: '#253346', borderRadius: 12, padding: 14, gap: 12 },
