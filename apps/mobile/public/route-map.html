@@ -71,10 +71,10 @@
         if (isPoint(cached)) return cached;
       } catch {}
 
-      const url = 'https://photon.komoot.io/api/?limit=6&lang=default&lat=50.45&lon=30.52&q=' + encodeURIComponent(stop);
+      const url = 'https://photon.komoot.io/api/?limit=6&lat=50.45&lon=30.52&q=' + encodeURIComponent(stop);
       const { features = [] } = await fetchJson(url, signal);
       const match = features.find(feature =>
-        feature.properties?.countrycode === 'UA' && isPoint(feature.geometry?.coordinates)
+        (!feature.properties?.countrycode || String(feature.properties.countrycode).toUpperCase() === 'UA') && isPoint(feature.geometry?.coordinates)
       );
       if (!match) return null;
       const point = match.geometry.coordinates;
@@ -100,11 +100,13 @@
     function marker(point, label, color, compact = false) {
       const badge = document.createElement('span');
       badge.className = 'marker';
-      badge.style.borderColor = color;
-      if (compact) { badge.style.width = '8px'; badge.style.height = '8px'; badge.style.borderWidth = '1.5px'; badge.style.background = color; }
-      else badge.textContent = label;
+      const diameter = compact ? 11 : 16;
+      badge.style.cssText = 'display:block;box-sizing:border-box;width:'+diameter+'px;height:'+diameter+'px;border:2px solid '+color+';border-radius:50%;background:#08141D;box-shadow:0 0 5px '+color+';position:relative;';
+      const core = document.createElement('span');
+      core.style.cssText = 'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:'+(compact?4:6)+'px;height:'+(compact?4:6)+'px;border-radius:50%;background:'+color+';';
+      badge.appendChild(core);
       return L.marker(toLatLng(point), {
-        icon: L.divIcon({ className: '', html: badge, iconSize: compact ? [10, 10] : [22, 18] }),
+        icon: L.divIcon({ className: '', html: badge, iconSize: [diameter,diameter], iconAnchor:[diameter/2,diameter/2] }),
       });
     }
 
@@ -158,7 +160,7 @@
           const split = route.separate && stops.length >= 4 && stops.length % 2 === 0;
           const pairs = split ? Array.from({length:stops.length/2},(_,i)=>[stops[i],stops[i+stops.length/2]]) : [stops];
           if (route.kind === 'driver') {
-            stops.forEach((point,index)=>marker(point,markerLabel(route.kind,index,stops.length),color,false).addTo(routeLayers));
+            stops.forEach((point,index)=>marker(point,'',color,false).addTo(routeLayers));
           } else {
             const compact = route.separate;
             pairs.forEach(pair => {
