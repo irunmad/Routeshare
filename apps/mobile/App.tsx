@@ -144,7 +144,17 @@ async function lookupAddresses(query: string): Promise<AddressSuggestion[]> {
   return rows;
 }
 
-async function lookupHouse(street: string, number: string): Promise<AddressSuggestion | undefined> {
+async const isAddressPlace=(label:string)=>/метро|станція|торгов|трц|тц |mall|shopping|супермаркет|вокзал|аеропорт/i.test(label);
+async function resolveOptionalHouse(street:string,house:string,streetPoint?:AddressSuggestion|null):Promise<{point:AddressSuggestion;approximate:boolean}|null>{
+  const number=house.trim();
+  if(!number)return streetPoint?{point:streetPoint,approximate:false}:null;
+  const exact=await lookupHouse(street,number);
+  if(exact)return {point:exact,approximate:false};
+  const rows=streetPoint?[streetPoint]:await lookupAddresses(street);
+  const base=rows.find(p=>p.label===street)||rows[0];
+  return base?{point:{...base,label:base.label+', '+number+' (орієнтовно)',houseNumber:number},approximate:true}:null;
+}
+function lookupHouse(street: string, number: string): Promise<AddressSuggestion | undefined> {
   const rows = await lookupAddresses(street + ' ' + number.trim());
   const normalize = (value: string) => value.toLowerCase().replace(/\s/g, '');
   const target = normalize(number);
@@ -267,19 +277,22 @@ export default function App() {
   const [houseNumber, setHouseNumber] = useState('');
   const [houseBusy, setHouseBusy] = useState(false);
   const confirmHouse = async () => {
-    if (!houseTarget || !houseNumber.trim()) return;
+    if (!houseTarget) return;
     setHouseBusy(true); setAddressError('');
     try {
-      const exact = await lookupHouse(houseStreet, houseNumber);
-      if (!exact) { setAddressError('Будинок не знайдено. Уточни номер або введи повну адресу вручну.'); return; }
+      const selected=(await lookupAddresses(houseStreet)).find(p=>p.label===houseStreet);
+      const result=await resolveOptionalHouse(houseStreet,houseNumber,selected);
+      if (!result) { setAddressError('Вулицю не знайдено. Обери точку на мапі.'); return; }
+      const exact=result.point;
       if (houseTarget === 'from') { setFrom(exact.label); setFromPoint(exact); }
       else { setTo(exact.label); setToPoint(exact); }
+      if(result.approximate)setAddressError('Номер будинку не підтверджено. Точка орієнтовна.');
       rememberAddress(exact); setHouseTarget(null); setHouseNumber('');
     } catch (e) { setAddressError(e instanceof Error ? e.message : 'Помилка пошуку будинку'); }
     finally { setHouseBusy(false); }
   };
   const selectAddress = (point: AddressSuggestion) => {
-    if (!point.houseNumber && editingAddress) {
+    if (!point.houseNumber && !isAddressPlace(point.label) && editingAddress) {
       setHouseTarget(editingAddress); setHouseStreet(point.label); setHouseNumber('');
       if (editingAddress === 'from') { setFrom(point.label); setFromPoint(null); }
       else { setTo(point.label); setToPoint(null); }
@@ -682,23 +695,19 @@ function DriverAddressPicker({ label, value, onValue, onPoint, suggestions, onSe
   const [showMap,setShowMap]=useState(false);
   const [busy,setBusy]=useState(false);
   const choose=(point:AddressSuggestion)=>{
-    if(point.houseNumber || /метро|станція|торгов|трц|тц |mall|shopping|супермаркет|вокзал|аеропорт/i.test(point.label)){onSelect(point);setStreet('');setHouse('');return;}
+    if(point.houseNumber || isAddressPlace(point.label)){onSelect(point);setStreet('');setHouse('');return;}
     setStreet(point.label);setHouse('');onValue(point.label);onPoint(point);
   };
   const confirm=async()=>{
     if(!street)return;
-    if(!house.trim()){const rows=await lookupAddresses(street);const base=rows.find(p=>p.label===street)||rows[0];if(base){onSelect(base);setStreet('');setHouse('');error('');}else error('Не знайдено вулицю. Обери точку на мапі.');return;}
     setBusy(true);error('');
     try{
-      const found=await lookupHouse(street,house);
-      if(found){onSelect(found);setStreet('');setHouse('');return;}
-      // OSM house-number coverage is incomplete. Keep a street-level point explicitly marked approximate.
-      const candidate=await lookupAddresses(street);
-      const base=candidate.find(p=>p.label===street)||candidate[0];
-      if(base){
-        onSelect({...base,label:street.replace(/,?\\s*\\d+[А-Яа-яA-Za-z]?$/,'')+', '+house.trim()+' (орієнтовно)',houseNumber:house.trim()});
-        setStreet('');setHouse('');
-        error('Будинок не підтверджено на мапі: точка орієнтовна. Уточни її вручну за потреби.');
+      const rows=await lookupAddresses(street);
+      const selected=rows.find(p=>p.label===street)||rows[0];
+      const resolved=await resolveOptionalHouse(street,house,selected);
+      if(resolved){
+        onSelect(resolved.point);setStreet('');setHouse('');
+        if(resolved.approximate)error('Номер будинку не підтверджено. Точка орієнтовна.');
       }else error('Вулицю не знайдено. Обери точку на мапі.');
     }catch(e){error(String(e));}
     finally{setBusy(false);}
