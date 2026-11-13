@@ -448,7 +448,7 @@ export default function App() {
                     <TouchableOpacity style={[styles.primaryButton,{flex:1,backgroundColor:'#00D969',borderRadius:13,justifyContent:'center'}]} disabled={savingRequest || distanceKm === null || routeBusy} onPress={createTestRequest}>
                       <Text style={[styles.primaryButtonText,{color:'#061C13',fontWeight:'900'}]}>{savingRequest?'Зберігаємо…':'Замовити'}</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity accessibilityLabel="Срочність поїздки" onPress={()=>setUrgency(v=>v==='now'?'flex':'now')} style={{width:55,alignItems:'center',justifyContent:'center',alignSelf:'stretch',backgroundColor:urgency==='now'?'#00D969':'#1A2C39',borderWidth:1,borderColor:'#00D969',borderRadius:13}}><Text style={{color:urgency==='now'?'#062219':'#E9F4F5',fontSize:26}}>◷</Text></TouchableOpacity>
+                    <TouchableOpacity accessibilityLabel="Срочність поїздки" onPress={()=>setUrgency(v=>v==='now'?'flex':'now')} style={{width:55,height:49,marginTop:14,alignItems:'center',justifyContent:'center',backgroundColor:urgency==='now'?'#00D969':'#1A2C39',borderWidth:1,borderColor:'#00D969',borderRadius:13}}><Text style={{color:urgency==='now'?'#062219':'#E9F4F5',fontSize:26}}>◷</Text></TouchableOpacity>
                   </View>
 
                   {requestResult && <View style={{ marginTop: 12, padding: 12, borderRadius: 8, backgroundColor: requestResult.ok ? '#14563C' : '#692C36', borderWidth: 1, borderColor: requestResult.ok ? '#39D58A' : '#FF7883' }}><Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '800' }}>{requestResult.message}</Text></View>}
@@ -908,17 +908,17 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
             <Text style={[driverStyles.metric, design === 'new' && { color: '#173D52' }]}><Text style={[driverStyles.green, design === 'new' && { color: '#007C51' }]}>{perKm(o).toFixed(1)}</Text> ₴/км</Text>
             <Text style={driverStyles.metric}><Text style={[driverStyles.orange, design === 'new' && { color: '#B66A00' }]}>{Math.round(perHour(o)).toLocaleString('uk-UA')}</Text> ₴/год</Text>
           </View>
-          <View style={{flexDirection:'row',alignItems:'center',gap:7,marginBottom:4}}>
-            <View style={{width:13,alignItems:'center',gap:5}}>
-              {(['#00E878','#F83A4E'] as const).map(color=>(
-                <View key={color} style={{width:9,height:9,borderRadius:5,backgroundColor:color,borderWidth:1,borderColor:color,shadowColor:color,shadowOpacity:.23,shadowRadius:2}}>
-                  <View style={{position:'absolute',top:1,left:2,width:3,height:2,borderRadius:2,backgroundColor:'#FFFFFF',opacity:.25}}/>
-                </View>
-              ))}
+          <View style={{gap:2,marginBottom:4}}>
+            <View style={{flexDirection:'row',alignItems:'center',gap:5,minHeight:20}}>
+              <Text style={{color:'#A9B8C7',fontSize:12}}>┄ {o.pickupKm.toFixed(1)} км →</Text>
+              <Image source={{uri:'data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="16" height="21" viewBox="0 0 16 21"><path d="M8 1C4 1 1 4 1 8c0 5 7 12 7 12s7-7 7-12c0-4-3-7-7-7z" fill="#00E878"/><path d="M8 2C4.7 2 2 4.7 2 8" fill="none" stroke="#fff" stroke-opacity=".32" stroke-width="1.3"/><circle cx="8" cy="8" r="3" fill="#101B28"/></svg>')}} style={{width:13,height:17}} />
+              <Text numberOfLines={1} style={[driverStyles.address,{flex:1,fontSize:14,marginBottom:0},design==='new'&&{color:'#244B61'}]}>{o.pickup}</Text>
             </View>
-            <View style={{flex:1,gap:3}}>
-              <Text numberOfLines={1} style={[driverStyles.address,{fontSize:13,marginBottom:0},design==='new'&&{color:'#244B61'}]}>┄ {o.pickupKm.toFixed(1)} км → {o.pickup}</Text>
-              <Text numberOfLines={1} style={[driverStyles.address,{fontSize:13,marginBottom:0}]}>{o.dropoff} → ┄ {o.finalKm.toFixed(1)} км</Text>
+            <View style={{flexDirection:'row',alignItems:'center',gap:5,minHeight:20}}>
+              <View style={{width:0}} />
+              <Image source={{uri:'data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="16" height="21" viewBox="0 0 16 21"><path d="M8 1C4 1 1 4 1 8c0 5 7 12 7 12s7-7 7-12c0-4-3-7-7-7z" fill="#FF354B"/><path d="M8 2C4.7 2 2 4.7 2 8" fill="none" stroke="#fff" stroke-opacity=".32" stroke-width="1.3"/><circle cx="8" cy="8" r="3" fill="#101B28"/></svg>')}} style={{width:13,height:17}} />
+              <Text numberOfLines={1} style={[driverStyles.address,{fontSize:14,marginBottom:0,flexShrink:1}]}>{o.dropoff}</Text>
+              <Text style={{color:'#A9B8C7',fontSize:12,flexShrink:0}}>→ ┄ {o.finalKm.toFixed(1)} км</Text>
             </View>
           </View>
           <View style={driverStyles.tripInfo}><Text style={[driverStyles.tripInfoText, design === 'new' && { color: '#526D7D' }]}>▰ {o.distance.toFixed(1)} км</Text><Text style={driverStyles.tripInfoText}>◷ ≈ {o.minutes} хв</Text></View>
@@ -1044,13 +1044,13 @@ const driverStyles = StyleSheet.create({
   orange: { color: '#FFA52B', fontSize: 17, fontWeight: '900' }, address: { color: '#E1E9F0', fontSize: 10, marginBottom: 3 },
   tripInfo: { flexDirection: 'row', justifyContent: 'flex-end', gap: 14, marginBottom: 4 },
   tripInfoText: { color: '#A8B9C7', fontSize: 11 },
-  person: { borderTopWidth: 1, borderTopColor: '#2A3948', flexDirection: 'row', alignItems: 'center', minHeight: 30, gap: 4 },
+  person: { borderTopWidth: 1, borderTopColor: '#2A3948', flexDirection: 'row', alignItems: 'center', minHeight: 34, gap: 4 },
   personAvatar: { width: 23, height: 23, borderRadius: 12, backgroundColor: '#32485D', alignItems: 'center', justifyContent: 'center' },
-  personAvatarText: { color: '#FFFFFF', fontSize: 10, fontWeight: '700' }, personName: { flex: 1, color: '#F5F7FA', fontSize: 13, fontWeight:'700' },
-  acceptance: { color: '#3FE985', fontSize: 12, fontWeight: '700', width: 33, textAlign: 'right' },
-  noShow: { color: '#FFCB48', fontSize: 11, fontWeight: '700', width: 25, textAlign: 'right' },
-  personKm: { color: '#D5DEE8', fontSize: 11, width: 42, textAlign: 'right' },
-  personFare: { color: '#FFFFFF', fontSize: 13, fontWeight: '800', width: 43, textAlign: 'right' },
+  personAvatarText: { color: '#FFFFFF', fontSize: 10, fontWeight: '700' }, personName: { flex: 1, color: '#F5F7FA', fontSize: 15, fontWeight:'700' },
+  acceptance: { color: '#3FE985', fontSize: 13, fontWeight: '700', width: 36, textAlign: 'right' },
+  noShow: { color: '#FFCB48', fontSize: 12, fontWeight: '700', width: 27, textAlign: 'right' },
+  personKm: { color: '#D5DEE8', fontSize: 12, width: 44, textAlign: 'right' },
+  personFare: { color: '#FFFFFF', fontSize: 14, fontWeight: '800', width: 47, textAlign: 'right' },
   replace: { color: '#F1F5F9', fontSize: 23, marginLeft: 3 }, empty: { color: '#ABB8C7', padding: 15 },
   confirm: { backgroundColor: '#253346', borderRadius: 12, padding: 14, gap: 12 },
   confirmText: { color: '#FFFFFF', fontSize: 13 }, confirmActions: { flexDirection: 'row', justifyContent: 'space-around' },
