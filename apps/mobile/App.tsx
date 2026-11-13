@@ -709,6 +709,7 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
   const [pickupLimit, setPickupLimit] = useState(3);
   const [finalLimit, setFinalLimit] = useState(4);
   const [unique, setUnique] = useState(true);
+  const [showDemo, setShowDemo] = useState(false);
   const [sortBy, setSortBy] = useState<'km' | 'hour'>('km');
   const [replaceName, setReplaceName] = useState<string | null>(null);
   const [increase, setIncrease] = useState(0);
@@ -774,7 +775,7 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
             roadDistanceKm(dropoff, destinationPoint),
             roadDistanceKm(pickup, dropoff),
           ]);
-          if (pickupKm <= pickupLimit && finalKm <= finalLimit) {
+          if (Number.isFinite(pickupKm) && Number.isFinite(finalKm) && Number.isFinite(passengerKm)) {
             results.push({
               request, pickupKm, finalKm, passengerKm,
               fare: Math.ceil(passengerKm * request.offeredRateUahPerKm),
@@ -805,7 +806,7 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
   },[eligibleRequests,driverStart,destinationPoint,seats,pickupLimit,finalLimit]);
   // Real test requests and preview combinations share one ranking and the same cards.
   // A live single-passenger offer uses its verified road distances; travel time is estimated.
-  const liveOffers: DriverOffer[] = eligibleRequests.map(({request, pickupKm, finalKm, passengerKm, fare, mapStops}) => {
+  const liveOffers: DriverOffer[] = eligibleRequests.filter(c=>c.pickupKm<=pickupLimit&&c.finalKm<=finalLimit).map(({request, pickupKm, finalKm, passengerKm, fare, mapStops}) => {
     const distance = pickupKm + passengerKm + finalKm;
     const pickup = displayTestAddress(request.origin);
     const dropoff = displayTestAddress(request.destination);
@@ -817,10 +818,18 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
         km: passengerKm, fare, avatar: 'Т', pickup, dropoff }],
     };
   });
-  const rankedOffers = [...previewOffers, ...liveOffers, ...combinedOffers]
-    .filter(o => o.passengers.length <= seats && o.pickupKm <= pickupLimit && o.finalKm <= finalLimit)
-    .sort((a, b) => sortBy === 'km' ? perKm(b) - perKm(a) : perHour(b) - perHour(a));
-  const offers = rankedOffers.map((o, i) => ({ ...o, color: priorityColors[i] ?? '#718096' }));
+  // Test requests take priority: preview cards never compete with live test offers unless explicitly enabled.
+  const rankedOffers = [...liveOffers,...combinedOffers,...(showDemo ? previewOffers : [])]
+    .filter(o=>o.passengers.length<=seats&&o.pickupKm<=pickupLimit&&o.finalKm<=finalLimit)
+    .sort((a,b)=>sortBy==='km'?perKm(b)-perKm(a):perHour(b)-perHour(a));
+  const seenPassengers=new Set<string>();
+  const offers=rankedOffers.filter(o=>{
+    if(!unique||!o.live)return true;
+    const ids=o.id.startsWith('combo:')?o.id.slice(6).split(':'):[o.id];
+    if(ids.some(id=>seenPassengers.has(id)))return false;
+    ids.forEach(id=>seenPassengers.add(id));
+    return true;
+  }).map((o,i)=>({...o,color:priorityColors[i]??'#718096'}));
   const mapRoutes: MapRoute[] = [];
   if (view === 'map') {
     if (driverStart && destinationPoint) {
@@ -867,6 +876,12 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
   return (
     <View style={[driverStyles.wrap, design === 'new' && { backgroundColor: '#E9F0F6', padding: 8, borderRadius: 14 }]}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}><Text style={[driverStyles.heading, design === 'new' && { color: '#123B52' }]}>Маршрути</Text><Text style={{ color: design === 'new' ? '#526D7D' : '#91A8B7', fontSize: 11 }}>{liveRequests.length} активних пасажирських заявок</Text></View>
+      <View style={{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginBottom:5}}>
+        <Text style={{color:'#B8CBD7',fontSize:11}}>Реальні тестові заявки: {liveRequests.length}</Text>
+        <TouchableOpacity onPress={()=>setShowDemo(v=>!v)} style={{paddingVertical:4,paddingHorizontal:9,borderRadius:9,backgroundColor:showDemo?'#26473B':'#233341'}}>
+          <Text style={{color:showDemo?'#00EF86':'#A9BAC7',fontSize:11,fontWeight:'800'}}>Демо {showDemo?'УВІМК.':'ВИМК.'}</Text>
+        </TouchableOpacity>
+      </View>
       <View style={{flexDirection:'row',gap:5,marginBottom:7}}>
         <TouchableOpacity onPress={() => setSeats(v => v === 3 ? 1 : v + 1)} style={driverStyles.filter}><Text style={driverStyles.legend}>🚗 Місць</Text><Text style={driverStyles.filterValue}>{seats} ▾</Text></TouchableOpacity>
         <TouchableOpacity onPress={() => {setFilterScreen('pickup');if(!driverStart)requestGps();}} style={driverStyles.filter}><Text style={driverStyles.legend}>↗ Подача</Text><Text style={driverStyles.filterValue}>≤ {pickupLimit.toFixed(1)} км</Text></TouchableOpacity>
