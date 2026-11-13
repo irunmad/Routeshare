@@ -384,7 +384,8 @@ export default function App() {
               <View style={{backgroundColor:'#101B29',borderRadius:14,padding:9,marginBottom:8,borderWidth:1,borderColor:'#2A4050'}}>
                 <View style={{flexDirection:'row',alignItems:'center',gap:8,marginBottom:4}}>
                   <Text style={{color:'#00E66D',fontSize:16}}>●</Text>
-                  <TextInput value={from} onChangeText={v=>{setFrom(v);setFromPoint(null);setEditingAddress('from');setShowPassengerRoute(false);}} onFocus={()=>setEditingAddress('from')} placeholder="Початок маршруту" placeholderTextColor="#8899A8" style={{flex:1,color:'#FFFFFF',fontSize:16,paddingVertical:10}}/>
+                  <TextInput value={from} onChangeText={v=>{setFrom(v);setFromPoint(null);setEditingAddress('from');setShowPassengerRoute(false);}} onFocus={()=>setEditingAddress('from')} placeholder="Початок маршруту" placeholderTextColor="#8899A8" style={{flex:1,minWidth:0,color:'#FFFFFF',fontSize:16,paddingVertical:10}}/>
+                  {houseTarget === 'from' && <View style={{width:85,flexDirection:'row',alignItems:'center',gap:3,borderBottomWidth:1,borderBottomColor:'#00E36B'}}><TextInput autoFocus value={houseNumber} onChangeText={setHouseNumber} onSubmitEditing={confirmHouse} placeholder="№ дому" placeholderTextColor="#A0ADBA" style={{flex:1,minWidth:0,color:'#FFFFFF',fontSize:14,paddingVertical:7}}/><TouchableOpacity onPress={confirmHouse} disabled={houseBusy||!houseNumber.trim()}><Text style={{color:'#00E66D',fontSize:18}}>✓</Text></TouchableOpacity></View>}
                   {!!from && <TouchableOpacity onPress={()=>{setFrom('');setFromPoint(null);setEditingAddress('from');}}><Text style={{color:'#DDE8F2',fontSize:23}}>×</Text></TouchableOpacity>}
                   <TouchableOpacity onPress={()=>{setMapTarget('from');setEditingAddress(null);}} style={{padding:6}}><Text style={{color:'#00D978',fontSize:23}}>⌖</Text></TouchableOpacity>
                 </View>
@@ -392,6 +393,7 @@ export default function App() {
                 <View style={{flexDirection:'row',alignItems:'center',gap:8}}>
                   <Text style={{color:'#FF465A',fontSize:16}}>●</Text>
                   <TextInput value={to} onChangeText={v=>{setTo(v);setToPoint(null);setEditingAddress('to');setShowPassengerRoute(false);}} onFocus={()=>setEditingAddress('to')} placeholder="Кінець маршруту" placeholderTextColor="#8899A8" style={{flex:1,color:'#FFFFFF',fontSize:16,paddingVertical:10}}/>
+                  {houseTarget === 'to' && <View style={{width:85,flexDirection:'row',alignItems:'center',gap:3,borderBottomWidth:1,borderBottomColor:'#00E36B'}}><TextInput autoFocus value={houseNumber} onChangeText={setHouseNumber} onSubmitEditing={confirmHouse} placeholder="№ дому" placeholderTextColor="#A0ADBA" style={{flex:1,minWidth:0,color:'#FFFFFF',fontSize:14,paddingVertical:7}}/><TouchableOpacity onPress={confirmHouse} disabled={houseBusy||!houseNumber.trim()}><Text style={{color:'#00E66D',fontSize:18}}>✓</Text></TouchableOpacity></View>}
                   {!!to && <TouchableOpacity onPress={()=>{setTo('');setToPoint(null);setEditingAddress('to');}}><Text style={{color:'#DDE8F2',fontSize:23}}>×</Text></TouchableOpacity>}
                   <TouchableOpacity onPress={()=>{setMapTarget('to');setEditingAddress(null);}} style={{padding:6}}><Text style={{color:'#00D978',fontSize:23}}>⌖</Text></TouchableOpacity>
                 </View>
@@ -404,27 +406,23 @@ export default function App() {
                 {suggestions.slice(0,8).map((item,i)=><TouchableOpacity key={i} onPress={()=>selectAddress(item)} style={{paddingVertical:11,borderBottomWidth:1,borderBottomColor:'#324452'}}><Text numberOfLines={2} style={{color:'#FFFFFF',fontSize:14}}>⌖  {item.label}</Text></TouchableOpacity>)}
               </View>}
               <View style={{paddingHorizontal:4}}>
-                  {houseTarget && <View style={{ backgroundColor: '#213D50', padding: 10, borderRadius: 9, marginBottom: 10, gap: 7 }}>
-                    <Text style={{ color: '#FFFFFF', fontWeight: '800' }}>Номер будинку · {houseTarget === 'from' ? 'посадка' : 'висадка'}</Text>
-                    <Text style={{ color: '#9DB9C8', fontSize: 11 }}>{houseStreet}</Text>
-                    <TextInput autoFocus value={houseNumber} onChangeText={setHouseNumber} placeholder="Наприклад: 15А" placeholderTextColor="#9DB9C8" onSubmitEditing={confirmHouse} style={{ backgroundColor: '#314D61', color: '#FFFFFF', padding: 10, borderRadius: 8 }} />
-                    <TouchableOpacity onPress={confirmHouse} disabled={houseBusy || !houseNumber.trim()} style={{ padding: 10, backgroundColor: '#128D68', borderRadius: 8 }}><Text style={{ color: '#FFFFFF', fontWeight: '800' }}>{houseBusy ? 'Шукаємо будинок…' : 'Підтвердити адресу'}</Text></TouchableOpacity>
-                  </View>}
+
 
                   {mapTarget && <MapPointPicker initial={mapTarget === 'from' ? fromPoint : toPoint} onCancel={() => setMapTarget(null)} onConfirm={p => { if(mapTarget === 'from'){setFrom(p.label);setFromPoint(p);} else {setTo(p.label);setToPoint(p);}setMapTarget(null);setHouseTarget(null);setShowPassengerRoute(false); }} />}
                   {!!addressError && <Text style={{ color: '#FFAD84', fontSize: 12, marginBottom: 8 }}>{addressError}</Text>}
                   {(fromPoint || toPoint) && <RouteMapPreview detail routes={[{stops: fromPoint && toPoint ? [toMapPoint(fromPoint),toMapPoint(toPoint)] : [toMapPoint((fromPoint||toPoint)!),toMapPoint((fromPoint||toPoint)!)],kind:'passenger',color:'#00DB79'}]} />}
-                  <Text style={{ color: '#8EE6C1', fontWeight: '800', marginVertical: 9 }}>{routeBusy ? 'Розрахунок маршруту…' : distanceKm === null ? 'Вибери обидві точки' : distanceKm.toFixed(1) + ' км · ≈ ' + Math.round(distanceKm/25*60) + ' хв · ' + Math.ceil(distanceKm*15) + ' ₴'}</Text>
-                  <TouchableOpacity onPress={()=>setUrgency(v=>v==='now'?'flex':'now')} style={{paddingVertical:8,alignItems:'center'}}><Text style={{color:'#E2EAF0',fontWeight:'700'}}>◷ {urgency==='now'?'Термінова поїздка':'Гнучкий час'} ▾</Text></TouchableOpacity>
+                  <Text style={{ color: '#00EF78', fontWeight: '800', marginVertical: 9 }}>{routeBusy ? 'Розрахунок маршруту…' : distanceKm === null ? 'Вибери обидві точки' : distanceKm.toFixed(1) + ' км · ≈ ' + Math.round(distanceKm/25*60) + ' хв · ' + Math.ceil(distanceKm*15) + ' ₴'}</Text>
                   <View style={styles.rateRow}>
                     <Text style={styles.rateLabel}>ТАРИФ, грн/км (мін. 15)</Text>
                     <TextInput value={rate} onChangeText={setRate} keyboardType="decimal-pad" style={styles.rateInput} />
                   </View>
-                  {distanceKm !== null && <Text style={{ color: '#FFFFFF', fontWeight: '900', fontSize: 17, marginBottom: 10 }}>Разом: {Math.ceil(distanceKm * Math.max(15, Number(rate.replace(',', '.')) || 15))} ₴</Text>}
-                  <TouchableOpacity style={styles.primaryButton} disabled={savingRequest || distanceKm === null || routeBusy} onPress={createTestRequest}>
-                    <Text style={styles.primaryButtonText}>{savingRequest ? 'Зберігаємо…' : 'Замовити'}</Text>
-                    <Text style={styles.buttonArrow}>＋</Text>
-                  </TouchableOpacity>
+                  {distanceKm !== null && <View style={{backgroundColor:'#0C1E23',borderColor:'#00DE72',borderWidth:1,borderRadius:12,padding:11,marginBottom:10,shadowColor:'#00FF80',shadowOpacity:0.35,shadowRadius:9,elevation:4}}><Text style={{color:'#90A9B5',fontSize:11,fontWeight:'700'}}>ВАРТІСТЬ ПОЇЗДКИ</Text><Text style={{color:'#00F17C',fontWeight:'900',fontSize:27,textShadowColor:'#00D870',textShadowRadius:9}}>{Math.ceil(distanceKm * Math.max(15, Number(rate.replace(',', '.')) || 15))} ₴</Text><Text style={{color:'#E0EBF1',fontSize:12}}>{distanceKm.toFixed(1)} км · ≈ {Math.round(distanceKm/25*60)} хв · {Math.max(15,Number(rate.replace(',','.'))||15)} ₴/км</Text></View>}
+                  <View style={{flexDirection:'row',gap:7}}>
+                    <TouchableOpacity style={[styles.primaryButton,{flex:1,backgroundColor:'#00D969',borderRadius:13,justifyContent:'center'}]} disabled={savingRequest || distanceKm === null || routeBusy} onPress={createTestRequest}>
+                      <Text style={[styles.primaryButtonText,{color:'#061C13',fontWeight:'900'}]}>{savingRequest?'Зберігаємо…':'Замовити'}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity accessibilityLabel="Срочність поїздки" onPress={()=>setUrgency(v=>v==='now'?'flex':'now')} style={{width:55,alignItems:'center',justifyContent:'center',backgroundColor:urgency==='now'?'#00D969':'#1A2C39',borderWidth:1,borderColor:'#00D969',borderRadius:13}}><Text style={{color:urgency==='now'?'#062219':'#E9F4F5',fontSize:26}}>◷</Text></TouchableOpacity>
+                  </View>
 
                   {requestResult && <View style={{ marginTop: 12, padding: 12, borderRadius: 8, backgroundColor: requestResult.ok ? '#14563C' : '#692C36', borderWidth: 1, borderColor: requestResult.ok ? '#39D58A' : '#FF7883' }}><Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '800' }}>{requestResult.message}</Text></View>}
                   {!fromPoint || !toPoint ? <Text style={{ color: '#F3DFA3', marginTop: 8, fontSize: 12 }}>Для створення вибери обидві адреси саме зі списку підказок.</Text> : null}
