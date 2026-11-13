@@ -384,7 +384,7 @@ export default function App() {
       <StatusBar style="light" />
       <View style={[styles.screen, design === 'new' && { backgroundColor: '#E9F0F6' }]}>
         <View style={[styles.header, design === 'new' && { backgroundColor: '#123B52', borderBottomColor: '#2B7088' }]}>
-          <Text style={{ color:'#00E36B',fontSize:24,marginHorizontal:8 }}>●</Text>
+          <TouchableOpacity accessibilityLabel="Відкрити меню" onPress={()=>{setMenuOpen(v=>!v);setAccountScreen('none');}} style={{paddingHorizontal:8,paddingVertical:7}}><Text style={{color:'#E8F7FF',fontSize:25,fontWeight:'900'}}>☰</Text></TouchableOpacity>
           <View>
             <Text style={styles.brand}>ROUTE<Text style={styles.brandAccent}>SHARE</Text></Text>
             <Text style={styles.headerCaption}>Твій маршрут. Твоя компанія.</Text>
@@ -478,7 +478,7 @@ export default function App() {
             </>
           )}
 
-          {tab === 'home' && mode === 'driver' && <DriverOfferList liveRequests={testRequests} onRefresh={() => refreshTestRequests(true)} design={design} view={driverView} selectedOffer={driverOffer} onSelectOffer={(offer) => { setDriverOffer(offer); setDriverView('offer'); }} onBack={() => { setDriverOffer(null); setDriverView('list'); }} />}
+          {tab === 'home' && <View style={{display:mode==='driver'?'flex':'none'}}><DriverOfferList liveRequests={testRequests} onRefresh={() => refreshTestRequests(true)} design={design} view={driverView} selectedOffer={driverOffer} onSelectOffer={(offer) => { setDriverOffer(offer); setDriverView('offer'); }} onBack={() => { setDriverOffer(null); setDriverView('list'); }} /></View>}
 
           {tab === 'trips' && (
             <>
@@ -759,7 +759,7 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
   const [manualStart, setManualStart] = useState('');
   const [manualSuggestions, setManualSuggestions] = useState<AddressSuggestion[]>([]);
   const [manualOpen, setManualOpen] = useState(false);
-  const [filterScreen,setFilterScreen] = useState<'pickup'|'final'|null>(null);
+  const [filterScreen,setFilterScreen] = useState<'pickup'|'final'|'all'|null>(null);
   const [startPoint, setStartPoint] = useState<AddressSuggestion | null>(null);
   const driverStart = startPoint ?? gps;
   const [driverRouteKm, setDriverRouteKm] = useState<number | null>(null);
@@ -888,8 +888,8 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
   }
   if (view === 'offer') return selectedOffer ? <DriverOfferDetail design={design} offer={selectedOffer} increase={increase} setIncrease={setIncrease} onBack={onBack} driverStart={driverStart} driverEnd={destinationPoint} /> : <View style={driverStyles.wrap}><Text style={driverStyles.empty}>Заявку ще не вибрано. Відкрий «Список» і натисни на потрібну комбінацію.</Text></View>;
   if(filterScreen) return <View style={{flex:1,backgroundColor:'#0B1722',padding:12,gap:12}}>
-    <Text style={{color:'#FFFFFF',fontSize:20,fontWeight:'900'}}>{filterScreen==='pickup'?'Подача':'Фінал'} · налаштування</Text>
-    {filterScreen==='pickup'?<>
+    <Text style={{color:'#FFFFFF',fontSize:20,fontWeight:'900'}}>{filterScreen==='all'?'Фільтр замовлень':filterScreen==='pickup'?'Подача':'Фінал'} · налаштування</Text>
+    {filterScreen==='all'?<><View style={{flexDirection:'row',gap:8}}><TouchableOpacity onPress={()=>setFilterScreen('pickup')} style={driverStyles.filter}><Text style={driverStyles.filterValue}>↗ Подача · {pickupLimit.toFixed(1)} км</Text></TouchableOpacity><TouchableOpacity onPress={()=>setFilterScreen('final')} style={driverStyles.filter}><Text style={driverStyles.filterValue}>⚑ Фінал · {finalLimit.toFixed(1)} км</Text></TouchableOpacity></View><Text style={{color:'#FFFFFF'}}>Місць: {seats}</Text><RadiusSlider value={seats} max={3} onChange={v=>setSeats(Math.max(1,Math.round(v)))}/><TouchableOpacity onPress={()=>setUnique(v=>!v)}><Text style={{color:'#00EF81'}}>Унікальні: {unique?'☑':'☐'}</Text></TouchableOpacity><Text style={{color:'#AABBC8'}}>Налаштування адрес і радіусів відкриваються вище.</Text></>:filterScreen==='pickup'?<>
       <View style={{flexDirection:'row',alignItems:'center',gap:8}}><Text style={{color:'#B2C4D0',flex:1}} numberOfLines={1}>{startPoint?.label||gpsMessage}</Text><TouchableOpacity onPress={requestGps} style={{padding:10,backgroundColor:'#193B32',borderRadius:10}}><Text style={{color:'#00F082',fontWeight:'900'}}>⌖ GPS</Text></TouchableOpacity></View>
       <DriverAddressPicker label="Початкова адреса" value={manualStart} onValue={setManualStart} onPoint={setStartPoint} suggestions={manualSuggestions} onSelect={p=>{setStartPoint(p);setManualStart(p.label);setManualSuggestions([]);}} error={setDriverRouteError}/>
       <Text style={{color:'#00EF81',fontWeight:'900',fontSize:20}}>≤ {pickupLimit.toFixed(1)} км</Text>
@@ -913,13 +913,10 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
           <Text style={{color:showDemo?'#00EF86':'#A9BAC7',fontSize:11,fontWeight:'800'}}>Демо {showDemo?'УВІМК.':'ВИМК.'}</Text>
         </TouchableOpacity>
       </View>
-      <View style={{flexDirection:'row',gap:5,marginBottom:7}}>
-        <TouchableOpacity onPress={() => setSeats(v => v === 3 ? 1 : v + 1)} style={driverStyles.filter}><Text style={driverStyles.legend}>🚗 Місць</Text><Text style={driverStyles.filterValue}>{seats} ▾</Text></TouchableOpacity>
-        <TouchableOpacity onPress={() => {setFilterScreen('pickup');if(!driverStart)requestGps();}} style={driverStyles.filter}><Text style={driverStyles.legend}>↗ Подача</Text><Text style={driverStyles.filterValue}>≤ {pickupLimit.toFixed(1)} км</Text></TouchableOpacity>
-        <TouchableOpacity onPress={() => setFilterScreen('final')} style={driverStyles.filter}><Text style={driverStyles.legend}>⚑ Фінал</Text><Text style={driverStyles.filterValue}>≤ {finalLimit.toFixed(1)} км</Text></TouchableOpacity>
-        <TouchableOpacity onPress={() => setUnique(v => !v)} style={driverStyles.filter}><Text style={driverStyles.legend}>Унікальні</Text><Text style={[driverStyles.filterValue,{color:unique?'#00E878':'#A9B5C0'}]}>{unique?'☑':'☐'}</Text></TouchableOpacity>
-      </View>
-
+      <TouchableOpacity onPress={()=>setFilterScreen('all')} style={[driverStyles.filter,{flexDirection:'row',justifyContent:'space-between',paddingHorizontal:12,marginBottom:7}]}>
+        <Text style={{color:'#FFFFFF',fontSize:14,fontWeight:'900'}}>☷ Фільтр замовлень</Text>
+        <Text style={{color:'#A9BAC7',fontSize:11}}>{seats} місць · {pickupLimit.toFixed(1)} / {finalLimit.toFixed(1)} км  ›</Text>
+      </TouchableOpacity>
 
 
       {view === 'map' && <RouteMapPreview detail={false} routes={mapRoutes} />}
