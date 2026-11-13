@@ -144,7 +144,7 @@ async function lookupAddresses(query: string): Promise<AddressSuggestion[]> {
   return rows;
 }
 
-async const isAddressPlace=(label:string)=>/метро|станція|торгов|трц|тц |mall|shopping|супермаркет|вокзал|аеропорт/i.test(label);
+const isAddressPlace=(label:string)=>/метро|станція|торгов|трц|тц |mall|shopping|супермаркет|вокзал|аеропорт/i.test(label);
 async function resolveOptionalHouse(street:string,house:string,streetPoint?:AddressSuggestion|null):Promise<{point:AddressSuggestion;approximate:boolean}|null>{
   const number=house.trim();
   if(!number)return streetPoint?{point:streetPoint,approximate:false}:null;
@@ -154,7 +154,7 @@ async function resolveOptionalHouse(street:string,house:string,streetPoint?:Addr
   const base=rows.find(p=>p.label===street)||rows[0];
   return base?{point:{...base,label:base.label+', '+number+' (орієнтовно)',houseNumber:number},approximate:true}:null;
 }
-function lookupHouse(street: string, number: string): Promise<AddressSuggestion | undefined> {
+async function lookupHouse(street: string, number: string): Promise<AddressSuggestion | undefined> {
   const rows = await lookupAddresses(street + ' ' + number.trim());
   const normalize = (value: string) => value.toLowerCase().replace(/\s/g, '');
   const target = normalize(number);
