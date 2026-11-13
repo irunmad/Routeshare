@@ -721,8 +721,8 @@ function RadiusSlider({value,onChange,max=15}:{value:number;onChange:(v:number)=
   const position=(x:number)=>onChange(Math.max(0.5,Math.min(max,Math.round((x/Math.max(1,width))*max*2)/2)));
   return <View style={{paddingVertical:14}}>
     <View onLayout={e=>setWidth(e.nativeEvent.layout.width)} onStartShouldSetResponder={()=>true} onMoveShouldSetResponder={()=>true} onResponderGrant={e=>position(e.nativeEvent.locationX)} onResponderMove={e=>position(e.nativeEvent.locationX)} style={{height:34,justifyContent:'center'}}>
-      <View pointerEvents="none" style={{height:7,backgroundColor:'#2C4654',borderRadius:5,overflow:'hidden'}}><View style={{width:(value/max*100)+'%',height:7,backgroundColor:'#00F47B'}}/></View>
-      <View pointerEvents="none" style={{position:'absolute',left:(value/max*100)+'%',marginLeft:-12,width:24,height:24,borderRadius:12,backgroundColor:'#E6FFF2',borderWidth:5,borderColor:'#00D975',shadowColor:'#00F07B',shadowOpacity:.6,shadowRadius:6}}/>
+      <View pointerEvents="none" style={{height:7,backgroundColor:'#2C4654',borderRadius:5,overflow:'hidden'}}><View style={{width:width*value/max,height:7,backgroundColor:'#00F47B'}}/></View>
+      <View pointerEvents="none" style={{position:'absolute',left:width*value/max,marginLeft:-12,width:24,height:24,borderRadius:12,backgroundColor:'#E6FFF2',borderWidth:5,borderColor:'#00D975',shadowColor:'#00F07B',shadowOpacity:.6,shadowRadius:6}}/>
     </View>
     <View style={{flexDirection:'row',justifyContent:'space-between'}}><Text style={{color:'#8499A8'}}>0,5 км</Text><Text style={{color:'#8499A8'}}>{max} км · крок 0,5</Text></View>
   </View>;
