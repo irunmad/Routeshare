@@ -525,6 +525,62 @@ type MatchedRequest = {
   mapStops: MapPoint[];
 };
 
+// Exact precedence-constrained stop ordering over OSRM road distance/duration matrices.
+async function buildCombinedOffers(candidates: MatchedRequest[], start: Coordinates, end: Coordinates, seats: number, pickupLimit: number, finalLimit: number): Promise<DriverOffer[]> {
+  const pool=candidates.slice(0,8);
+  if(pool.length<2)return [];
+  const points:Coordinates[]=[start,end,...pool.flatMap(c=>[{lon:c.mapStops[0][0],lat:c.mapStops[0][1]},{lon:c.mapStops[1][0],lat:c.mapStops[1][1]}])];
+  const coords=points.map(p=>p.lon+','+p.lat).join(';');
+  const response=await fetch('https://router.project-osrm.org/table/v1/driving/'+coords+'?annotations=distance,duration');
+  if(!response.ok)throw Error('OSRM matrix HTTP '+response.status);
+  const matrix=await response.json();
+  if(matrix.code!=='Ok'||!matrix.distances||!matrix.durations)throw Error('Матриця доріг недоступна');
+  const dist:number[][]=matrix.distances.map((r:number[])=>r.map(v=>v===null?Infinity:v/1000));
+  const duration:number[][]=matrix.durations.map((r:number[])=>r.map(v=>v===null?Infinity:v/60));
+  const offers:DriverOffer[]=[];
+  const max=Math.min(3,seats,pool.length);
+  const solve=(ids:number[])=>{
+    let best:{distance:number;minutes:number;order:number[]}|null=null;
+    const visit=(at:number,picked:number,dropped:number,order:number[],km:number,mins:number)=>{
+      if(best&&km>=best.distance)return;
+      if(dropped===(1<<ids.length)-1){
+        const finish=dist[at][1];
+        if(finish>finalLimit||!Number.isFinite(finish))return;
+        const total=km+finish;
+        if(!best||total<best.distance)best={distance:total,minutes:mins+duration[at][1],order:[...order]};
+        return;
+      }
+      for(let k=0;k<ids.length;k++){
+        const bit=1<<k;
+        if(!(picked&bit)){
+          const node=2+ids[k]*2;
+          const leg=dist[at][node];
+          if(!Number.isFinite(leg))continue;
+          // Pickup radius applies to each pickup before the third boarding.
+          if(order.filter(n=>n%2===0).length<3 && leg>pickupLimit)continue;
+          visit(node,picked|bit,dropped,[...order,node],km+leg,mins+duration[at][node]);
+        }else if(!(dropped&bit)){
+          const node=3+ids[k]*2,leg=dist[at][node];
+          if(Number.isFinite(leg))visit(node,picked,dropped|bit,[...order,node],km+leg,mins+duration[at][node]);
+        }
+      }
+    };
+    visit(0,0,0,[],0,0);
+    if(!best)return;
+    const route=best as {distance:number;minutes:number;order:number[]};
+    const chosen=ids.map(i=>pool[i]);
+    const amount=chosen.reduce((n,c)=>n+c.fare,0);
+    const first=route.order[0],last=route.order[route.order.length-1];
+    const passengers=chosen.map((c,i)=>({name:'Пасажир '+(i+1),acceptance:100,noShow:0,km:c.passengerKm,fare:c.fare,avatar:String(i+1),pickup:displayTestAddress(c.request.origin),dropoff:displayTestAddress(c.request.destination)}));
+    offers.push({id:'combo:'+chosen.map(c=>c.request.id).sort().join(':'),color:'#718096',live:true,amount,distance:route.distance,minutes:Math.max(1,Math.round(route.minutes)),pickupKm:dist[0][first],finalKm:dist[last][1],pickup:passengers[0].pickup||'',dropoff:passengers[passengers.length-1].dropoff||'',mapStops:route.order.map(n=>[points[n].lon,points[n].lat] as MapPoint),passengers});
+  };
+  for(let i=0;i<pool.length;i++)for(let j=i+1;j<pool.length;j++){
+    solve([i,j]);
+    if(max>=3)for(let k=j+1;k<pool.length;k++)solve([i,j,k]);
+  }
+  return offers.sort((a,b)=>perKm(b)-perKm(a)).slice(0,30);
+}
+
 function offerMapRoute(offer: DriverOffer, separate = false): MapRoute {
   return { stops: offer.mapStops, color: offer.color, kind: offer.live ? 'passenger' : 'demo', separate };
 }
@@ -707,6 +763,17 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
     run();
     return () => { active = false; };
   }, [driverStart, destinationPoint, liveRequests, pickupLimit, finalLimit]);
+  const [combinedOffers,setCombinedOffers]=useState<DriverOffer[]>([]);
+  const [comboStatus,setComboStatus]=useState('');
+  useEffect(()=>{
+    if(!driverStart||!destinationPoint||eligibleRequests.length<2){setCombinedOffers([]);setComboStatus('');return;}
+    let active=true;
+    setComboStatus('Розрахунок комбінацій по дорогах…');
+    buildCombinedOffers(eligibleRequests,driverStart,destinationPoint,seats,pickupLimit,finalLimit).then(rows=>{
+      if(active){setCombinedOffers(rows);setComboStatus('Комбінацій: '+rows.length);}
+    }).catch(e=>{if(active){setCombinedOffers([]);setComboStatus('Комбінації недоступні: '+String(e));}});
+    return ()=>{active=false;};
+  },[eligibleRequests,driverStart,destinationPoint,seats,pickupLimit,finalLimit]);
   // Real test requests and preview combinations share one ranking and the same cards.
   // A live single-passenger offer uses its verified road distances; travel time is estimated.
   const liveOffers: DriverOffer[] = eligibleRequests.map(({request, pickupKm, finalKm, passengerKm, fare, mapStops}) => {
@@ -721,7 +788,7 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
         km: passengerKm, fare, avatar: 'Т', pickup, dropoff }],
     };
   });
-  const rankedOffers = [...previewOffers, ...liveOffers]
+  const rankedOffers = [...previewOffers, ...liveOffers, ...combinedOffers]
     .filter(o => o.passengers.length <= seats && o.pickupKm <= pickupLimit && o.finalKm <= finalLimit)
     .sort((a, b) => sortBy === 'km' ? perKm(b) - perKm(a) : perHour(b) - perHour(a));
   const offers = rankedOffers.map((o, i) => ({ ...o, color: priorityColors[i] ?? '#718096' }));
@@ -780,7 +847,7 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
         <TouchableOpacity onPress={() => setSortBy('km')} style={[driverStyles.sortChip, sortBy === 'km' && driverStyles.sortActive, design === 'new' && { backgroundColor: '#173D52', borderRadius: 15 }]}><Text style={driverStyles.sortText}>₴/км</Text></TouchableOpacity>
         <TouchableOpacity onPress={() => setSortBy('hour')} style={[driverStyles.sortChip, sortBy === 'hour' && driverStyles.sortActive, design === 'new' && { backgroundColor: '#173D52', borderRadius: 15 }]}><Text style={driverStyles.sortText}>₴/год</Text></TouchableOpacity>
       </View>}
-      {view === 'list' && <Text style={{ color: design === 'new' ? '#526D7D' : '#9DB2C2', fontSize: 11, marginBottom: 5 }}>{matchingState}</Text>}
+      {view === 'list' && <Text style={{ color: design === 'new' ? '#526D7D' : '#9DB2C2', fontSize: 11, marginBottom: 5 }}>{matchingState}{comboStatus ? ' · '+comboStatus : ''}</Text>}
       {view === 'list' && offers.length === 0 && <Text style={driverStyles.empty}>Немає варіантів для цих фільтрів.</Text>}
       {view === 'list' && offers.map(o => (
         <TouchableOpacity key={o.id} onPress={() => onSelectOffer(o)} activeOpacity={0.8} style={[driverStyles.offer, { borderColor: o.color, borderLeftWidth: 4, borderTopWidth: 1, borderRightWidth: 1, borderBottomWidth: 1, borderRadius: 12, paddingVertical: 10, marginBottom: 7, shadowColor: o.color, shadowOpacity: 0.7, shadowRadius: 14, shadowOffset: {width:0,height:0}, elevation: 5 }, design === 'new' && { backgroundColor: '#FFFFFF' }]}>
