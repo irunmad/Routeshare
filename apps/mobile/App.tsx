@@ -891,7 +891,7 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
     <Text style={{color:'#FFFFFF',fontSize:20,fontWeight:'900'}}>{filterScreen==='pickup'?'Подача':'Фінал'} · налаштування</Text>
     {filterScreen==='pickup'?<>
       <View style={{flexDirection:'row',alignItems:'center',gap:8}}><Text style={{color:'#B2C4D0',flex:1}} numberOfLines={1}>{startPoint?.label||gpsMessage}</Text><TouchableOpacity onPress={requestGps} style={{padding:10,backgroundColor:'#193B32',borderRadius:10}}><Text style={{color:'#00F082',fontWeight:'900'}}>⌖ GPS</Text></TouchableOpacity></View>
-      <DriverAddressPicker label="Початкова адреса" value={manualStart} onValue={setManualStart} onPoint={setStartPoint} suggestions={manualSuggestions} onSelect={p=>{setStartPoint(p);setManualStart(p.label);setManualSuggestions([]);}} error={setDriverRouteError}/>}
+      <DriverAddressPicker label="Початкова адреса" value={manualStart} onValue={setManualStart} onPoint={setStartPoint} suggestions={manualSuggestions} onSelect={p=>{setStartPoint(p);setManualStart(p.label);setManualSuggestions([]);}} error={setDriverRouteError}/>
       <Text style={{color:'#00EF81',fontWeight:'900',fontSize:20}}>≤ {pickupLimit.toFixed(1)} км</Text>
       <RadiusSlider value={pickupLimit} onChange={setPickupLimit}/>
       <RouteMapPreview detail routes={driverStart?[{stops:[toMapPoint(driverStart),toMapPoint(driverStart)],kind:'driver',color:'#00F080'}]:[]}/>
