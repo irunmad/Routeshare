@@ -613,6 +613,7 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
   const [manualStart, setManualStart] = useState('');
   const [manualSuggestions, setManualSuggestions] = useState<AddressSuggestion[]>([]);
   const [manualOpen, setManualOpen] = useState(false);
+  const [filterScreen,setFilterScreen] = useState<'pickup'|'final'|null>(null);
   const [startPoint, setStartPoint] = useState<AddressSuggestion | null>(null);
   const driverStart = startPoint ?? gps;
   const [driverRouteKm, setDriverRouteKm] = useState<number | null>(null);
@@ -714,28 +715,36 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
     }
   }
   if (view === 'offer') return selectedOffer ? <DriverOfferDetail design={design} offer={selectedOffer} increase={increase} setIncrease={setIncrease} onBack={onBack} /> : <View style={driverStyles.wrap}><Text style={driverStyles.empty}>Заявку ще не вибрано. Відкрий «Список» і натисни на потрібну комбінацію.</Text></View>;
+  if(filterScreen) return <View style={{flex:1,backgroundColor:'#0B1722',padding:12,gap:12}}>
+    <Text style={{color:'#FFFFFF',fontSize:20,fontWeight:'900'}}>{filterScreen==='pickup'?'Подача':'Фінал'} · налаштування</Text>
+    {filterScreen==='pickup'?<>
+      <TouchableOpacity onPress={requestGps} style={{padding:12,backgroundColor:'#193B32',borderRadius:10}}><Text style={{color:'#00F082',fontWeight:'900'}}>⌖ GPS · визначити моє місце</Text></TouchableOpacity>
+      <Text style={{color:'#B2C4D0'}}>{startPoint?.label||gpsMessage}</Text>
+      <TouchableOpacity onPress={()=>setManualOpen(v=>!v)}><Text style={{color:'#00E47B',fontWeight:'800'}}>◉ GPS / {manualOpen?'●':'○'} Ручний вибір</Text></TouchableOpacity>
+      {manualOpen&&<DriverAddressPicker label="Початкова адреса" value={manualStart} onValue={setManualStart} onPoint={setStartPoint} suggestions={manualSuggestions} onSelect={p=>{setStartPoint(p);setManualStart(p.label);setManualSuggestions([]);}} error={setDriverRouteError}/>}
+      <Text style={{color:'#00EF81',fontWeight:'900',fontSize:20}}>≤ {pickupLimit.toFixed(1)} км</Text>
+      <View style={{flexDirection:'row',gap:12}}><TouchableOpacity onPress={()=>setPickupLimit(v=>adjust(v,-0.5))} style={{padding:14,backgroundColor:'#253A49',borderRadius:10}}><Text style={{color:'white'}}>− 0,5</Text></TouchableOpacity><TouchableOpacity onPress={()=>setPickupLimit(v=>adjust(v,0.5))} style={{padding:14,backgroundColor:'#253A49',borderRadius:10}}><Text style={{color:'white'}}>+ 0,5</Text></TouchableOpacity></View>
+      {driverStart&&<RouteMapPreview detail routes={[{stops:[toMapPoint(driverStart),toMapPoint(driverStart)],kind:'driver',color:'#00F080'}]}/>}
+    </>:<>
+      <DriverAddressPicker label="Кінцева адреса" value={destination} onValue={setDestination} onPoint={setDestinationPoint} suggestions={destinationSuggestions} onSelect={p=>{setDestinationPoint(p);setDestination(p.label);setDestinationSuggestions([]);}} error={setDriverRouteError}/>
+      <Text style={{color:'#00EF81',fontWeight:'900',fontSize:20}}>≤ {finalLimit.toFixed(1)} км</Text>
+      <View style={{flexDirection:'row',gap:12}}><TouchableOpacity onPress={()=>setFinalLimit(v=>adjust(v,-0.5))} style={{padding:14,backgroundColor:'#253A49',borderRadius:10}}><Text style={{color:'white'}}>− 0,5</Text></TouchableOpacity><TouchableOpacity onPress={()=>setFinalLimit(v=>adjust(v,0.5))} style={{padding:14,backgroundColor:'#253A49',borderRadius:10}}><Text style={{color:'white'}}>+ 0,5</Text></TouchableOpacity></View>
+      {destinationPoint&&<RouteMapPreview detail routes={[{stops:[toMapPoint(destinationPoint),toMapPoint(destinationPoint)],kind:'driver',color:'#00F080'}]}/>}
+    </>}
+    {!!driverRouteError&&<Text style={{color:'#FF9C9C'}}>{driverRouteError}</Text>}
+    <View style={{flexDirection:'row',gap:10,marginTop:'auto'}}>{['Повернутися','Зберегти'].map((name,i)=><TouchableOpacity key={name} onPress={()=>setFilterScreen(null)} style={{flex:1,padding:14,borderRadius:12,backgroundColor:i?'#00D971':'#273747',alignItems:'center'}}><Text style={{color:i?'#09291A':'#FFFFFF',fontWeight:'900'}}>{name}</Text></TouchableOpacity>)}</View>
+  </View>;
   return (
     <View style={[driverStyles.wrap, design === 'new' && { backgroundColor: '#E9F0F6', padding: 8, borderRadius: 14 }]}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}><Text style={[driverStyles.heading, design === 'new' && { color: '#123B52' }]}>Маршрути</Text><Text style={{ color: design === 'new' ? '#526D7D' : '#91A8B7', fontSize: 11 }}>{liveRequests.length} активних пасажирських заявок</Text></View>
       <View style={{flexDirection:'row',gap:5,marginBottom:7}}>
         <TouchableOpacity onPress={() => setSeats(v => v === 3 ? 1 : v + 1)} style={driverStyles.filter}><Text style={driverStyles.legend}>🚗 Місць</Text><Text style={driverStyles.filterValue}>{seats} ▾</Text></TouchableOpacity>
-        <TouchableOpacity onPress={() => setPickupLimit(v => adjust(v,0.5))} onLongPress={() => setPickupLimit(v => adjust(v,-0.5))} style={driverStyles.filter}><Text style={driverStyles.legend}>↗ Подача</Text><Text style={driverStyles.filterValue}>≤ {pickupLimit.toFixed(1)} км</Text></TouchableOpacity>
-        <TouchableOpacity onPress={() => setFinalLimit(v => adjust(v,0.5))} onLongPress={() => setFinalLimit(v => adjust(v,-0.5))} style={driverStyles.filter}><Text style={driverStyles.legend}>⚑ Фінал</Text><Text style={driverStyles.filterValue}>≤ {finalLimit.toFixed(1)} км</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => {setFilterScreen('pickup');if(!driverStart)requestGps();}} style={driverStyles.filter}><Text style={driverStyles.legend}>↗ Подача</Text><Text style={driverStyles.filterValue}>≤ {pickupLimit.toFixed(1)} км</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => setFilterScreen('final')} style={driverStyles.filter}><Text style={driverStyles.legend}>⚑ Фінал</Text><Text style={driverStyles.filterValue}>≤ {finalLimit.toFixed(1)} км</Text></TouchableOpacity>
         <TouchableOpacity onPress={() => setUnique(v => !v)} style={driverStyles.filter}><Text style={driverStyles.legend}>Унікальні</Text><Text style={[driverStyles.filterValue,{color:unique?'#00E878':'#A9B5C0'}]}>{unique?'☑':'☐'}</Text></TouchableOpacity>
       </View>
 
-      <View style={{ backgroundColor: design === 'new' ? '#FFFFFF' : '#172D40', borderColor: '#345B6D', borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 10 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 7 }}><Text style={{ color: design === 'new' ? '#173D52' : '#FFFFFF', fontWeight: '900' }}>Мій маршрут</Text><TouchableOpacity onPress={requestGps} style={{ paddingHorizontal: 10, paddingVertical: 6, backgroundColor: '#126B59', borderRadius: 20 }}><Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '800' }}>⌖ GPS</Text></TouchableOpacity></View>
-        <Text numberOfLines={2} style={{ color: design === 'new' ? '#476175' : '#9AB7C5', fontSize: 12 }}>● {startPoint ? startPoint.label : gps ? 'GPS · координати визначено' : 'Початок не задано'}  ·  {gpsMessage}</Text>
-        <TouchableOpacity onPress={() => setManualOpen(v => !v)} style={{ paddingVertical: 7 }}><Text style={{ color: '#19BA87', fontWeight: '800' }}>⌖ {manualOpen ? 'Сховати ручне введення' : 'Вказати початок вручну'}</Text></TouchableOpacity>
-        {manualOpen && <DriverAddressPicker label="Початкова адреса" value={manualStart} onValue={setManualStart} onPoint={setStartPoint} suggestions={manualSuggestions} onSelect={p => { setStartPoint(p); setManualStart(p.label); setManualSuggestions([]); }} error={setDriverRouteError} />}
-        <View style={{ marginTop: 9 }}>
-          <DriverAddressPicker label="Кінцева адреса" value={destination} onValue={setDestination} onPoint={setDestinationPoint} suggestions={destinationSuggestions} onSelect={p => { setDestinationPoint(p); setDestination(p.label); setDestinationSuggestions([]); }} error={setDriverRouteError} />
-        </View>
-        <Text style={{ color: '#1FC995', marginTop: 9, fontWeight: '800' }}>{driverRouteKm !== null ? 'Маршрут водія: ' + driverRouteKm.toFixed(1) + ' км по дорогах' : 'Вкажи початок та кінцеву адресу для розрахунку'}</Text>
-        {!!driverRouteError && <Text style={{ color: '#FF9C9C', marginTop: 6 }}>{driverRouteError}</Text>}
-        <Text style={{ color: design === 'new' ? '#526D7D' : '#8FA9B8', fontSize: 11, marginTop: 5 }}>Реальні заявки перевіряються за відстанями по дорогах; демо-комбінації залишаються для перегляду інтерфейсу.</Text>
-      </View>
+
 
       {view === 'map' && <RouteMapPreview detail={false} routes={mapRoutes} />}
       {view === 'list' && <View style={driverStyles.sortRow}>
@@ -747,10 +756,10 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
       {view === 'list' && <Text style={{ color: design === 'new' ? '#526D7D' : '#9DB2C2', fontSize: 11, marginBottom: 5 }}>{matchingState}</Text>}
       {view === 'list' && offers.length === 0 && <Text style={driverStyles.empty}>Немає варіантів для цих фільтрів.</Text>}
       {view === 'list' && offers.map(o => (
-        <TouchableOpacity key={o.id} onPress={() => onSelectOffer(o)} activeOpacity={0.8} style={[driverStyles.offer, { borderColor: o.color, borderLeftWidth: 4, borderTopWidth: 1, borderRightWidth: 1, borderBottomWidth: 1, borderRadius: 12, paddingVertical: 10, marginBottom: 7, shadowColor: o.color, shadowOpacity: 0.42, shadowRadius: 9, shadowOffset: {width:0,height:0}, elevation: 5 }, design === 'new' && { backgroundColor: '#FFFFFF' }]}>
+        <TouchableOpacity key={o.id} onPress={() => onSelectOffer(o)} activeOpacity={0.8} style={[driverStyles.offer, { borderColor: o.color, borderLeftWidth: 4, borderTopWidth: 1, borderRightWidth: 1, borderBottomWidth: 1, borderRadius: 12, paddingVertical: 10, marginBottom: 7, shadowColor: o.color, shadowOpacity: 0.7, shadowRadius: 14, shadowOffset: {width:0,height:0}, elevation: 5 }, design === 'new' && { backgroundColor: '#FFFFFF' }]}>
 
           <View style={driverStyles.metrics}>
-            <Text style={[driverStyles.total, design === 'new' && { color: '#123B52' }]}>₴{o.amount}</Text>
+            <Text style={[driverStyles.total,{textShadowColor:o.color,textShadowRadius:9}, design === 'new' && { color: '#123B52' }]}>₴{o.amount}</Text>
 
             <Text style={[driverStyles.metric, design === 'new' && { color: '#173D52' }]}><Text style={[driverStyles.green, design === 'new' && { color: '#007C51' }]}>{perKm(o).toFixed(1)}</Text> ₴/км</Text>
             <Text style={driverStyles.metric}><Text style={[driverStyles.orange, design === 'new' && { color: '#B66A00' }]}>{Math.round(perHour(o)).toLocaleString('uk-UA')}</Text> ₴/год</Text>
