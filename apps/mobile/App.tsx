@@ -51,7 +51,7 @@ const navSvgPaths: Record<string, string> = {
 function NavGraphic({ kind, active, design }: { kind: 'list' | 'map' | 'offer'; active: boolean; design: Design }) {
   const stroke = design === 'new' ? (active ? '#FFFFFF' : '#146E87') : (active ? '#35E08B' : '#8495A8');
   const key = kind + (design === 'new' ? 'New' : 'Classic');
-  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="' + stroke + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + navSvgPaths[key] + '</svg>';
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24"><defs><linearGradient id="metal" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#FFFFFF"/><stop offset=".42" stop-color="' + stroke + '"/><stop offset="1" stop-color="#436A7C"/></linearGradient><filter id="glow"><feGaussianBlur stdDeviation=".55"/></filter></defs><g fill="none" stroke="url(#metal)" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">' + navSvgPaths[key] + '</g><path d="M5 3h14" stroke="#FFFFFF" opacity=".3" stroke-width=".5"/></svg>';
   return <Image source={{ uri: 'data:image/svg+xml,' + encodeURIComponent(svg) }} style={{ width: 28, height: 28 }} resizeMode="contain" />;
 }
 
@@ -490,10 +490,10 @@ export default function App() {
           <Text style={styles.footer}>ROUTE<Text style={styles.brandAccent}>SHARE</Text>  ·  Разом дорогою</Text>
         </ScrollView>}
 
-        {!menuOpen && tab === 'home' && mode === 'driver' && <View style={{flexDirection:'row',marginHorizontal:12,marginBottom:7,padding:3,gap:4,backgroundColor:'#0E1A27',borderRadius:13,borderWidth:1,borderColor:'#273A4B'}}>
-          {([['list','Список','≡'],['map','Карта','◇'],['offer','Заявка','▤']] as const).map(([key,label,glyph])=>(
-            <TouchableOpacity key={key} onPress={()=>{setDriverView(key);if(key!=='offer')setDriverOffer(null);}} style={{flex:1,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:6,paddingVertical:7,borderRadius:10,backgroundColor:driverView===key?'#174335':'transparent',borderWidth:1,borderColor:driverView===key?'#00DB7C':'transparent'}}>
-              <Text style={{color:driverView===key?'#00F08B':'#91A7B8',fontSize:17,fontWeight:'900'}}>{glyph}</Text>
+        {!menuOpen && tab === 'home' && mode === 'driver' && <View style={{flexDirection:'row',marginHorizontal:7,marginBottom:5,padding:2,gap:3,backgroundColor:'#0E1A27',borderRadius:13,borderWidth:1,borderColor:'#273A4B'}}>
+          {([['list','Список'],['map','Карта'],['offer','Заявка']] as const).map(([key,label])=>(
+            <TouchableOpacity key={key} onPress={()=>{setDriverView(key);if(key!=='offer')setDriverOffer(null);}} style={{flex:1,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:6,paddingVertical:4,borderRadius:10,backgroundColor:driverView===key?'#174335':'transparent',borderWidth:1,borderColor:driverView===key?'#00DB7C':'transparent'}}>
+              <NavGraphic kind={key} active={driverView===key} design={design} />
               <Text style={{color:driverView===key?'#F3FFF9':'#A8BAC9',fontSize:12,fontWeight:driverView===key?'900':'700'}}>{label}</Text>
             </TouchableOpacity>
           ))}
@@ -897,20 +897,28 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
       {view === 'list' && <Text style={{ color: design === 'new' ? '#526D7D' : '#9DB2C2', fontSize: 11, marginBottom: 5 }}>{matchingState}{comboStatus ? ' · '+comboStatus : ''}</Text>}
       {view === 'list' && offers.length === 0 && <Text style={driverStyles.empty}>Немає варіантів для цих фільтрів.</Text>}
       {view === 'list' && offers.map(o => (
-        <TouchableOpacity key={o.id} onPress={() => onSelectOffer(o)} activeOpacity={0.8} style={[driverStyles.offer, { borderColor: o.color, borderLeftWidth: 4, borderTopWidth: 1, borderRightWidth: 1, borderBottomWidth: 1, borderRadius: 12, paddingVertical: 10, marginBottom: 7, borderTopColor:o.color, shadowColor: o.color, shadowOpacity: 0.52, shadowRadius: 11, shadowOffset: {width:0,height:0}, elevation: 5 }, design === 'new' && { backgroundColor: '#FFFFFF' }]}>
+        <TouchableOpacity key={o.id} onPress={() => onSelectOffer(o)} activeOpacity={0.8} style={[driverStyles.offer, { borderColor: o.color, borderLeftWidth: 4, borderTopWidth: 1, borderRightWidth: 1, borderBottomWidth: 1, borderRadius: 12, paddingVertical: 10, marginBottom: 7, borderTopColor:o.color, shadowColor: o.color, shadowOpacity: 0.65, shadowRadius: 13, shadowOffset: {width:0,height:0}, elevation: 5 }, design === 'new' && { backgroundColor: '#FFFFFF' }]}>
 
+          <View pointerEvents="none" style={{position:'absolute',left:2,right:2,top:1,height:14,borderTopLeftRadius:11,borderTopRightRadius:11,backgroundColor:o.color,opacity:.10}} />
           <View style={driverStyles.metrics}>
             <Text style={[driverStyles.total,{textShadowColor:o.color,textShadowRadius:9}, design === 'new' && { color: '#123B52' }]}>₴{o.amount}</Text>
 
             <Text style={[driverStyles.metric, design === 'new' && { color: '#173D52' }]}><Text style={[driverStyles.green, design === 'new' && { color: '#007C51' }]}>{perKm(o).toFixed(1)}</Text> ₴/км</Text>
             <Text style={driverStyles.metric}><Text style={[driverStyles.orange, design === 'new' && { color: '#B66A00' }]}>{Math.round(perHour(o)).toLocaleString('uk-UA')}</Text> ₴/год</Text>
           </View>
-          <Text numberOfLines={1} style={[driverStyles.address, design === 'new' && { color: '#244B61' }]}>┄ {o.pickupKm.toFixed(1)} км →  🟢 {o.pickup}</Text>
-          <Text numberOfLines={1} style={driverStyles.address}>      →  🔴 {o.dropoff}  ┄ {o.finalKm.toFixed(1)} км</Text>
+          <View style={{flexDirection:'row',alignItems:'center',gap:7,marginBottom:4}}>
+            <View style={{width:10,alignItems:'center',gap:3}}>
+              <View style={{width:9,height:9,borderRadius:5,backgroundColor:'#00EF7D',shadowColor:'#00EF7D',shadowOpacity:.8,shadowRadius:5}}/>
+              <View style={{width:9,height:9,borderRadius:5,backgroundColor:'#FF4358',shadowColor:'#FF4358',shadowOpacity:.8,shadowRadius:5}}/>
+            </View>
+            <View style={{flex:1,gap:2}}>
+              <Text numberOfLines={1} style={[driverStyles.address,{fontSize:12,marginBottom:0},design==='new'&&{color:'#244B61'}]}>┄ {o.pickupKm.toFixed(1)} км  {o.pickup}</Text>
+              <Text numberOfLines={1} style={[driverStyles.address,{fontSize:12,marginBottom:0}]}>┄ {o.finalKm.toFixed(1)} км  {o.dropoff}</Text>
+            </View>
+          </View>
           <View style={driverStyles.tripInfo}><Text style={[driverStyles.tripInfoText, design === 'new' && { color: '#526D7D' }]}>{o.distance.toFixed(1)} км</Text><Text style={driverStyles.tripInfoText}>≈ {o.minutes} хв</Text></View>
           {o.passengers.map(p => (
             <View key={p.name} style={driverStyles.person}>
-              <View style={{width:12,alignItems:'center',justifyContent:'center',gap:2}}><View style={{width:7,height:7,borderRadius:4,backgroundColor:'#00EE80'}}/><View style={{width:7,height:7,borderRadius:4,backgroundColor:'#FF4358'}}/></View>
               <View style={driverStyles.personAvatar}><Text style={driverStyles.personAvatarText}>{p.avatar}</Text></View>
               <Text numberOfLines={1} style={[driverStyles.personName, design === 'new' && { color: '#163D54' }]}>{p.name}</Text>
               <Text style={[driverStyles.acceptance, design === 'new' && { color: '#00854E' }]}>{p.acceptance}%</Text>
@@ -1024,7 +1032,7 @@ const driverStyles = StyleSheet.create({
   sortLabel: { color: '#9CAFC1', fontSize: 10 },
   sortChip: { paddingHorizontal: 7, paddingVertical: 6, borderWidth: 1, borderColor: '#536374', borderRadius: 9 },
   sortActive: { borderColor: '#21D775', backgroundColor: '#103628' }, sortText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
-  offer: { backgroundColor: '#101B28', borderWidth: 1, borderRadius: 12, paddingHorizontal: 9, paddingVertical: 9, marginBottom: 5 },
+  offer: { backgroundColor: '#101B28', borderWidth: 1, borderRadius: 12, paddingHorizontal: 7, paddingVertical: 8, marginBottom: 5 },
   metrics: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 3, marginBottom: 7 },
   total: { color: '#FFFFFF', fontSize: 24, fontWeight: '900' }, gps: { color: '#2FEF82', fontSize: 9, fontWeight: '800' },
   metric: { color: '#FFFFFF', fontSize: 10, fontWeight: '700' }, green: { color: '#32F183', fontSize: 17, fontWeight: '900' },
@@ -1076,7 +1084,7 @@ function NavItem({ icon, label, active, onPress }: { icon: string; label: string
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#091321' },
   screen: { flex: 1, backgroundColor: '#091321' },
-  header: { paddingHorizontal: 22, paddingTop: 12, paddingBottom: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  header: { paddingHorizontal: 12, paddingTop: 12, paddingBottom: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   brand: { color: '#FFFFFF', fontSize: 17, fontWeight: '900', letterSpacing: 2 },
   brandAccent: { color: '#55D6BE' },
   headerCaption: { color: '#718096', fontSize: 11, marginTop: 4, letterSpacing: 0.3 },
@@ -1087,7 +1095,7 @@ const styles = StyleSheet.create({
   modeButtonActive: { backgroundColor: '#55D6BE' },
   modeText: { color: '#94A3B8', fontSize: 14, fontWeight: '700' },
   modeTextActive: { color: '#071923' },
-  content: { paddingHorizontal: 22, paddingTop: 14, paddingBottom: 26 },
+  content: { paddingHorizontal: 9, paddingTop: 10, paddingBottom: 26 },
   hero: { backgroundColor: '#123448', borderRadius: 25, padding: 20, overflow: 'hidden', borderWidth: 1, borderColor: '#245269' },
   heroGlow: { position: 'absolute', width: 190, height: 190, borderRadius: 95, backgroundColor: '#1C796F', opacity: 0.28, right: -65, top: -80 },
   eyebrow: { color: '#70DCC8', fontSize: 9, fontWeight: '900', letterSpacing: 1.7 },
