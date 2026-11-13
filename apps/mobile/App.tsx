@@ -614,6 +614,30 @@ const previewOffers: DriverOffer[] = [
     { name: 'Роман', acceptance: 95, noShow: 1, km: 7.5, fare: 240, avatar: 'Р' },
   ] },
 ];
+// Demo addresses are illustrative: coordinate points and names require geocoding verification.
+const demoPassengerAddresses: Record<string,{pickup:string;dropoff:string}[]> = {
+  red:[
+    {pickup:'проспект Відрадний, 3',dropoff:'вулиця Борщагівська, 174'},
+    {pickup:'вулиця Гарматна, 20',dropoff:'проспект Соборності, 7'},
+    {pickup:'вулиця Дегтярівська, 53',dropoff:'проспект Петра Григоренка, 22'},
+  ],
+  green:[
+    {pickup:'вулиця Лісова, 7',dropoff:'вулиця Будівельників, 32'},
+    {pickup:'вулиця Червоноткацька, 42',dropoff:'Харківське шосе, 19'},
+    {pickup:'проспект Соборності, 12',dropoff:'Харківське шосе, 144'},
+  ],
+  blue:[
+    {pickup:'вулиця Вишгородська, 45',dropoff:'вулиця Олени Теліги, 17'},
+    {pickup:'вулиця Кирилівська, 160',dropoff:'проспект Миколи Бажана, 3'},
+    {pickup:'вулиця Глибочицька, 32',dropoff:'вулиця Бориспільська, 40'},
+  ],
+};
+for (const offer of previewOffers) {
+  offer.passengers.forEach((p,i)=>{
+    p.pickup=demoPassengerAddresses[offer.id]?.[i]?.pickup;
+    p.dropoff=demoPassengerAddresses[offer.id]?.[i]?.dropoff;
+  });
+}
 const formatRate = (rate: number) => Number(rate).toFixed(2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1');
 const perKm = (o: DriverOffer) => o.distance > 0 ? o.amount / o.distance : 0;
 const perHour = (o: DriverOffer) => o.minutes > 0 ? o.amount / o.minutes * 60 : 0;
@@ -802,13 +826,20 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
     if (driverStart && destinationPoint) {
       mapRoutes.push({ stops: [toMapPoint(driverStart), toMapPoint(destinationPoint)], color: neutralRouteColor, kind: 'driver' });
     }
+    // Draw individual demo passenger routes; do not connect unrelated riders into one line.
     mapRoutes.push(...offers.filter(offer => !offer.live).map(offer => offerMapRoute(offer, true)));
+    // A combined offer is colored by membership, not by its synthetic combo ID.
+    const priorityMemberColors=new Map<string,string>();
+    for(const offer of offers.slice(0,3)){
+      if(!offer.id.startsWith('combo:'))continue;
+      for(const id of offer.id.slice(6).split(':'))if(!priorityMemberColors.has(id))priorityMemberColors.set(id,offer.color);
+    }
     const priorityOffers = new Map(offers.slice(0, priorityColors.length).map(offer => [offer.id, offer]));
     const matchedOffers = new Map(liveOffers.map(offer => [offer.id, offer]));
     for (const request of liveRequests.slice(0, 15)) {
       mapRoutes.push({
         stops: matchedOffers.get(request.id)?.mapStops ?? [requestMapStop(request.origin), requestMapStop(request.destination)],
-        color: priorityOffers.get(request.id)?.color ?? neutralRouteColor,
+        color: priorityOffers.get(request.id)?.color ?? priorityMemberColors.get(request.id) ?? neutralRouteColor,
         kind: 'passenger', separate: true,
       });
     }
@@ -912,7 +943,7 @@ function DriverOfferDetail({ design, offer, increase, setIncrease, onBack }: {
   return (
     <View style={[detailStyles.wrap, design === 'new' && { backgroundColor: '#E9F0F6', padding: 10, borderRadius: 16 }]}>
       <View style={[detailStyles.head, design === 'new' && { backgroundColor: '#173D52', borderRadius: 15, padding: 10 }]}>
-        <Text style={detailStyles.title}>Заявка</Text>
+        <Text style={detailStyles.title}>Заявка {offer.live ? '' : '· демо'}</Text>
         <Text style={detailStyles.amount}>₴{updated}</Text>
         <Text style={detailStyles.stat}><Text style={detailStyles.km}>{(updated / offer.distance).toFixed(1)}</Text> ₴/км</Text>
         <Text style={detailStyles.stat}><Text style={detailStyles.hour}>{Math.round(updated / offer.minutes * 60)}</Text> ₴/год</Text>
@@ -927,8 +958,8 @@ function DriverOfferDetail({ design, offer, increase, setIncrease, onBack }: {
               <Text style={detailStyles.rating}>{p.acceptance}% · неявка {p.noShow}%</Text>
               <Text style={detailStyles.fare}>₴{p.fare}</Text>
             </View>
-            <Text style={detailStyles.address}>↗ Посадка: {p.pickup || (index === 0 ? offer.pickup : 'Адреса посадки не задана (демо)')}</Text>
-            <Text style={detailStyles.address}>↘ Висадка: {p.dropoff || (index === offer.passengers.length - 1 ? offer.dropoff : 'Адреса висадки не задана (демо)')}</Text>
+            <Text numberOfLines={1} style={detailStyles.address}><Text style={{color:'#00E878'}}>●</Text>  {p.pickup || (index === 0 ? offer.pickup : 'Адреса не задана')}</Text>
+            <Text numberOfLines={1} style={detailStyles.address}><Text style={{color:'#FF5365'}}>●</Text>  {p.dropoff || (index === offer.passengers.length - 1 ? offer.dropoff : 'Адреса не задана')}</Text>
             <Text style={detailStyles.distance}>{p.km.toFixed(1)} км</Text>
           </View>
         ))}
