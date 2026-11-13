@@ -173,13 +173,30 @@ export default function App() {
   };
   const [driverView, setDriverView] = useState<'list' | 'map' | 'offer'>('list');
   const [driverOffer, setDriverOffer] = useState<DriverOffer | null>(null);
-  const [from, setFrom] = useState('Київ, Берестейський проспект 10');
-  const [to, setTo] = useState('Київ, Хрещатик 1');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
   const [notice, setNotice] = useState('');
   const [rate, setRate] = useState('15');
   const [fromPoint, setFromPoint] = useState<AddressSuggestion | null>(null);
   const [toPoint, setToPoint] = useState<AddressSuggestion | null>(null);
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
+  const [addressHistory,setAddressHistory] = useState<AddressSuggestion[]>(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return [];
+    try { const rows=JSON.parse(window.localStorage.getItem('rs-address-history:'+(activeProfileId||'guest'))||'[]'); return Array.isArray(rows)?rows:[]; } catch {return [];}
+  });
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    try {const rows=JSON.parse(window.localStorage.getItem('rs-address-history:'+(activeProfileId||'guest'))||'[]');setAddressHistory(Array.isArray(rows)?rows:[]);}catch{setAddressHistory([]);}
+  },[activeProfileId]);
+  const rememberAddress = (point: AddressSuggestion) => {
+    if (!point || !Number.isFinite(point.lat) || !Number.isFinite(point.lon)) return;
+    setAddressHistory(prev => {
+      const next=[point,...prev.filter(p=>p.label!==point.label)].slice(0,20);
+      if (Platform.OS==='web' && typeof window!=='undefined') window.localStorage.setItem('rs-address-history:'+(activeProfileId||'guest'),JSON.stringify(next));
+      return next;
+    });
+  };
+  const [urgency,setUrgency] = useState<'now'|'flex'>('now');
   const [editingAddress, setEditingAddress] = useState<'from' | 'to' | null>(null);
   const [mapTarget, setMapTarget] = useState<'from' | 'to' | null>(null);
   const [distanceKm, setDistanceKm] = useState<number | null>(null);
@@ -225,7 +242,7 @@ export default function App() {
       if (!exact) { setAddressError('Будинок не знайдено. Уточни номер або введи повну адресу вручну.'); return; }
       if (houseTarget === 'from') { setFrom(exact.label); setFromPoint(exact); }
       else { setTo(exact.label); setToPoint(exact); }
-      setHouseTarget(null); setHouseNumber('');
+      rememberAddress(exact); setHouseTarget(null); setHouseNumber('');
     } catch (e) { setAddressError(e instanceof Error ? e.message : 'Помилка пошуку будинку'); }
     finally { setHouseBusy(false); }
   };
@@ -235,6 +252,7 @@ export default function App() {
       if (editingAddress === 'from') { setFrom(point.label); setFromPoint(null); }
       else { setTo(point.label); setToPoint(null); }
     } else {
+      rememberAddress(point);
       if (editingAddress === 'from') { setFrom(point.label); setFromPoint(point); }
       if (editingAddress === 'to') { setTo(point.label); setToPoint(point); }
     }
@@ -363,55 +381,51 @@ export default function App() {
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
           {tab === 'home' && mode === 'passenger' && (
             <>
-              <View style={styles.hero}>
-                <View style={styles.heroGlow} />
-                <Text style={styles.eyebrow}>ROUTES MADE TOGETHER</Text>
-                <Text style={styles.heroTitle}>Знайди свою{"\n"}поїздку</Text>
-                <Text style={styles.heroSubtitle}>Подорожуй з попутниками та діли витрати на дорогу.</Text>
-                <View style={styles.routeCard}>
-                  <View style={styles.routeLine}>
-                    <View style={styles.dotStart} />
-                    <View style={styles.routeInputWrap}>
-                      <Text style={styles.fieldLabel}>ЗВІДКИ · GPS АБО АДРЕСА</Text>
-                      <View style={{flexDirection:'row',alignItems:'center'}}><View style={{flex:1}}><TextInput value={from} onChangeText={v => { setFrom(v); setFromPoint(null); setShowPassengerRoute(false); setEditingAddress('from'); }} onFocus={() => setEditingAddress('from')} placeholder="Адреса посадки" placeholderTextColor="#718096" style={styles.routeInput} /></View>{!!from && <TouchableOpacity accessibilityLabel="Очистити адресу" onPress={() => { setFrom(''); setFromPoint(null); setEditingAddress('from'); setShowPassengerRoute(false); }} style={{padding:8}}><Text style={{color:'#DCE8F0',fontSize:22}}>×</Text></TouchableOpacity>}</View>
-                    </View>
-                  </View>
-                  <TouchableOpacity onPress={usePassengerGps} style={{ paddingVertical: 8 }}><Text style={{ color: '#36DCA1', fontWeight: '800' }}>⌖ Визначити моє місце (GPS)</Text></TouchableOpacity>
-                  {!!passengerGpsMessage && <Text style={{ color: '#D5E8F0', fontSize: 11, marginBottom: 7 }}>{passengerGpsMessage}</Text>}
-                  <View style={styles.routeDivider} />
-                  <View style={styles.routeLine}>
-                    <View style={styles.dotEnd} />
-                    <View style={styles.routeInputWrap}>
-                      <Text style={styles.fieldLabel}>КУДИ</Text>
-                      <View style={{flexDirection:'row',alignItems:'center'}}><View style={{flex:1}}><TextInput value={to} onChangeText={v => { setTo(v); setToPoint(null); setShowPassengerRoute(false); setEditingAddress('to'); }} onFocus={() => setEditingAddress('to')} placeholder="Адреса висадки" placeholderTextColor="#718096" style={styles.routeInput} /></View>{!!to && <TouchableOpacity accessibilityLabel="Очистити адресу" onPress={() => { setTo(''); setToPoint(null); setEditingAddress('to'); setShowPassengerRoute(false); }} style={{padding:8}}><Text style={{color:'#DCE8F0',fontSize:22}}>×</Text></TouchableOpacity>}</View>
-                    </View>
-                  </View>
-                  {editingAddress && suggestions.length > 0 && <View style={{ backgroundColor: '#22384A', borderRadius: 10, padding: 7, marginBottom: 10 }}>
-                    <Text style={{ color: '#88C7B5', fontSize: 11, marginBottom: 5 }}>ОБЕРИ АДРЕСУ · {editingAddress === 'from' ? 'ЗВІДКИ' : 'КУДИ'}</Text>
-                    {suggestions.map((item, index) => <TouchableOpacity key={index} onPress={() => selectAddress(item)} style={{ paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#385064' }}><Text style={{ color: '#FFFFFF', fontSize: 13 }}>{item.label}</Text></TouchableOpacity>)}
-                  </View>}
+              <View style={{backgroundColor:'#101B29',borderRadius:14,padding:9,marginBottom:8,borderWidth:1,borderColor:'#2A4050'}}>
+                <View style={{flexDirection:'row',alignItems:'center',gap:8,marginBottom:4}}>
+                  <Text style={{color:'#00E66D',fontSize:16}}>●</Text>
+                  <TextInput value={from} onChangeText={v=>{setFrom(v);setFromPoint(null);setEditingAddress('from');setShowPassengerRoute(false);}} onFocus={()=>setEditingAddress('from')} placeholder="Початок маршруту" placeholderTextColor="#8899A8" style={{flex:1,color:'#FFFFFF',fontSize:16,paddingVertical:10}}/>
+                  {!!from && <TouchableOpacity onPress={()=>{setFrom('');setFromPoint(null);setEditingAddress('from');}}><Text style={{color:'#DDE8F2',fontSize:23}}>×</Text></TouchableOpacity>}
+                  <TouchableOpacity onPress={()=>{setMapTarget('from');setEditingAddress(null);}} style={{padding:6}}><Text style={{color:'#00D978',fontSize:23}}>⌖</Text></TouchableOpacity>
+                </View>
+                <View style={{height:1,backgroundColor:'#304253',marginLeft:26}}/>
+                <View style={{flexDirection:'row',alignItems:'center',gap:8}}>
+                  <Text style={{color:'#FF465A',fontSize:16}}>●</Text>
+                  <TextInput value={to} onChangeText={v=>{setTo(v);setToPoint(null);setEditingAddress('to');setShowPassengerRoute(false);}} onFocus={()=>setEditingAddress('to')} placeholder="Кінець маршруту" placeholderTextColor="#8899A8" style={{flex:1,color:'#FFFFFF',fontSize:16,paddingVertical:10}}/>
+                  {!!to && <TouchableOpacity onPress={()=>{setTo('');setToPoint(null);setEditingAddress('to');}}><Text style={{color:'#DDE8F2',fontSize:23}}>×</Text></TouchableOpacity>}
+                  <TouchableOpacity onPress={()=>{setMapTarget('to');setEditingAddress(null);}} style={{padding:6}}><Text style={{color:'#00D978',fontSize:23}}>⌖</Text></TouchableOpacity>
+                </View>
+              </View>
+              {editingAddress && (editingAddress==='from'?from:to).trim().length<2 && addressHistory.length>0 && <View style={{backgroundColor:'#192A38',borderRadius:10,paddingHorizontal:10,marginBottom:8}}>
+                <Text style={{color:'#89A7B5',fontSize:11,marginTop:8}}>НЕДАВНІ АДРЕСИ</Text>
+                {addressHistory.slice(0,6).map((item,i)=><TouchableOpacity key={i} onPress={()=>{rememberAddress(item);if(editingAddress==='from'){setFrom(item.label);setFromPoint(item);}else{setTo(item.label);setToPoint(item);}setEditingAddress(null);}} style={{paddingVertical:11,borderBottomWidth:1,borderBottomColor:'#324452'}}><Text numberOfLines={2} style={{color:'#F3F8FB',fontSize:14}}>◷  {item.label}</Text></TouchableOpacity>)}
+              </View>}
+              {editingAddress && suggestions.length>0 && <View style={{backgroundColor:'#192A38',borderRadius:10,paddingHorizontal:10,marginBottom:8}}>
+                {suggestions.slice(0,8).map((item,i)=><TouchableOpacity key={i} onPress={()=>selectAddress(item)} style={{paddingVertical:11,borderBottomWidth:1,borderBottomColor:'#324452'}}><Text numberOfLines={2} style={{color:'#FFFFFF',fontSize:14}}>⌖  {item.label}</Text></TouchableOpacity>)}
+              </View>}
+              <View style={{paddingHorizontal:4}}>
                   {houseTarget && <View style={{ backgroundColor: '#213D50', padding: 10, borderRadius: 9, marginBottom: 10, gap: 7 }}>
                     <Text style={{ color: '#FFFFFF', fontWeight: '800' }}>Номер будинку · {houseTarget === 'from' ? 'посадка' : 'висадка'}</Text>
                     <Text style={{ color: '#9DB9C8', fontSize: 11 }}>{houseStreet}</Text>
                     <TextInput autoFocus value={houseNumber} onChangeText={setHouseNumber} placeholder="Наприклад: 15А" placeholderTextColor="#9DB9C8" onSubmitEditing={confirmHouse} style={{ backgroundColor: '#314D61', color: '#FFFFFF', padding: 10, borderRadius: 8 }} />
                     <TouchableOpacity onPress={confirmHouse} disabled={houseBusy || !houseNumber.trim()} style={{ padding: 10, backgroundColor: '#128D68', borderRadius: 8 }}><Text style={{ color: '#FFFFFF', fontWeight: '800' }}>{houseBusy ? 'Шукаємо будинок…' : 'Підтвердити адресу'}</Text></TouchableOpacity>
                   </View>}
-                  <TouchableOpacity onPress={() => { setMapTarget(editingAddress || (!fromPoint ? 'from' : 'to')); setEditingAddress(null); }} style={{paddingVertical:10,alignItems:'center',borderWidth:1,borderColor:'#3B6C71',borderRadius:9,marginBottom:9}}><Text style={{color:'#58E0AC',fontWeight:'800'}}>◎ Обрати на мапі · {editingAddress === 'from' || (!editingAddress && !fromPoint) ? 'посадка' : 'висадка'}</Text></TouchableOpacity>
+
                   {mapTarget && <MapPointPicker initial={mapTarget === 'from' ? fromPoint : toPoint} onCancel={() => setMapTarget(null)} onConfirm={p => { if(mapTarget === 'from'){setFrom(p.label);setFromPoint(p);} else {setTo(p.label);setToPoint(p);}setMapTarget(null);setHouseTarget(null);setShowPassengerRoute(false); }} />}
                   {!!addressError && <Text style={{ color: '#FFAD84', fontSize: 12, marginBottom: 8 }}>{addressError}</Text>}
-                  <Text style={{ color: '#8EE6C1', fontWeight: '800', marginBottom: 9 }}>{routeBusy ? 'Розрахунок маршруту…' : distanceKm === null ? 'Вибери адреси зі списку для розрахунку' : distanceKm.toFixed(1) + ' км по дорогах · від ' + Math.ceil(distanceKm * 15) + ' ₴'}</Text>
+                  {(fromPoint || toPoint) && <RouteMapPreview detail routes={[{stops: fromPoint && toPoint ? [toMapPoint(fromPoint),toMapPoint(toPoint)] : [toMapPoint((fromPoint||toPoint)!),toMapPoint((fromPoint||toPoint)!)],kind:'passenger',color:'#00DB79'}]} />}
+                  <Text style={{ color: '#8EE6C1', fontWeight: '800', marginVertical: 9 }}>{routeBusy ? 'Розрахунок маршруту…' : distanceKm === null ? 'Вибери обидві точки' : distanceKm.toFixed(1) + ' км · ≈ ' + Math.round(distanceKm/25*60) + ' хв · ' + Math.ceil(distanceKm*15) + ' ₴'}</Text>
+                  <TouchableOpacity onPress={()=>setUrgency(v=>v==='now'?'flex':'now')} style={{paddingVertical:8,alignItems:'center'}}><Text style={{color:'#E2EAF0',fontWeight:'700'}}>◷ {urgency==='now'?'Термінова поїздка':'Гнучкий час'} ▾</Text></TouchableOpacity>
                   <View style={styles.rateRow}>
                     <Text style={styles.rateLabel}>ТАРИФ, грн/км (мін. 15)</Text>
                     <TextInput value={rate} onChangeText={setRate} keyboardType="decimal-pad" style={styles.rateInput} />
                   </View>
                   {distanceKm !== null && <Text style={{ color: '#FFFFFF', fontWeight: '900', fontSize: 17, marginBottom: 10 }}>Разом: {Math.ceil(distanceKm * Math.max(15, Number(rate.replace(',', '.')) || 15))} ₴</Text>}
                   <TouchableOpacity style={styles.primaryButton} disabled={savingRequest || distanceKm === null || routeBusy} onPress={createTestRequest}>
-                    <Text style={styles.primaryButtonText}>{savingRequest ? 'Зберігаємо…' : 'Створити тестову заявку'}</Text>
+                    <Text style={styles.primaryButtonText}>{savingRequest ? 'Зберігаємо…' : 'Замовити'}</Text>
                     <Text style={styles.buttonArrow}>＋</Text>
                   </TouchableOpacity>
-                  {showPassengerRoute && fromPoint && toPoint && <RouteMapPreview detail routes={[{
-                    stops: [toMapPoint(fromPoint), toMapPoint(toPoint)], kind: 'passenger', color: priorityColors[0],
-                  }]} />}
+
                   {requestResult && <View style={{ marginTop: 12, padding: 12, borderRadius: 8, backgroundColor: requestResult.ok ? '#14563C' : '#692C36', borderWidth: 1, borderColor: requestResult.ok ? '#39D58A' : '#FF7883' }}><Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '800' }}>{requestResult.message}</Text></View>}
                   {!fromPoint || !toPoint ? <Text style={{ color: '#F3DFA3', marginTop: 8, fontSize: 12 }}>Для створення вибери обидві адреси саме зі списку підказок.</Text> : null}
                 </View>
