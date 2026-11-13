@@ -148,7 +148,7 @@
             return;
           }
           if (signal.aborted) return;
-          if (stops.length < 2 || stops.some(stop => !stop)) {
+          if (stops.length < 1 || stops.some(stop => !stop)) {
             missing++;
             return;
           }
@@ -179,7 +179,9 @@
           }
           if (first) fitRoutes();
           if (!route.separate && Array.isArray(route.approach) && Array.isArray(route.departure)) {
-            for (const segment of [route.approach,route.departure]) {
+            for (const [segmentIndex,segment] of [route.approach,route.departure].entries()) {
+              if(!Array.isArray(segment)||segment.length<2)continue;
+              marker(segment[segmentIndex===0?0:segment.length-1],'',segmentIndex===0?'#FFFFFF':'#FFD54A',false).addTo(routeLayers);
               try {
                 const geometry=await roadGeometry(segment,signal);
                 if(signal.aborted)return;
