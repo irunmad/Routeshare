@@ -163,10 +163,19 @@
             stops.forEach((point,index)=>marker(point,'',color,false).addTo(routeLayers));
           } else {
             const compact = route.separate;
-            pairs.forEach(pair => {
-              marker(pair[0], '', color, compact).addTo(routeLayers);
-              marker(pair[pair.length-1], '', color, compact).addTo(routeLayers);
-            });
+            if (!compact && stops.length > 2) {
+              // Every boarding and alighting stop remains visible on the detail map.
+              stops.forEach((point,index)=>{
+                const isPickup = Array.isArray(route.stopKinds) ? route.stopKinds[index] === 'pickup' : index < stops.length/2;
+                const dotColor=isPickup?'#00F080':'#FF4358';
+                marker(point,'',dotColor,false).addTo(routeLayers);
+              });
+            } else {
+              pairs.forEach(pair => {
+                marker(pair[0], '', compact ? '#00F080' : color, compact).addTo(routeLayers);
+                marker(pair[pair.length-1], '', compact ? '#FF4358' : color, compact).addTo(routeLayers);
+              });
+            }
           }
           if (first) fitRoutes();
           if (!route.separate && Array.isArray(route.approach) && Array.isArray(route.departure)) {
