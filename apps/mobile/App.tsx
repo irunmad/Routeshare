@@ -83,35 +83,62 @@ function requestMapStop(label: string): MapStop {
 function displayTestAddress(label: string): string {
   return parseGpsAddress(label) ? 'GPS-точка' : label;
 }
-async function lookupAddresses(query: string): Promise<AddressSuggestion[]> {
+async async function lookupAddresses(query: string): Promise<AddressSuggestion[]> {
   const q = query.trim();
   if (q.length < 2) return [];
-  const endpoints = [
-    'https://photon.komoot.io/api/?limit=15&lat=50.45&lon=30.52&q=' + encodeURIComponent(q),
-    'https://photon.komoot.io/api/?limit=15&lat=50.45&lon=30.52&q=' + encodeURIComponent(q + ', Київ'),
+  const normalize = (v: string) => v.toLocaleLowerCase('uk-UA').replace(/[’']/g, '');
+  const center = {lat:50.45,lon:30.52};
+  const unique = new Map<string,AddressSuggestion>();
+  const add = (row:AddressSuggestion) => {
+    if (!Number.isFinite(row.lat)||!Number.isFinite(row.lon)||!row.label) return;
+    const key=normalize(row.label)+'|'+row.lat.toFixed(4)+'|'+row.lon.toFixed(4);
+    if(!unique.has(key)) unique.set(key,row);
+  };
+  let lastError = '';
+  const endpoints=[
+    'https://photon.komoot.io/api/?limit=25&lat=50.45&lon=30.52&q='+encodeURIComponent(q),
+    'https://photon.komoot.io/api/?limit=25&lat=50.45&lon=30.52&q='+encodeURIComponent(q+', Київ'),
   ];
-  let lastError = 'Сервіс пошуку адрес тимчасово недоступний';
-  for (const url of endpoints) {
+  for(const url of endpoints){
     try {
-      const response = await fetch(url);
-      if (!response.ok) { lastError = 'Помилка сервісу адрес: ' + response.status; continue; }
-      const data = await response.json();
-      const features = Array.isArray(data.features) ? data.features : [];
-      const rows: AddressSuggestion[] = features.filter((f: any) => {
-        const c = f.properties?.countrycode;
-        return Array.isArray(f.geometry?.coordinates) && (!c || String(c).toUpperCase() === 'UA');
-      }).map((f: any) => {
-        const p = f.properties || {};
-        return {
-          label: [p.name, p.street && p.street !== p.name ? p.street : '', p.housenumber, p.city || p.locality || p.county].filter(Boolean).join(', '),
-          lon: f.geometry.coordinates[0], lat: f.geometry.coordinates[1], houseNumber: p.housenumber,
-        };
-      }).filter((p: AddressSuggestion) => !!p.label);
-      if (rows.length || url === endpoints[endpoints.length - 1]) return rows;
-    } catch (e) { lastError = e instanceof Error ? e.message : String(e); }
+      const response=await fetch(url);
+      if(!response.ok){lastError='Photon HTTP '+response.status;continue;}
+      const data=await response.json();
+      for(const f of Array.isArray(data.features)?data.features:[]){
+        const p=f.properties||{},coords=f.geometry?.coordinates;
+        if(!Array.isArray(coords)||p.countrycode&&String(p.countrycode).toUpperCase()!=='UA')continue;
+        add({label:[p.name,p.street&&p.street!==p.name?p.street:'',p.housenumber,p.city||p.locality||p.county].filter(Boolean).join(', '),lon:Number(coords[0]),lat:Number(coords[1]),houseNumber:p.housenumber});
+      }
+    }catch(e){lastError=String(e);}
+    if(unique.size>=8)break;
   }
-  throw Error(lastError);
+  // Ukrainian-language fallback for missing streets and house numbers.
+  if(unique.size<5){
+    try {
+      const url='https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=12&countrycodes=ua&accept-language=uk&q='+encodeURIComponent(q+', Київ, Україна');
+      const response=await fetch(url,{headers:{'Accept-Language':'uk'}});
+      if(response.ok){
+        const data=await response.json();
+        for(const p of Array.isArray(data)?data:[]){
+          const addr=p.address||{};
+          const road=addr.road||addr.pedestrian||addr.residential||addr.neighbourhood||p.name;
+          const place=addr.city||addr.town||addr.village||addr.suburb||'Київ';
+          add({label:[road,addr.house_number,place].filter(Boolean).join(', '),lon:Number(p.lon),lat:Number(p.lat),houseNumber:addr.house_number});
+        }
+      }
+    }catch(e){lastError=String(e);}
+  }
+  const score=(p:AddressSuggestion)=>{
+    const d=Math.hypot((p.lat-center.lat)*111,(p.lon-center.lon)*71);
+    const kyiv=/київ|киев|kyiv|kiev/i.test(p.label);
+    const exact=normalize(p.label).includes(normalize(q));
+    return (exact?100:0)+(kyiv?30:0)-d*.35;
+  };
+  const rows=[...unique.values()].sort((a,b)=>score(b)-score(a)).slice(0,12);
+  if(!rows.length&&lastError)throw Error('Пошук адрес недоступний: '+lastError);
+  return rows;
 }
+
 async function lookupHouse(street: string, number: string): Promise<AddressSuggestion | undefined> {
   const rows = await lookupAddresses(street + ' ' + number.trim());
   const normalize = (value: string) => value.toLowerCase().replace(/\s/g, '');
