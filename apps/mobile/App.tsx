@@ -389,12 +389,13 @@ export default function App() {
             <Text style={styles.brand}>ROUTE<Text style={styles.brandAccent}>SHARE</Text></Text>
             <Text style={styles.headerCaption}>Твій маршрут. Твоя компанія.</Text>
           </View>
-          <TouchableOpacity style={styles.avatar} onPress={() => {setMenuOpen(v => !v);setAccountScreen('none');}}>
+          <TouchableOpacity style={styles.avatar} onPress={() => {setMenuOpen(false);setAccountScreen('login');}}>
             <Text style={styles.avatarText}>{activeProfile?.avatar || (mode === 'driver' ? '🚗' : '👤')}</Text>
           </TouchableOpacity>
         </View>
 
         {menuOpen && <View style={{ flex:1, backgroundColor: '#0B1722', padding: 18, gap: 16, borderTopWidth: 1, borderTopColor: '#284253' }}>
+          <TouchableOpacity onPress={()=>{setTab('trips');setMenuOpen(false);refreshTestRequests(true);}} style={{backgroundColor:'#243F51',padding:12,borderRadius:10}}><Text style={{color:'#FFFFFF',fontWeight:'900'}}>☷ Усі тестові заявки · {testRequests.length}</Text><Text style={{color:'#A8C0CF',fontSize:11}}>Адміністративний перегляд усіх отриманих заявок, незалежно від фільтрів водія</Text></TouchableOpacity>
           <Text style={{ color:'#FFFFFF',fontSize:15,fontWeight:'900' }}>Режим RouteShare</Text>
           <View style={{flexDirection:'row',gap:8}}>{(['passenger','driver'] as const).map(m => <TouchableOpacity key={m} onPress={() => {setMode(m);setTab('home');setDriverView('list');setDriverOffer(null);setNotice('');setMenuOpen(false);}} style={{flex:1,padding:11,alignItems:'center',borderRadius:10,backgroundColor:mode===m?'#00D86A':'#263A4B'}}><Text style={{color:mode===m?'#09241A':'#FFFFFF',fontWeight:'900'}}>{m==='driver'?'🚗 Водій':'👤 Пасажир'}</Text></TouchableOpacity>)}</View>
           <Text style={{ color: '#AFC8D6', fontWeight: '700', fontSize: 12 }}>ОФОРМЛЕННЯ</Text>
@@ -957,15 +958,15 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
           </View>
           <View style={{gap:2,marginBottom:4}}>
             <View style={{flexDirection:'row',alignItems:'center',gap:5,minHeight:20}}>
-              <Text style={{color:'#A9B8C7',fontSize:11,width:106,textAlign:'left'}}>┄┄ {o.pickupKm.toFixed(1)} км ┄➜</Text>
+              <Text style={{color:'#A9B8C7',fontSize:11,width:76,textAlign:'left'}}>┄┄ {o.pickupKm.toFixed(1)} км ┄➜</Text>
               <Image source={{uri:'data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="16" height="21" viewBox="0 0 16 21"><path d="M8 1C4 1 1 4 1 8c0 5 7 12 7 12s7-7 7-12c0-4-3-7-7-7z" fill="#00E878"/><path d="M8 2C4.7 2 2 4.7 2 8" fill="none" stroke="#fff" stroke-opacity=".32" stroke-width="1.3"/><circle cx="8" cy="8" r="3" fill="#101B28"/></svg>')}} style={{width:13,height:17}} />
               <Text numberOfLines={1} style={[driverStyles.address,{flex:1,fontSize:14,marginBottom:0},design==='new'&&{color:'#244B61'}]}>{o.pickup}</Text>
             </View>
             <View style={{flexDirection:'row',alignItems:'center',gap:5,minHeight:20}}>
-              <View style={{width:106}} />
+              <View style={{width:76}} />
               <Image source={{uri:'data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="16" height="21" viewBox="0 0 16 21"><path d="M8 1C4 1 1 4 1 8c0 5 7 12 7 12s7-7 7-12c0-4-3-7-7-7z" fill="#FF354B"/><path d="M8 2C4.7 2 2 4.7 2 8" fill="none" stroke="#fff" stroke-opacity=".32" stroke-width="1.3"/><circle cx="8" cy="8" r="3" fill="#101B28"/></svg>')}} style={{width:13,height:17}} />
               <Text numberOfLines={1} style={[driverStyles.address,{fontSize:14,marginBottom:0,flexShrink:1}]}>{o.dropoff}</Text>
-              <Text style={{color:'#A9B8C7',fontSize:11,flexShrink:0}}>┄ {o.finalKm.toFixed(1)} км ┄➜</Text>
+              <Text numberOfLines={1} style={{color:'#A9B8C7',fontSize:10,flexShrink:0,marginLeft:0}}>┄ {o.finalKm.toFixed(1)} км ➜</Text>
             </View>
           </View>
 
@@ -1046,7 +1047,7 @@ function DriverOfferDetail({ design, offer, increase, setIncrease, onBack, drive
             </View>
             <Text numberOfLines={1} style={detailStyles.address}><Text style={{color:'#00E878'}}>●</Text>  {p.pickup || (index === 0 ? offer.pickup : 'Адреса не задана')}</Text>
             <Text numberOfLines={1} style={detailStyles.address}><Text style={{color:'#FF5365'}}>●</Text>  {p.dropoff || (index === offer.passengers.length - 1 ? offer.dropoff : 'Адреса не задана')}</Text>
-            <Text numberOfLines={1} style={detailStyles.distance}>{p.km.toFixed(1)} км</Text>
+            <View style={{flexDirection:'row',justifyContent:'flex-end'}}><Text numberOfLines={1} style={[detailStyles.distance,{flexShrink:0,minWidth:65}]}>{p.km.toFixed(1)} км</Text></View>
           </View>
         ))}
         <Text style={detailStyles.segment}>Остання висадка → ┄ {offer.finalKm.toFixed(1)} км до фінішу водія</Text>
@@ -1077,7 +1078,7 @@ const detailStyles = StyleSheet.create({
   segment: { color: '#BFCBDA', fontSize: 11 }, passenger: { borderTopWidth: 1, borderTopColor: '#334050', paddingTop: 3, gap: 1 },
   personTop: { flexDirection: 'row', alignItems: 'center', gap: 4, flexWrap:'nowrap' }, name: { color: '#FFFFFF', fontSize: 12, flex: 1, fontWeight: '700' },
   rating: { color: '#B8C8D6', fontSize: 10, flexShrink:0 }, fare: { color: '#FFFFFF', fontSize: 12, fontWeight: '800', flexShrink:0 },
-  address: { color: '#E1E9F2', fontSize: 11, marginLeft: 28 }, distance: { color: '#B5C6D8', fontSize: 10, textAlign: 'right' },
+  address: { color: '#E1E9F2', fontSize: 11, marginLeft: 28 }, distance: { color: '#B5C6D8', fontSize: 10, textAlign: 'right', flexShrink:0 },
   mapPlaceholder: { height: 165, backgroundColor: '#172737', borderWidth: 1, borderColor: '#34485C', borderRadius: 10, justifyContent: 'center', alignItems: 'center', padding: 18, gap: 9 },
   mapTitle: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' }, mapText: { color: '#AFC0D1', fontSize: 11, textAlign: 'center' },
   priceRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, alignItems: 'center' }, priceLabel: { color: '#FFFFFF', fontSize: 11, width: '100%' },
