@@ -762,14 +762,19 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
     setGpsMessage('Визначаємо місце…');
     navigator.geolocation.getCurrentPosition(p => { setGps({ lat: p.coords.latitude, lon: p.coords.longitude }); setGpsMessage('GPS: ' + p.coords.latitude.toFixed(5) + ', ' + p.coords.longitude.toFixed(5)); }, e => setGpsMessage('GPS: ' + e.message), { enableHighAccuracy: true, timeout: 12000, maximumAge: 10000 });
   };
-  const [destination, setDestination] = useState('');
-  const [destinationPoint, setDestinationPoint] = useState<AddressSuggestion | null>(null);
+  const savedDriverRoute=()=>{
+    if(Platform.OS!=='web'||typeof window==='undefined')return {} as {start?:AddressSuggestion;end?:AddressSuggestion};
+    try{return JSON.parse(window.localStorage.getItem('rs-driver-route')||'{}') as {start?:AddressSuggestion;end?:AddressSuggestion};}catch{return {};}
+  };
+  const [destination, setDestination] = useState(()=>savedDriverRoute().end?.label||'');
+  const [destinationPoint, setDestinationPoint] = useState<AddressSuggestion | null>(()=>savedDriverRoute().end||null);
   const [destinationSuggestions, setDestinationSuggestions] = useState<AddressSuggestion[]>([]);
-  const [manualStart, setManualStart] = useState('');
+  const [manualStart, setManualStart] = useState(()=>savedDriverRoute().start?.label||'');
   const [manualSuggestions, setManualSuggestions] = useState<AddressSuggestion[]>([]);
   const [manualOpen, setManualOpen] = useState(false);
   const [filterScreen,setFilterScreen] = useState<'pickup'|'final'|'all'|null>(null);
-  const [startPoint, setStartPoint] = useState<AddressSuggestion | null>(null);
+  const [startPoint, setStartPoint] = useState<AddressSuggestion | null>(()=>savedDriverRoute().start||null);
+  useEffect(()=>{if(Platform.OS==='web'&&typeof window!=='undefined')window.localStorage.setItem('rs-driver-route',JSON.stringify({start:startPoint,end:destinationPoint}));},[startPoint,destinationPoint]);
   const driverStart = startPoint ?? gps;
   const [driverRouteKm, setDriverRouteKm] = useState<number | null>(null);
   const [driverRouteError, setDriverRouteError] = useState('');
