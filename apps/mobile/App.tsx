@@ -63,7 +63,7 @@ type AddressSuggestion = Coordinates & { label: string; houseNumber?: string; so
 
 const passengerGpsLabel = 'Моя GPS-точка';
 const neutralRouteColor = '#171b23';
-const priorityColors = ['#FF4256', '#23DE75', '#36A9FF'];
+const priorityColors = ['#FF183D', '#35FF31', '#007BFF'];
 const toMapPoint = ({ lon, lat }: Coordinates): MapPoint => [lon, lat];
 
 function parseGpsAddress(label: string): Coordinates | null {
@@ -714,6 +714,17 @@ function DriverAddressPicker({ label, value, onValue, onPoint, suggestions, onSe
     {!!street&&<Text style={{color:'#A5BBC6',fontSize:12}}>Номер будинку введи праворуч від назви вулиці. Якщо OSM не знає будинок, точка буде орієнтовною.</Text>}
   </View>;
 }
+function RadiusSlider({value,onChange,max=15}:{value:number;onChange:(v:number)=>void;max?:number}){
+  const [width,setWidth]=useState(280);
+  const position=(x:number)=>onChange(Math.max(0.5,Math.min(max,Math.round((x/Math.max(1,width))*max*2)/2)));
+  return <View style={{paddingVertical:14}}>
+    <View onLayout={e=>setWidth(e.nativeEvent.layout.width)} onStartShouldSetResponder={()=>true} onMoveShouldSetResponder={()=>true} onResponderGrant={e=>position(e.nativeEvent.locationX)} onResponderMove={e=>position(e.nativeEvent.locationX)} style={{height:34,justifyContent:'center'}}>
+      <View pointerEvents="none" style={{height:7,backgroundColor:'#2C4654',borderRadius:5,overflow:'hidden'}}><View style={{width:(value/max*100)+'%',height:7,backgroundColor:'#00F47B'}}/></View>
+      <View pointerEvents="none" style={{position:'absolute',left:(value/max*100)+'%',marginLeft:-12,width:24,height:24,borderRadius:12,backgroundColor:'#E6FFF2',borderWidth:5,borderColor:'#00D975',shadowColor:'#00F07B',shadowOpacity:.6,shadowRadius:6}}/>
+    </View>
+    <View style={{flexDirection:'row',justifyContent:'space-between'}}><Text style={{color:'#8499A8'}}>0,5 км</Text><Text style={{color:'#8499A8'}}>{max} км · крок 0,5</Text></View>
+  </View>;
+}
 function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer, onSelectOffer, onBack }: { liveRequests: TestPassengerRequest[]; onRefresh: () => void; design: Design; view: 'list' | 'map' | 'offer'; selectedOffer: DriverOffer | null; onSelectOffer: (offer: DriverOffer) => void; onBack: () => void }) {
   const [seats, setSeats] = useState(3);
   const [pickupLimit, setPickupLimit] = useState(3);
@@ -872,12 +883,12 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
       <TouchableOpacity onPress={()=>setManualOpen(v=>!v)}><Text style={{color:'#00E47B',fontWeight:'800'}}>◉ GPS / {manualOpen?'●':'○'} Ручний вибір</Text></TouchableOpacity>
       {manualOpen&&<DriverAddressPicker label="Початкова адреса" value={manualStart} onValue={setManualStart} onPoint={setStartPoint} suggestions={manualSuggestions} onSelect={p=>{setStartPoint(p);setManualStart(p.label);setManualSuggestions([]);}} error={setDriverRouteError}/>}
       <Text style={{color:'#00EF81',fontWeight:'900',fontSize:20}}>≤ {pickupLimit.toFixed(1)} км</Text>
-      <View style={{flexDirection:'row',gap:12}}><TouchableOpacity onPress={()=>setPickupLimit(v=>adjust(v,-0.5))} style={{padding:14,backgroundColor:'#253A49',borderRadius:10}}><Text style={{color:'white'}}>− 0,5</Text></TouchableOpacity><TouchableOpacity onPress={()=>setPickupLimit(v=>adjust(v,0.5))} style={{padding:14,backgroundColor:'#253A49',borderRadius:10}}><Text style={{color:'white'}}>+ 0,5</Text></TouchableOpacity></View>
+      <RadiusSlider value={pickupLimit} onChange={setPickupLimit}/>
       {driverStart&&<RouteMapPreview detail routes={[{stops:[toMapPoint(driverStart),toMapPoint(driverStart)],kind:'driver',color:'#00F080'}]}/>}
     </>:<>
       <DriverAddressPicker label="Кінцева адреса" value={destination} onValue={setDestination} onPoint={setDestinationPoint} suggestions={destinationSuggestions} onSelect={p=>{setDestinationPoint(p);setDestination(p.label);setDestinationSuggestions([]);}} error={setDriverRouteError}/>
       <Text style={{color:'#00EF81',fontWeight:'900',fontSize:20}}>≤ {finalLimit.toFixed(1)} км</Text>
-      <View style={{flexDirection:'row',gap:12}}><TouchableOpacity onPress={()=>setFinalLimit(v=>adjust(v,-0.5))} style={{padding:14,backgroundColor:'#253A49',borderRadius:10}}><Text style={{color:'white'}}>− 0,5</Text></TouchableOpacity><TouchableOpacity onPress={()=>setFinalLimit(v=>adjust(v,0.5))} style={{padding:14,backgroundColor:'#253A49',borderRadius:10}}><Text style={{color:'white'}}>+ 0,5</Text></TouchableOpacity></View>
+      <RadiusSlider value={finalLimit} onChange={setFinalLimit}/>
       {destinationPoint&&<RouteMapPreview detail routes={[{stops:[toMapPoint(destinationPoint),toMapPoint(destinationPoint)],kind:'driver',color:'#00F080'}]}/>}
     </>}
     {!!driverRouteError&&<Text style={{color:'#FF9C9C'}}>{driverRouteError}</Text>}
