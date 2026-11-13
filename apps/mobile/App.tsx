@@ -738,10 +738,19 @@ function RadiusSlider({value,onChange,max=15}:{value:number;onChange:(v:number)=
   </View>;
 }
 function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer, onSelectOffer, onBack }: { liveRequests: TestPassengerRequest[]; onRefresh: () => void; design: Design; view: 'list' | 'map' | 'offer'; selectedOffer: DriverOffer | null; onSelectOffer: (offer: DriverOffer) => void; onBack: () => void }) {
-  const [seats, setSeats] = useState(3);
-  const [pickupLimit, setPickupLimit] = useState(3);
-  const [finalLimit, setFinalLimit] = useState(4);
-  const [unique, setUnique] = useState(true);
+  const readDriverFilter=(key:string,fallback:number|boolean)=>{
+    if(Platform.OS!=='web'||typeof window==='undefined')return fallback;
+    try{const value=JSON.parse(window.localStorage.getItem('rs-driver-filter-'+key)||'null');return typeof value===typeof fallback?value:fallback;}catch{return fallback;}
+  };
+  const [seats, setSeats] = useState<number>(()=>readDriverFilter('seats',3) as number);
+  const [pickupLimit, setPickupLimit] = useState<number>(()=>readDriverFilter('pickup',3) as number);
+  const [finalLimit, setFinalLimit] = useState<number>(()=>readDriverFilter('final',4) as number);
+  const [unique, setUnique] = useState<boolean>(()=>readDriverFilter('unique',true) as boolean);
+  useEffect(()=>{
+    if(Platform.OS!=='web'||typeof window==='undefined')return;
+    for(const [key,value] of [['seats',seats],['pickup',pickupLimit],['final',finalLimit],['unique',unique]] as const)
+      window.localStorage.setItem('rs-driver-filter-'+key,JSON.stringify(value));
+  },[seats,pickupLimit,finalLimit,unique]);
   const [showDemo, setShowDemo] = useState(false);
   const [sortBy, setSortBy] = useState<'km' | 'hour'>('km');
   const [replaceName, setReplaceName] = useState<string | null>(null);
