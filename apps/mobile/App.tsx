@@ -899,7 +899,7 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
       {view === 'list' && offers.map(o => (
         <TouchableOpacity key={o.id} onPress={() => onSelectOffer(o)} activeOpacity={0.8} style={[driverStyles.offer, { borderColor: o.color, borderLeftWidth: 4, borderTopWidth: 1, borderRightWidth: 1, borderBottomWidth: 1, borderRadius: 12, paddingVertical: 10, marginBottom: 7, borderTopColor:o.color, shadowColor: o.color, shadowOpacity: 0.65, shadowRadius: 13, shadowOffset: {width:0,height:0}, elevation: 5 }, design === 'new' && { backgroundColor: '#FFFFFF' }]}>
 
-          <View pointerEvents="none" style={{position:'absolute',left:2,right:2,top:1,height:14,borderTopLeftRadius:11,borderTopRightRadius:11,backgroundColor:o.color,opacity:.10}} />
+          <View pointerEvents="none" style={{position:'absolute',left:2,right:2,top:1,height:20,borderTopLeftRadius:11,borderTopRightRadius:11,backgroundColor:o.color,opacity:.16}} />
           <View style={driverStyles.metrics}>
             <Text style={[driverStyles.total,{textShadowColor:o.color,textShadowRadius:9}, design === 'new' && { color: '#123B52' }]}>₴{o.amount}</Text>
 
@@ -912,7 +912,7 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
               <View style={{width:9,height:9,borderRadius:5,backgroundColor:'#FF4358',shadowColor:'#FF4358',shadowOpacity:.8,shadowRadius:5}}/>
             </View>
             <View style={{flex:1,gap:2}}>
-              <Text numberOfLines={1} style={[driverStyles.address,{fontSize:12,marginBottom:0},design==='new'&&{color:'#244B61'}]}>┄ {o.pickupKm.toFixed(1)} км  {o.pickup}</Text>
+              <Text numberOfLines={1} style={[driverStyles.address,{fontSize:13,marginBottom:0},design==='new'&&{color:'#244B61'}]}>┄ {o.pickupKm.toFixed(1)} км  {o.pickup}</Text>
               <Text numberOfLines={1} style={[driverStyles.address,{fontSize:12,marginBottom:0}]}>┄ {o.finalKm.toFixed(1)} км  {o.dropoff}</Text>
             </View>
           </View>
@@ -1038,14 +1038,14 @@ const driverStyles = StyleSheet.create({
   metric: { color: '#FFFFFF', fontSize: 10, fontWeight: '700' }, green: { color: '#32F183', fontSize: 17, fontWeight: '900' },
   orange: { color: '#FFA52B', fontSize: 17, fontWeight: '900' }, address: { color: '#E1E9F0', fontSize: 10, marginBottom: 3 },
   tripInfo: { flexDirection: 'row', justifyContent: 'flex-end', gap: 14, marginBottom: 4 },
-  tripInfoText: { color: '#A8B9C7', fontSize: 10 },
+  tripInfoText: { color: '#A8B9C7', fontSize: 11 },
   person: { borderTopWidth: 1, borderTopColor: '#2A3948', flexDirection: 'row', alignItems: 'center', minHeight: 30, gap: 4 },
   personAvatar: { width: 23, height: 23, borderRadius: 12, backgroundColor: '#32485D', alignItems: 'center', justifyContent: 'center' },
-  personAvatarText: { color: '#FFFFFF', fontSize: 10, fontWeight: '700' }, personName: { flex: 1, color: '#F5F7FA', fontSize: 12, fontWeight:'700' },
+  personAvatarText: { color: '#FFFFFF', fontSize: 10, fontWeight: '700' }, personName: { flex: 1, color: '#F5F7FA', fontSize: 13, fontWeight:'700' },
   acceptance: { color: '#3FE985', fontSize: 12, fontWeight: '700', width: 33, textAlign: 'right' },
   noShow: { color: '#FFCB48', fontSize: 11, fontWeight: '700', width: 25, textAlign: 'right' },
-  personKm: { color: '#D5DEE8', fontSize: 10, width: 42, textAlign: 'right' },
-  personFare: { color: '#FFFFFF', fontSize: 12, fontWeight: '800', width: 43, textAlign: 'right' },
+  personKm: { color: '#D5DEE8', fontSize: 11, width: 42, textAlign: 'right' },
+  personFare: { color: '#FFFFFF', fontSize: 13, fontWeight: '800', width: 43, textAlign: 'right' },
   replace: { color: '#F1F5F9', fontSize: 23, marginLeft: 3 }, empty: { color: '#ABB8C7', padding: 15 },
   confirm: { backgroundColor: '#253346', borderRadius: 12, padding: 14, gap: 12 },
   confirmText: { color: '#FFFFFF', fontSize: 13 }, confirmActions: { flexDirection: 'row', justifyContent: 'space-around' },
