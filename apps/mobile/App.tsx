@@ -58,7 +58,7 @@ function NavGraphic({ kind, active, design }: { kind: 'list' | 'map' | 'offer'; 
 type Coordinates = { lat: number; lon: number };
 type MapPoint = [longitude: number, latitude: number];
 type MapStop = MapPoint | string | null;
-type MapRoute = { stops: MapStop[]; color: string; kind: 'driver' | 'passenger' | 'demo'; separate?: boolean; occupancy?: number[]; approach?: MapPoint[]; departure?: MapPoint[] };
+type MapRoute = { stops: MapStop[]; color: string; kind: 'driver' | 'passenger' | 'demo'; separate?: boolean; occupancy?: number[]; approach?: MapPoint[]; departure?: MapPoint[]; stopKinds?: ('pickup'|'dropoff')[] };
 type AddressSuggestion = Coordinates & { label: string; houseNumber?: string; source?: 'gps' | 'map' };
 
 const passengerGpsLabel = 'Моя GPS-точка';
@@ -513,6 +513,7 @@ type DriverOffer = {
   occupancy?: number[];
   approach?: MapPoint[];
   departure?: MapPoint[];
+  stopKinds?: ('pickup'|'dropoff')[];
 };
 type MatchedRequest = {
   request: TestPassengerRequest;
@@ -572,7 +573,7 @@ async function buildCombinedOffers(candidates: MatchedRequest[], start: Coordina
     let aboard=0;
     const occupancy=route.order.slice(0,-1).map(n=>{if(n%2===0)aboard++;else aboard--;return aboard;});
     const passengers=chosen.map((c,i)=>({name:'Пасажир '+(i+1),acceptance:100,noShow:0,km:c.passengerKm,fare:c.fare,avatar:String(i+1),pickup:displayTestAddress(c.request.origin),dropoff:displayTestAddress(c.request.destination)}));
-    offers.push({id:'combo:'+chosen.map(c=>c.request.id).sort().join(':'),color:'#718096',live:true,amount,distance:route.distance,minutes:Math.max(1,Math.round(route.minutes)),pickupKm:dist[0][first],finalKm:dist[last][1],pickup:passengers[0].pickup||'',dropoff:passengers[passengers.length-1].dropoff||'',mapStops:route.order.map(n=>[points[n].lon,points[n].lat] as MapPoint),occupancy,approach:[[start.lon,start.lat],[points[first].lon,points[first].lat]],departure:[[points[last].lon,points[last].lat],[end.lon,end.lat]],passengers});
+    offers.push({id:'combo:'+chosen.map(c=>c.request.id).sort().join(':'),color:'#718096',live:true,amount,distance:route.distance,minutes:Math.max(1,Math.round(route.minutes)),pickupKm:dist[0][first],finalKm:dist[last][1],pickup:passengers[0].pickup||'',dropoff:passengers[passengers.length-1].dropoff||'',mapStops:route.order.map(n=>[points[n].lon,points[n].lat] as MapPoint),occupancy,approach:[[start.lon,start.lat],[points[first].lon,points[first].lat]],departure:[[points[last].lon,points[last].lat],[end.lon,end.lat]],stopKinds:route.order.map(n=>n%2===0?'pickup' as const:'dropoff' as const),passengers});
   };
   for(let i=0;i<pool.length;i++)for(let j=i+1;j<pool.length;j++){
     solve([i,j]);
@@ -582,7 +583,7 @@ async function buildCombinedOffers(candidates: MatchedRequest[], start: Coordina
 }
 
 function offerMapRoute(offer: DriverOffer, separate = false): MapRoute {
-  return { stops: offer.mapStops, color: offer.color, kind: offer.live ? 'passenger' : 'demo', separate, occupancy: separate ? undefined : offer.occupancy, approach: separate ? undefined : offer.approach, departure: separate ? undefined : offer.departure };
+  return { stops: offer.mapStops, color: offer.color, kind: offer.live ? 'passenger' : 'demo', separate, occupancy: separate ? undefined : offer.occupancy, approach: separate ? undefined : offer.approach, departure: separate ? undefined : offer.departure, stopKinds: separate ? undefined : offer.stopKinds };
 }
 
 // Preview data only. Never use these values to accept a real ride or charge a passenger.
@@ -939,7 +940,7 @@ function RouteMapPreview({ detail, routes }: { detail: boolean; routes: MapRoute
   if (Platform.OS !== 'web') return <View style={detailStyles.mapPlaceholder}><Text style={detailStyles.mapText}>Веб-карта доступна у браузері.</Text></View>;
   return <View style={{ height: detail ? 245 : 360, borderRadius: 9, overflow: 'hidden', borderWidth: 1, borderColor: '#526373' }}>
     {React.createElement('iframe', {
-      ref: frame, src: './route-map.html?v=5', onLoad: sendRoutes, title: 'Карта маршрутів RouteShare',
+      ref: frame, src: './route-map.html?v=6', onLoad: sendRoutes, title: 'Карта маршрутів RouteShare',
       style: { width: '100%', height: '100%', border: 0 },
     })}
   </View>;
