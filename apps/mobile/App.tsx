@@ -494,7 +494,7 @@ export default function App() {
           )}
 
           {!!notice && <TouchableOpacity style={styles.notice} onPress={() => setNotice('')}><Text style={styles.noticeText}>{notice}</Text><Text style={styles.noticeClose}>×</Text></TouchableOpacity>}
-          <Text style={styles.footer}>ROUTE<Text style={styles.brandAccent}>SHARE</Text>  ·  Разом дорогою</Text>
+
         </ScrollView>}
 
         {!menuOpen && tab === 'home' && mode === 'driver' && <View style={{flexDirection:'row',marginHorizontal:7,marginBottom:5,padding:2,gap:3,backgroundColor:'#0E1A27',borderRadius:13,borderWidth:1,borderColor:'#273A4B'}}>
@@ -876,7 +876,7 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
       });
     }
   }
-  if (view === 'offer') return selectedOffer ? <DriverOfferDetail design={design} offer={selectedOffer} increase={increase} setIncrease={setIncrease} onBack={onBack} /> : <View style={driverStyles.wrap}><Text style={driverStyles.empty}>Заявку ще не вибрано. Відкрий «Список» і натисни на потрібну комбінацію.</Text></View>;
+  if (view === 'offer') return selectedOffer ? <DriverOfferDetail design={design} offer={selectedOffer} increase={increase} setIncrease={setIncrease} onBack={onBack} driverStart={driverStart} driverEnd={destinationPoint} /> : <View style={driverStyles.wrap}><Text style={driverStyles.empty}>Заявку ще не вибрано. Відкрий «Список» і натисни на потрібну комбінацію.</Text></View>;
   if(filterScreen) return <View style={{flex:1,backgroundColor:'#0B1722',padding:12,gap:12}}>
     <Text style={{color:'#FFFFFF',fontSize:20,fontWeight:'900'}}>{filterScreen==='pickup'?'Подача':'Фінал'} · налаштування</Text>
     {filterScreen==='pickup'?<>
@@ -886,12 +886,12 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
       {manualOpen&&<DriverAddressPicker label="Початкова адреса" value={manualStart} onValue={setManualStart} onPoint={setStartPoint} suggestions={manualSuggestions} onSelect={p=>{setStartPoint(p);setManualStart(p.label);setManualSuggestions([]);}} error={setDriverRouteError}/>}
       <Text style={{color:'#00EF81',fontWeight:'900',fontSize:20}}>≤ {pickupLimit.toFixed(1)} км</Text>
       <RadiusSlider value={pickupLimit} onChange={setPickupLimit}/>
-      {driverStart&&<RouteMapPreview detail routes={[{stops:[toMapPoint(driverStart),toMapPoint(driverStart)],kind:'driver',color:'#00F080'}]}/>}
+      <RouteMapPreview detail routes={driverStart?[{stops:[toMapPoint(driverStart),toMapPoint(driverStart)],kind:'driver',color:'#00F080'}]:[]}/>
     </>:<>
       <DriverAddressPicker label="Кінцева адреса" value={destination} onValue={setDestination} onPoint={setDestinationPoint} suggestions={destinationSuggestions} onSelect={p=>{setDestinationPoint(p);setDestination(p.label);setDestinationSuggestions([]);}} error={setDriverRouteError}/>
       <Text style={{color:'#00EF81',fontWeight:'900',fontSize:20}}>≤ {finalLimit.toFixed(1)} км</Text>
       <RadiusSlider value={finalLimit} onChange={setFinalLimit}/>
-      {destinationPoint&&<RouteMapPreview detail routes={[{stops:[toMapPoint(destinationPoint),toMapPoint(destinationPoint)],kind:'driver',color:'#00F080'}]}/>}
+      <RouteMapPreview detail routes={destinationPoint?[{stops:[toMapPoint(destinationPoint),toMapPoint(destinationPoint)],kind:'driver',color:'#00F080'}]:[]}/>
     </>}
     {!!driverRouteError&&<Text style={{color:'#FF9C9C'}}>{driverRouteError}</Text>}
     <View style={{flexDirection:'row',gap:10,marginTop:'auto'}}>{['Повернутися','Зберегти'].map((name,i)=><TouchableOpacity key={name} onPress={()=>setFilterScreen(null)} style={{flex:1,padding:14,borderRadius:12,backgroundColor:i?'#00D971':'#273747',alignItems:'center'}}><Text style={{color:i?'#09291A':'#FFFFFF',fontWeight:'900'}}>{name}</Text></TouchableOpacity>)}</View>
@@ -979,7 +979,7 @@ function RouteMapPreview({ detail, routes }: { detail: boolean; routes: MapRoute
   useEffect(sendRoutes, [sendRoutes]);
 
   if (Platform.OS !== 'web') return <View style={detailStyles.mapPlaceholder}><Text style={detailStyles.mapText}>Веб-карта доступна у браузері.</Text></View>;
-  return <View style={{ height: detail ? 245 : 360, borderRadius: 9, overflow: 'hidden', borderWidth: 1, borderColor: '#526373' }}>
+  return <View style={{ height: detail ? 190 : 360, borderRadius: 9, overflow: 'hidden', borderWidth: 1, borderColor: '#526373' }}>
     {React.createElement('iframe', {
       ref: frame, src: './route-map.html?v=6', onLoad: sendRoutes, title: 'Карта маршрутів RouteShare',
       style: { width: '100%', height: '100%', border: 0 },
@@ -988,8 +988,8 @@ function RouteMapPreview({ detail, routes }: { detail: boolean; routes: MapRoute
 }
 
 // Detail preview uses the same sample offers as the list. No real reservations or negotiations.
-function DriverOfferDetail({ design, offer, increase, setIncrease, onBack }: {
-  design: Design; offer: DriverOffer; increase: number; setIncrease: (value: number) => void; onBack: () => void;
+function DriverOfferDetail({ design, offer, increase, setIncrease, onBack, driverStart, driverEnd }: {
+  design: Design; offer: DriverOffer; increase: number; setIncrease: (value: number) => void; onBack: () => void; driverStart: Coordinates | null; driverEnd: Coordinates | null;
 }) {
   const [message, setMessage] = useState('');
   const updated = Math.round(offer.amount * (1 + increase / 100));
@@ -1018,7 +1018,7 @@ function DriverOfferDetail({ design, offer, increase, setIncrease, onBack }: {
         ))}
         <Text style={detailStyles.segment}>Остання висадка → ┄ {offer.finalKm.toFixed(1)} км до фінішу водія</Text>
       </View>
-      <RouteMapPreview detail routes={[offerMapRoute(offer)]} />
+      <RouteMapPreview detail routes={[{...offerMapRoute(offer), approach:driverStart&&offer.mapStops.length? [toMapPoint(driverStart),offer.mapStops[0] as MapPoint]:offer.approach, departure:driverEnd&&offer.mapStops.length?[offer.mapStops[offer.mapStops.length-1] as MapPoint,toMapPoint(driverEnd)]:offer.departure}]} />
       <View style={detailStyles.priceRow}>
         <Text style={detailStyles.priceLabel}>Підвищення тарифу</Text>
         {[0,10,20,30,40,50].map(value => (
@@ -1032,26 +1032,26 @@ function DriverOfferDetail({ design, offer, increase, setIncrease, onBack }: {
         <TouchableOpacity onPress={() => setMessage('Прийняття та запит нової ціни ще не підключені до сервера.')} style={detailStyles.accept}><Text style={detailStyles.actionText}>{increase ? 'Запропонувати' : 'Прийняти'}</Text></TouchableOpacity>
       </View>
       {!!message && <Text style={detailStyles.warning}>{message}</Text>}
-      <Text style={detailStyles.warning}>Тестовий перегляд · без реального бронювання</Text>
+
     </View>
   );
 }
 const detailStyles = StyleSheet.create({
-  wrap: { gap: 10 }, head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 5 },
+  wrap: { gap: 4 }, head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 5 },
   title: { color: '#FFFFFF', fontSize: 17, fontWeight: '800' }, amount: { color: '#FFFFFF', fontSize: 23, fontWeight: '900' },
   stat: { color: '#FFFFFF', fontSize: 10, fontWeight: '700' }, km: { color: '#3CF28C', fontSize: 15, fontWeight: '900' },
-  hour: { color: '#FFA72B', fontSize: 15, fontWeight: '900' }, frame: { borderWidth: 1, borderRadius: 11, padding: 10, gap: 7 },
-  segment: { color: '#BFCBDA', fontSize: 11 }, passenger: { borderTopWidth: 1, borderTopColor: '#334050', paddingTop: 6, gap: 3 },
+  hour: { color: '#FFA72B', fontSize: 15, fontWeight: '900' }, frame: { borderWidth: 1, borderRadius: 11, padding: 7, gap: 2 },
+  segment: { color: '#BFCBDA', fontSize: 11 }, passenger: { borderTopWidth: 1, borderTopColor: '#334050', paddingTop: 3, gap: 1 },
   personTop: { flexDirection: 'row', alignItems: 'center', gap: 7 }, name: { color: '#FFFFFF', fontSize: 12, flex: 1, fontWeight: '700' },
   rating: { color: '#B8C8D6', fontSize: 10 }, fare: { color: '#FFFFFF', fontSize: 12, fontWeight: '800' },
   address: { color: '#E1E9F2', fontSize: 11, marginLeft: 28 }, distance: { color: '#B5C6D8', fontSize: 10, textAlign: 'right' },
   mapPlaceholder: { height: 165, backgroundColor: '#172737', borderWidth: 1, borderColor: '#34485C', borderRadius: 10, justifyContent: 'center', alignItems: 'center', padding: 18, gap: 9 },
   mapTitle: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' }, mapText: { color: '#AFC0D1', fontSize: 11, textAlign: 'center' },
   priceRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, alignItems: 'center' }, priceLabel: { color: '#FFFFFF', fontSize: 11, width: '100%' },
-  priceChip: { paddingVertical: 7, paddingHorizontal: 9, borderWidth: 1, borderColor: '#506073', borderRadius: 7 },
+  priceChip: { paddingVertical: 4, paddingHorizontal: 8, borderWidth: 1, borderColor: '#506073', borderRadius: 7 },
   priceActive: { borderColor: '#31DE7D', backgroundColor: '#16412C' }, priceText: { color: '#FFFFFF', fontSize: 11 },
-  actions: { flexDirection: 'row', gap: 10 }, back: { flex: 1, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: '#67798A', borderRadius: 8 },
-  accept: { flex: 1, padding: 12, alignItems: 'center', backgroundColor: '#1E9B60', borderRadius: 8 },
+  actions: { flexDirection: 'row', gap: 10 }, back: { flex: 1, padding: 8, alignItems: 'center', borderWidth: 1, borderColor: '#67798A', borderRadius: 8 },
+  accept: { flex: 1, padding: 8, alignItems: 'center', backgroundColor: '#1E9B60', borderRadius: 8 },
   actionText: { color: '#FFFFFF', fontSize: 13, fontWeight: '800' }, warning: { color: '#AFC0D1', fontSize: 10 },
 });
 
