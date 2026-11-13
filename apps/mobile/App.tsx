@@ -866,9 +866,38 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
         km: passengerKm, fare, avatar: 'Т', pickup, dropoff }],
     };
   });
+  const [calculatedDemos,setCalculatedDemos]=useState<DriverOffer[]>([]);
+  const [demoRouteStatus,setDemoRouteStatus]=useState('');
+  useEffect(()=>{
+    if(!showDemo){setCalculatedDemos([]);setDemoRouteStatus('');return;}
+    if(!driverStart||!destinationPoint){setCalculatedDemos(previewOffers);setDemoRouteStatus('Вкажи початок і кінець водія для розрахунку демо');return;}
+    let active=true;
+    setDemoRouteStatus('Розрахунок демо по дорогах…');
+    const run=async()=>{
+      const output:DriverOffer[]=[];
+      for(const offer of previewOffers){
+        try{
+          const points=[toMapPoint(driverStart),...offer.mapStops,toMapPoint(destinationPoint)];
+          const coords=points.map(([lon,lat])=>lon+','+lat).join(';');
+          const response=await fetch('https://router.project-osrm.org/route/v1/driving/'+coords+'?overview=false&steps=false');
+          if(!response.ok)throw Error('OSRM '+response.status);
+          const route=(await response.json()).routes?.[0];
+          if(!route?.legs?.length)throw Error('Маршрут не знайдено');
+          const legs=route.legs as {distance:number;duration:number}[];
+          const pickupKm=legs[0].distance/1000;
+          const finalKm=legs[legs.length-1].distance/1000;
+          output.push({...offer,pickupKm,finalKm,distance:route.distance/1000,minutes:Math.max(1,Math.ceil(route.duration/60)),
+            approach:[points[0],points[1]],departure:[points[points.length-2],points[points.length-1]]});
+        }catch{output.push(offer);}
+      }
+      if(active){setCalculatedDemos(output);setDemoRouteStatus('Демо: відстані та час за дорогами (без пробок); при помилці мережі — тестові значення');}
+    };
+    run();
+    return()=>{active=false;};
+  },[showDemo,driverStart?.lat,driverStart?.lon,destinationPoint?.lat,destinationPoint?.lon]);
   // Test requests take priority: preview cards never compete with live test offers unless explicitly enabled.
-  const rankedOffers = [...liveOffers,...combinedOffers,...(showDemo ? previewOffers : [])]
-    .filter(o=>o.passengers.length<=seats&&o.pickupKm<=pickupLimit&&o.finalKm<=finalLimit)
+  const rankedOffers = [...liveOffers,...combinedOffers,...(showDemo ? calculatedDemos : [])]
+    .filter(o=>!o.live || (o.passengers.length<=seats&&o.pickupKm<=pickupLimit&&o.finalKm<=finalLimit))
     .sort((a,b)=>sortBy==='km'?perKm(b)-perKm(a):perHour(b)-perHour(a));
   const seenPassengers=new Set<string>();
   const offers=rankedOffers.filter(o=>{
@@ -928,6 +957,7 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
           <Text style={{color:showDemo?'#00EF86':'#A9BAC7',fontSize:11,fontWeight:'800'}}>Демо {showDemo?'УВІМК.':'ВИМК.'}</Text>
         </TouchableOpacity>
       </View>
+      {!!demoRouteStatus&&<Text style={{color:'#A9BAC7',fontSize:10,marginBottom:4}}>{demoRouteStatus}</Text>}
       <TouchableOpacity onPress={()=>setFilterScreen('all')} style={[driverStyles.filter,{flexDirection:'row',justifyContent:'space-between',paddingHorizontal:12,marginBottom:7}]}>
         <Text style={{color:'#FFFFFF',fontSize:14,fontWeight:'900'}}>☷ Фільтр замовлень</Text>
         <Text style={{color:'#A9BAC7',fontSize:11}}>{seats} місць · {pickupLimit.toFixed(1)} / {finalLimit.toFixed(1)} км  ›</Text>
