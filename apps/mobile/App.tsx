@@ -682,11 +682,12 @@ function DriverAddressPicker({ label, value, onValue, onPoint, suggestions, onSe
   const [showMap,setShowMap]=useState(false);
   const [busy,setBusy]=useState(false);
   const choose=(point:AddressSuggestion)=>{
-    if(point.houseNumber){onSelect(point);setStreet('');setHouse('');return;}
-    setStreet(point.label);setHouse('');onValue(point.label);onPoint(null);
+    if(point.houseNumber || /метро|станція|торгов|трц|тц |mall|shopping|супермаркет|вокзал|аеропорт/i.test(point.label)){onSelect(point);setStreet('');setHouse('');return;}
+    setStreet(point.label);setHouse('');onValue(point.label);onPoint(point);
   };
   const confirm=async()=>{
-    if(!street||!house.trim())return;
+    if(!street)return;
+    if(!house.trim()){const rows=await lookupAddresses(street);const base=rows.find(p=>p.label===street)||rows[0];if(base){onSelect(base);setStreet('');setHouse('');error('');}else error('Не знайдено вулицю. Обери точку на мапі.');return;}
     setBusy(true);error('');
     try{
       const found=await lookupHouse(street,house);
@@ -707,13 +708,13 @@ function DriverAddressPicker({ label, value, onValue, onPoint, suggestions, onSe
     <View style={{flexDirection:'row',gap:5,alignItems:'center',backgroundColor:'#253F52',borderRadius:9}}>
       <TextInput value={value} onChangeText={v=>{onValue(v);onPoint(null);setStreet('');setHouse('');}} placeholder="Вулиця" placeholderTextColor="#8295A5" style={{flex:1,minWidth:0,color:'#FFFFFF',padding:11,fontSize:15}}/>
       {!!street&&<TextInput autoFocus value={house} onChangeText={setHouse} onSubmitEditing={confirm} placeholder="№ буд." keyboardType="default" placeholderTextColor="#8295A5" style={{width:83,borderLeftWidth:1,borderLeftColor:'#526777',color:'#FFFFFF',paddingVertical:11,paddingHorizontal:6,fontSize:15}}/>}
-      {!!street&&<TouchableOpacity onPress={confirm} disabled={busy||!house.trim()} style={{padding:8}}><Text style={{color:'#00EF81',fontWeight:'900',fontSize:17}}>✓</Text></TouchableOpacity>}
+      {!!street&&<TouchableOpacity onPress={confirm} disabled={busy} style={{padding:8}}><Text style={{color:'#00EF81',fontWeight:'900',fontSize:17}}>✓</Text></TouchableOpacity>}
       {!!value&&<TouchableOpacity onPress={()=>{onValue('');onPoint(null);setStreet('');setHouse('');}} style={{padding:8}}><Text style={{color:'#FFFFFF',fontSize:21}}>×</Text></TouchableOpacity>}
     </View>
     <TouchableOpacity onPress={()=>setShowMap(v=>!v)} style={{paddingVertical:7}}><Text style={{color:'#38DCA4',fontWeight:'800'}}>◎ Обрати на мапі</Text></TouchableOpacity>
     {showMap&&<MapPointPicker initial={null} onCancel={()=>setShowMap(false)} onConfirm={p=>{onSelect(p);setStreet('');setHouse('');setShowMap(false);}}/>}
     {!street&&suggestions.slice(0,8).map((item,i)=><TouchableOpacity key={i} onPress={()=>choose(item)} style={{padding:10,borderBottomColor:'#344857',borderBottomWidth:1}}><Text style={{color:'#48DCA4',fontSize:14}}>{item.label}</Text></TouchableOpacity>)}
-    {!!street&&<Text style={{color:'#A5BBC6',fontSize:12}}>Номер будинку введи праворуч від назви вулиці. Якщо OSM не знає будинок, точка буде орієнтовною.</Text>}
+    {!!street&&<Text style={{color:'#A5BBC6',fontSize:12}}>Номер будинку необов'язковий. Натисни ✓, щоб обрати вулицю без номера.</Text>}
   </View>;
 }
 function RadiusSlider({value,onChange,max=15}:{value:number;onChange:(v:number)=>void;max?:number}){
@@ -761,11 +762,11 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
     return () => { active = false; clearTimeout(timer); };
   }, [destination, destinationPoint]);
   useEffect(() => {
-    if (!manualOpen || startPoint || manualStart.trim().length < 2) { setManualSuggestions([]); return; }
+    if (startPoint || manualStart.trim().length < 2) { setManualSuggestions([]); return; }
     let active = true;
     const timer = setTimeout(() => lookupAddresses(manualStart).then(rows => { if (active) setManualSuggestions(rows); setDriverRouteError(rows.length ? '' : 'Немає підказок. Спробуй назву вулиці без номера або обери на мапі.'); }).catch(e => { if (active) setDriverRouteError(e.message); }), 350);
     return () => { active = false; clearTimeout(timer); };
-  }, [manualStart, manualOpen, startPoint]);
+  }, [manualStart, startPoint]);
   useEffect(() => {
     if (!driverStart || !destinationPoint) { setDriverRouteKm(null); return; }
     let active = true; setDriverRouteError('');
@@ -880,10 +881,8 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
   if(filterScreen) return <View style={{flex:1,backgroundColor:'#0B1722',padding:12,gap:12}}>
     <Text style={{color:'#FFFFFF',fontSize:20,fontWeight:'900'}}>{filterScreen==='pickup'?'Подача':'Фінал'} · налаштування</Text>
     {filterScreen==='pickup'?<>
-      <TouchableOpacity onPress={requestGps} style={{padding:12,backgroundColor:'#193B32',borderRadius:10}}><Text style={{color:'#00F082',fontWeight:'900'}}>⌖ GPS · визначити моє місце</Text></TouchableOpacity>
-      <Text style={{color:'#B2C4D0'}}>{startPoint?.label||gpsMessage}</Text>
-      <TouchableOpacity onPress={()=>setManualOpen(v=>!v)}><Text style={{color:'#00E47B',fontWeight:'800'}}>◉ GPS / {manualOpen?'●':'○'} Ручний вибір</Text></TouchableOpacity>
-      {manualOpen&&<DriverAddressPicker label="Початкова адреса" value={manualStart} onValue={setManualStart} onPoint={setStartPoint} suggestions={manualSuggestions} onSelect={p=>{setStartPoint(p);setManualStart(p.label);setManualSuggestions([]);}} error={setDriverRouteError}/>}
+      <View style={{flexDirection:'row',alignItems:'center',gap:8}}><Text style={{color:'#B2C4D0',flex:1}} numberOfLines={1}>{startPoint?.label||gpsMessage}</Text><TouchableOpacity onPress={requestGps} style={{padding:10,backgroundColor:'#193B32',borderRadius:10}}><Text style={{color:'#00F082',fontWeight:'900'}}>⌖ GPS</Text></TouchableOpacity></View>
+      <DriverAddressPicker label="Початкова адреса" value={manualStart} onValue={setManualStart} onPoint={setStartPoint} suggestions={manualSuggestions} onSelect={p=>{setStartPoint(p);setManualStart(p.label);setManualSuggestions([]);}} error={setDriverRouteError}/>}
       <Text style={{color:'#00EF81',fontWeight:'900',fontSize:20}}>≤ {pickupLimit.toFixed(1)} км</Text>
       <RadiusSlider value={pickupLimit} onChange={setPickupLimit}/>
       <RouteMapPreview detail routes={driverStart?[{stops:[toMapPoint(driverStart),toMapPoint(driverStart)],kind:'driver',color:'#00F080'}]:[]}/>
@@ -1007,13 +1006,13 @@ function DriverOfferDetail({ design, offer, increase, setIncrease, onBack, drive
           <View key={p.name} style={detailStyles.passenger}>
             <View style={detailStyles.personTop}>
               <View style={driverStyles.personAvatar}><Text style={driverStyles.personAvatarText}>{p.avatar}</Text></View>
-              <Text style={detailStyles.name}>{p.name}</Text>
+              <Text numberOfLines={1} ellipsizeMode="tail" adjustsFontSizeToFit minimumFontScale={0.75} style={detailStyles.name}>{p.name}</Text>
               <Text style={detailStyles.rating}>{p.acceptance}% · неявка {p.noShow}%</Text>
               <Text style={detailStyles.fare}>₴{p.fare}</Text>
             </View>
             <Text numberOfLines={1} style={detailStyles.address}><Text style={{color:'#00E878'}}>●</Text>  {p.pickup || (index === 0 ? offer.pickup : 'Адреса не задана')}</Text>
             <Text numberOfLines={1} style={detailStyles.address}><Text style={{color:'#FF5365'}}>●</Text>  {p.dropoff || (index === offer.passengers.length - 1 ? offer.dropoff : 'Адреса не задана')}</Text>
-            <Text style={detailStyles.distance}>{p.km.toFixed(1)} км</Text>
+            <Text numberOfLines={1} style={detailStyles.distance}>{p.km.toFixed(1)} км</Text>
           </View>
         ))}
         <Text style={detailStyles.segment}>Остання висадка → ┄ {offer.finalKm.toFixed(1)} км до фінішу водія</Text>
@@ -1042,8 +1041,8 @@ const detailStyles = StyleSheet.create({
   stat: { color: '#FFFFFF', fontSize: 10, fontWeight: '700' }, km: { color: '#3CF28C', fontSize: 15, fontWeight: '900' },
   hour: { color: '#FFA72B', fontSize: 15, fontWeight: '900' }, frame: { borderWidth: 1, borderRadius: 11, padding: 7, gap: 2 },
   segment: { color: '#BFCBDA', fontSize: 11 }, passenger: { borderTopWidth: 1, borderTopColor: '#334050', paddingTop: 3, gap: 1 },
-  personTop: { flexDirection: 'row', alignItems: 'center', gap: 7 }, name: { color: '#FFFFFF', fontSize: 12, flex: 1, fontWeight: '700' },
-  rating: { color: '#B8C8D6', fontSize: 10 }, fare: { color: '#FFFFFF', fontSize: 12, fontWeight: '800' },
+  personTop: { flexDirection: 'row', alignItems: 'center', gap: 4, flexWrap:'nowrap' }, name: { color: '#FFFFFF', fontSize: 12, flex: 1, fontWeight: '700' },
+  rating: { color: '#B8C8D6', fontSize: 10, flexShrink:0 }, fare: { color: '#FFFFFF', fontSize: 12, fontWeight: '800', flexShrink:0 },
   address: { color: '#E1E9F2', fontSize: 11, marginLeft: 28 }, distance: { color: '#B5C6D8', fontSize: 10, textAlign: 'right' },
   mapPlaceholder: { height: 165, backgroundColor: '#172737', borderWidth: 1, borderColor: '#34485C', borderRadius: 10, justifyContent: 'center', alignItems: 'center', padding: 18, gap: 9 },
   mapTitle: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' }, mapText: { color: '#AFC0D1', fontSize: 11, textAlign: 'center' },
