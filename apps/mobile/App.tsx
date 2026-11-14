@@ -561,8 +561,10 @@ async function buildCombinedOffers(candidates: MatchedRequest[], start: Coordina
   const max=Math.min(3,seats,pool.length);
   const solve=(ids:number[])=>{
     let best:{distance:number;minutes:number;order:number[]}|null=null;
+    const countBits=(bits:number)=>{let n=0;while(bits){n+=bits&1;bits>>=1;}return n;};
     const visit=(at:number,picked:number,dropped:number,order:number[],km:number,mins:number)=>{
       if(best&&km>=best.distance)return;
+      if(picked!==dropped && (countBits(picked)-countBits(dropped))>seats)return;
       if(dropped===(1<<ids.length)-1){
         const finish=dist[at][1];
         if(finish>finalLimit||!Number.isFinite(finish))return;
@@ -573,6 +575,7 @@ async function buildCombinedOffers(candidates: MatchedRequest[], start: Coordina
       for(let k=0;k<ids.length;k++){
         const bit=1<<k;
         if(!(picked&bit)){
+          if(countBits(picked)-countBits(dropped)>=seats)continue;
           const node=2+ids[k]*2;
           const leg=dist[at][node];
           if(!Number.isFinite(leg))continue;
@@ -592,9 +595,9 @@ async function buildCombinedOffers(candidates: MatchedRequest[], start: Coordina
     const amount=chosen.reduce((n,c)=>n+c.fare,0);
     const first=route.order[0],last=route.order[route.order.length-1];
     let aboard=0;
-    const occupancy=route.order.slice(0,-1).map(n=>{if(n%2===0)aboard++;else aboard--;return aboard;});
+    const occupancy=route.order.map(n=>{if(n%2===0)aboard++;else aboard--;return aboard;});
     const passengers=chosen.map((c,i)=>({name:'Пасажир '+(i+1),acceptance:100,noShow:0,km:c.passengerKm,fare:c.fare,avatar:String(i+1),pickup:displayTestAddress(c.request.origin),dropoff:displayTestAddress(c.request.destination)}));
-    offers.push({id:'combo:'+chosen.map(c=>c.request.id).sort().join(':'),color:'#718096',live:true,amount,distance:route.distance,minutes:Math.max(1,Math.round(route.minutes)),pickupKm:dist[0][first],finalKm:dist[last][1],pickup:passengers[0].pickup||'',dropoff:passengers[passengers.length-1].dropoff||'',mapStops:route.order.map(n=>[points[n].lon,points[n].lat] as MapPoint),occupancy,approach:[[start.lon,start.lat],[points[first].lon,points[first].lat]],departure:[[points[last].lon,points[last].lat],[end.lon,end.lat]],stopKinds:route.order.map(n=>n%2===0?'pickup' as const:'dropoff' as const),passengers});
+    offers.push({id:'combo:'+chosen.map(c=>c.request.id).sort().join(':'),color:'#718096',live:true,amount,distance:route.distance,minutes:Math.max(1,Math.round(route.minutes)),pickupKm:dist[0][first],finalKm:dist[last][1],pickup:displayTestAddress(pool[Math.floor((first-2)/2)].request.origin),dropoff:displayTestAddress(pool[Math.floor((last-3)/2)].request.destination),mapStops:route.order.map(n=>[points[n].lon,points[n].lat] as MapPoint),occupancy,approach:[[start.lon,start.lat],[points[first].lon,points[first].lat]],departure:[[points[last].lon,points[last].lat],[end.lon,end.lat]],stopKinds:route.order.map(n=>n%2===0?'pickup' as const:'dropoff' as const),passengers});
   };
   for(let i=0;i<pool.length;i++)for(let j=i+1;j<pool.length;j++){
     solve([i,j]);
