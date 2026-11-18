@@ -750,6 +750,7 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
   const [pickupLimit, setPickupLimit] = useState<number>(()=>readDriverFilter('pickup',3) as number);
   const [finalLimit, setFinalLimit] = useState<number>(()=>readDriverFilter('final',4) as number);
   const [unique, setUnique] = useState<boolean>(()=>readDriverFilter('unique',true) as boolean);
+  const [online,setOnline]=useState<boolean>(()=>readDriverFilter('online',true) as boolean);
   useEffect(()=>{
     if(Platform.OS!=='web'||typeof window==='undefined')return;
     for(const [key,value] of [['seats',seats],['pickup',pickupLimit],['final',finalLimit],['unique',unique]] as const)
@@ -896,7 +897,7 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
     return()=>{active=false;};
   },[showDemo,driverStart?.lat,driverStart?.lon,destinationPoint?.lat,destinationPoint?.lon]);
   // Test requests take priority: preview cards never compete with live test offers unless explicitly enabled.
-  const rankedOffers = [...liveOffers,...combinedOffers,...(showDemo ? calculatedDemos : [])]
+  const rankedOffers = (online ? [...liveOffers,...combinedOffers,...(showDemo ? calculatedDemos : [])] : [])
     .filter(o=>!o.live || (o.passengers.length<=seats&&o.pickupKm<=pickupLimit&&o.finalKm<=finalLimit))
     .sort((a,b)=>sortBy==='km'?perKm(b)-perKm(a):perHour(b)-perHour(a));
   const seenPassengers=new Set<string>();
@@ -958,6 +959,10 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
         </TouchableOpacity>
       </View>
       {!!demoRouteStatus&&<Text style={{color:'#A9BAC7',fontSize:10,marginBottom:4}}>{demoRouteStatus}</Text>}
+      <TouchableOpacity accessibilityRole="switch" accessibilityState={{checked:online}} onPress={()=>{const next=!online;setOnline(next);if(Platform.OS==='web'&&typeof window!=='undefined')window.localStorage.setItem('routeshare.driver-filter.online',JSON.stringify(next));}} style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',backgroundColor:'#162A38',borderRadius:10,paddingHorizontal:12,paddingVertical:9,marginBottom:7,borderWidth:1,borderColor:online?'#1D9B70':'#566373'}}>
+        <Text style={{color:'#FFFFFF',fontWeight:'800',fontSize:14}}>Пошук пасажирів</Text>
+        <Text style={{color:online?'#42E5A3':'#AAB4BF',fontWeight:'900',fontSize:14}}>{online?'● ONLINE':'○ OFFLINE'}</Text>
+      </TouchableOpacity>
       <TouchableOpacity onPress={()=>setFilterScreen('all')} style={[driverStyles.filter,{flexDirection:'row',justifyContent:'space-between',paddingHorizontal:12,marginBottom:7}]}>
         <Text style={{color:'#FFFFFF',fontSize:14,fontWeight:'900'}}>☷ Фільтр замовлень</Text>
         <Text style={{color:'#A9BAC7',fontSize:11}}>{seats} місць · {pickupLimit.toFixed(1)} / {finalLimit.toFixed(1)} км  ›</Text>
@@ -972,7 +977,7 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
         <TouchableOpacity onPress={() => setSortBy('hour')} style={[driverStyles.sortChip, sortBy === 'hour' && driverStyles.sortActive, design === 'new' && { backgroundColor: '#173D52', borderRadius: 15 }]}><Text style={driverStyles.sortText}>₴/год</Text></TouchableOpacity>
       </View>}
       {view === 'list' && <Text style={{ color: design === 'new' ? '#526D7D' : '#9DB2C2', fontSize: 11, marginBottom: 5 }}>{matchingState}{comboStatus ? ' · '+comboStatus : ''}</Text>}
-      {view === 'list' && offers.length === 0 && <Text style={driverStyles.empty}>Немає варіантів для цих фільтрів.</Text>}
+      {view === 'list' && offers.length === 0 && <Text style={driverStyles.empty}>{online?'Немає варіантів для цих фільтрів.':'Пошук вимкнено. Поточна поїздка не скасовується.'}</Text>}
       {view === 'list' && offers.map(o => (
         <TouchableOpacity key={o.id} onPress={() => onSelectOffer(o)} activeOpacity={0.8} style={[driverStyles.offer, { borderColor: o.color, borderLeftWidth: 4, borderTopWidth: 1, borderRightWidth: 1, borderBottomWidth: 1, borderRadius: 12, paddingVertical: 10, marginBottom: 7, borderTopColor:o.color, shadowColor: o.color, shadowOpacity: 0.17, shadowRadius: 4, shadowOffset: {width:0,height:0}, elevation: 1 }, design === 'new' && { backgroundColor: '#FFFFFF' }]}>
 
