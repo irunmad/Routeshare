@@ -210,7 +210,7 @@
             }
           }
           if (first) fitRoutes();
-          if (!route.separate && Array.isArray(route.approach) && Array.isArray(route.departure)) {
+          if (Array.isArray(route.approach) && Array.isArray(route.departure)) {
             for (const [segmentIndex,segment] of [route.approach,route.departure].entries()) {
               if(!Array.isArray(segment)||segment.length<2)continue;
               marker(segment[segmentIndex===0?0:segment.length-1],'',segmentIndex===0?'#FFFFFF':'#FFD54A',false).addTo(routeLayers);
