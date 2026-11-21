@@ -33,6 +33,34 @@ export class TestRequestsService {
     return id;
   }
 
+  async registerProfile(profileId: string, input: { name?: string; phone?: string }) {
+    this.assertEnabled();
+    const profile = this.validateInstallationId(profileId);
+    const name = String(input?.name ?? '').trim();
+    const phone = String(input?.phone ?? '').trim();
+    if (name.length < 2 || name.length > 100) throw new BadRequestException('Test profile name must be 2–100 characters.');
+    if (phone.length > 30) throw new BadRequestException('Phone label is too long.');
+    return this.database.withTransaction(async client => {
+      await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [profile]);
+      const existing = await client.query('SELECT user_id FROM test_profiles WHERE profile_id = $1', [profile]);
+      if (existing.rowCount) {
+        await client.query('UPDATE test_profiles SET display_name = $2, phone_label = $3, updated_at = now() WHERE profile_id = $1', [profile, name, phone || null]);
+        await client.query('UPDATE users SET display_name = $2, updated_at = now() WHERE id = $1', [existing.rows[0].user_id, name]);
+        return { profileId: profile, userId: existing.rows[0].user_id };
+      }
+      const userId = randomUUID();
+      // Unique synthetic number satisfies legacy users.phone_e164 NOT NULL constraint.
+      // Real contact phone remains a non-verified label in test_profiles.
+      const syntheticPhone = '+999' + BigInt('0x' + userId.replace(/-/g, '').slice(0, 12)).toString().padStart(15, '0');
+      await client.query('INSERT INTO users (id, phone_e164, display_name) VALUES ($1, $2, $3)', [userId, syntheticPhone, name]);
+      await client.query('INSERT INTO user_roles (user_id, role) VALUES ($1, $2)', [userId, 'passenger']);
+      await client.query('INSERT INTO test_profiles (profile_id, user_id, display_name, phone_label) VALUES ($1, $2, $3, $4)', [profile, userId, name, phone || null]);
+      // Preserve old test requests when upgrading existing local profiles.
+      await client.query('UPDATE test_passenger_requests SET user_id = $1 WHERE installation_id = $2 AND user_id IS NULL', [userId, profile]);
+      return { profileId: profile, userId };
+    });
+  }
+
   async create(installationId: string, input: CreateTestRequestInput) {
     this.assertEnabled();
     const owner = this.validateInstallationId(installationId);
@@ -69,15 +97,17 @@ export class TestRequestsService {
       if (quota.rows[0].active >= 25 || quota.rows[0].recent >= 5) {
         throw new BadRequestException('Test request limit reached (25 active, 5 per minute per device).');
       }
+      const identity = await client.query('SELECT user_id FROM test_profiles WHERE profile_id = $1', [owner]);
+      if (!identity.rowCount) throw new BadRequestException('Register a test profile before creating requests.');
       const result = await client.query(
         `INSERT INTO test_passenger_requests
-          (id, installation_id, origin_label, destination_label, departure_start, departure_end, offered_rate_minor_per_km)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
+          (id, installation_id, user_id, origin_label, destination_label, departure_start, departure_end, offered_rate_minor_per_km)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
          RETURNING id, origin_label AS origin, destination_label AS destination,
            departure_start AS "departureStart", departure_end AS "departureEnd",
            offered_rate_minor_per_km / 100.0 AS "offeredRateUahPerKm",
            status, created_at AS "createdAt"`,
-        [id, owner, origin, destination, start.toISOString(), end.toISOString(), Math.round(rate * 100)],
+        [id, owner, identity.rows[0].user_id, origin, destination, start.toISOString(), end.toISOString(), Math.round(rate * 100)],
       );
       await client.query(
         `INSERT INTO test_request_events (request_id, actor_profile_id, event_type, details)
@@ -97,7 +127,8 @@ export class TestRequestsService {
           departure_start AS "departureStart", departure_end AS "departureEnd",
           offered_rate_minor_per_km / 100.0 AS "offeredRateUahPerKm",
           status, created_at AS "createdAt",
-          (installation_id = $1) AS "isMine"
+          (installation_id = $1 OR user_id = (SELECT user_id FROM test_profiles WHERE profile_id = $1)) AS "isMine",
+          user_id AS "userId"
          FROM test_passenger_requests
          WHERE status = 'searching'
          ORDER BY created_at DESC
@@ -119,7 +150,7 @@ export class TestRequestsService {
       const result = await client.query(
         `UPDATE test_passenger_requests
          SET status = 'cancelled', cancelled_at = now()
-         WHERE id = $1 AND installation_id = $2 AND status = 'searching'
+         WHERE id = $1 AND (installation_id = $2 OR user_id = (SELECT user_id FROM test_profiles WHERE profile_id = $2)) AND status = 'searching'
          RETURNING id, status`,
         [requestId, owner],
       );
