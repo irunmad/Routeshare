@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { getTestFinanceJournal, TestFinanceJournal, completeTestTrip, getTestWallet, startTestTrip, topupTestWallet, TestWallet, acceptTestPassengerRequest, cancelTestPassengerRequest, createTestPassengerRequest, listTestPassengerRequests, registerTestProfile, releaseTestPassengerRequest, TestPassengerRequest } from './src/lib/testRequests';
+import { getTestReadiness, TestReadiness, getTestFinanceJournal, TestFinanceJournal, completeTestTrip, getTestWallet, startTestTrip, topupTestWallet, TestWallet, acceptTestPassengerRequest, cancelTestPassengerRequest, createTestPassengerRequest, listTestPassengerRequests, registerTestProfile, releaseTestPassengerRequest, TestPassengerRequest } from './src/lib/testRequests';
 import { StatusBar } from 'expo-status-bar';
 import {
   SafeAreaView,
@@ -182,6 +182,13 @@ export default function App() {
   const switchMode = (next: Mode) => { if(next===mode)return; modeTabs.current[mode]=tab; setMode(next); setTab(modeTabs.current[next]); setMenuOpen(false); setAccountScreen('none'); };
   const [menuOpen, setMenuOpen] = useState(false);
   const [adminSection, setAdminSection] = useState<'requests' | 'status' | 'logs' | 'finance'>('requests');
+  const [testReadiness, setTestReadiness] = useState<TestReadiness | null>(null);
+  const [readinessError, setReadinessError] = useState('');
+  const refreshReadiness = async () => {
+    try { setTestReadiness(await getTestReadiness()); setReadinessError(''); }
+    catch(e) { setTestReadiness(null); setReadinessError(e instanceof Error ? e.message : 'API недоступний'); }
+  };
+  useEffect(() => { if (mode==='admin' && adminSection==='status') refreshReadiness(); }, [mode,adminSection]);
   const [financeJournal, setFinanceJournal] = useState<TestFinanceJournal | null>(null);
   const [financeError, setFinanceError] = useState('');
   const refreshFinance = async () => {
@@ -603,7 +610,12 @@ export default function App() {
                 <Text style={styles.pageSubtitle}>Поточні стани, які реально повертає тестовий API</Text>
                 <View style={{padding:15,borderRadius:12,backgroundColor:'#172C3C',gap:9}}>
                   <Text style={{color:'#FFFFFF',fontWeight:'800'}}>Заявки у пошуку: {testRequests.filter(x=>x.status==='searching').length}</Text>
-                  <Text style={{color:'#A8C0CF',fontSize:12}}>Інші статуси поїздок, підключення водіїв, GPS, резервування та завершення поїздок поки не надходять із тестового API.</Text>
+                  <Text style={{color:'#FFFFFF',fontWeight:'800'}}>Готовність тестової бази</Text>
+                  <Text style={{color:testReadiness?.ready?'#54E2A7':'#F2B68C',fontWeight:'800'}}>{testReadiness ? (testReadiness.ready?'✓ Міграції застосовано':'⚠ Не всі міграції застосовано') : 'Не перевірено'}</Text>
+                  {testReadiness?.missing.map(v=><Text key={v} style={{color:'#F2B68C',fontSize:12}}>Бракує: {v}</Text>)}
+                  {!!readinessError && <Text style={{color:'#F2B68C',fontSize:12}}>API: {readinessError}</Text>}
+                  <TouchableOpacity onPress={refreshReadiness} style={{padding:8,backgroundColor:'#20475B',borderRadius:8,alignSelf:'flex-start'}}><Text style={{color:'#FFFFFF'}}>Перевірити зараз</Text></TouchableOpacity>
+                  <Text style={{color:'#A8C0CF',fontSize:12}}>Перевірка міграцій не замінює наскрізний тест платежів. GPS і резервування маршрутів ще не підключені.</Text>
                 </View>
               </>}
               {adminSection==='finance' && <View style={{gap:9}}>
