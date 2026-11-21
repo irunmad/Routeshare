@@ -924,7 +924,20 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
   // All points originate from the current driver's OSRM road geometry.
   const seedNearbyRequests = async () => {
     if (!driverStart || !destinationPoint || seedBusy) return;
-    setSeedBusy(true); setSeedMessage('Прокладаємо маршрут водія…');
+    setSeedBusy(true); setSeedMessage('Перевіряємо готовність сервера…');
+    try {
+      const readiness=await getTestReadiness();
+      if(!readiness.ready) {
+        setSeedMessage('Сервер не готовий: відсутні міграції '+readiness.missing.join(', ')+'. Онови Render API.');
+        setSeedBusy(false);
+        return;
+      }
+    }catch(e){
+      setSeedMessage('Не вдалося перевірити сервер: '+(e instanceof Error?e.message:'помилка'));
+      setSeedBusy(false);
+      return;
+    }
+    setSeedMessage('Прокладаємо маршрут водія…');
     let created = 0;
     try {
       const url='https://router.project-osrm.org/route/v1/driving/'+driverStart.lon+','+driverStart.lat+';'+destinationPoint.lon+','+destinationPoint.lat+'?overview=full&geometries=geojson';
