@@ -194,6 +194,35 @@ export class TestRequestsService {
     }
   }
 
+  async financeJournal() {
+    this.assertEnabled();
+    return this.database.withTransaction(async client => {
+      // Simulator-only aggregate. No phone numbers, names or real ledger data.
+      const rows = await client.query(
+        `SELECT t.id, t.kind, t.request_id AS "requestId",
+          t.amount_minor::text AS "amountMinor",
+          t.platform_fee_minor::text AS "platformFeeMinor",
+          t.created_at AS "createdAt",
+          COALESCE(sum(e.delta_minor),0)::text AS "journalNetMinor",
+          COALESCE(sum(e.delta_minor) FILTER (WHERE e.account_kind = 'passenger'),0)::text AS "passengerDeltaMinor",
+          COALESCE(sum(e.delta_minor) FILTER (WHERE e.account_kind = 'driver'),0)::text AS "driverDeltaMinor",
+          COALESCE(sum(e.delta_minor) FILTER (WHERE e.account_kind = 'platform'),0)::text AS "platformDeltaMinor",
+          COALESCE(sum(e.delta_minor) FILTER (WHERE e.account_kind = 'test_source'),0)::text AS "sourceDeltaMinor",
+          count(e.id)::int AS "entryCount"
+         FROM test_wallet_transactions t
+         LEFT JOIN test_wallet_entries e ON e.transaction_id = t.id
+         GROUP BY t.id
+         ORDER BY t.created_at DESC, t.id DESC
+         LIMIT 100`,
+      );
+      const totals = await client.query(
+        `SELECT account_kind AS kind, sum(balance_minor)::text AS balance
+         FROM test_wallet_accounts GROUP BY account_kind ORDER BY account_kind`,
+      );
+      return { virtual: true, feePercent: 10, transactions: rows.rows, balances: totals.rows };
+    });
+  }
+
   async wallet(profileId: string) {
     this.assertEnabled();
     return this.database.withTransaction(async client => {
