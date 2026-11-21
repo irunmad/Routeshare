@@ -10,6 +10,8 @@ import { DatabaseService } from '../database/database.service';
 export interface CreateTestRequestInput {
   origin: string;
   destination: string;
+  originPoint?: { lat: number; lon: number };
+  destinationPoint?: { lat: number; lon: number };
   departureStart: string;
   departureEnd: string;
   offeredRateUahPerKm: number;
@@ -69,6 +71,8 @@ export class TestRequestsService {
     const start = new Date(input?.departureStart);
     const end = new Date(input?.departureEnd);
     const rate = Number(input?.offeredRateUahPerKm);
+    const validPoint = (p?: {lat:number;lon:number}) => p && Number.isFinite(p.lat) && Number.isFinite(p.lon) && Math.abs(p.lat)<=90 && Math.abs(p.lon)<=180;
+    if ((input.originPoint && !validPoint(input.originPoint)) || (input.destinationPoint && !validPoint(input.destinationPoint))) throw new BadRequestException('Invalid request coordinates.');
 
     if (!origin || origin.length > 200 || !destination || destination.length > 200) {
       throw new BadRequestException('Origin and destination must contain 1–200 characters.');
@@ -101,13 +105,15 @@ export class TestRequestsService {
       if (!identity.rowCount) throw new BadRequestException('Register a test profile before creating requests.');
       const result = await client.query(
         `INSERT INTO test_passenger_requests
-          (id, installation_id, user_id, origin_label, destination_label, departure_start, departure_end, offered_rate_minor_per_km)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+          (id, installation_id, user_id, origin_label, destination_label, departure_start, departure_end, offered_rate_minor_per_km, origin_lat, origin_lon, destination_lat, destination_lon)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
          RETURNING id, origin_label AS origin, destination_label AS destination,
+           json_build_object('lat', origin_lat, 'lon', origin_lon) AS \"originPoint\",
+           json_build_object('lat', destination_lat, 'lon', destination_lon) AS \"destinationPoint\",
            departure_start AS "departureStart", departure_end AS "departureEnd",
            offered_rate_minor_per_km / 100.0 AS "offeredRateUahPerKm",
            status, created_at AS "createdAt"`,
-        [id, owner, identity.rows[0].user_id, origin, destination, start.toISOString(), end.toISOString(), Math.round(rate * 100)],
+        [id, owner, identity.rows[0].user_id, origin, destination, start.toISOString(), end.toISOString(), Math.round(rate * 100), input.originPoint?.lat ?? null, input.originPoint?.lon ?? null, input.destinationPoint?.lat ?? null, input.destinationPoint?.lon ?? null],
       );
       await client.query(
         `INSERT INTO test_request_events (request_id, actor_profile_id, event_type, details)
@@ -199,7 +205,7 @@ export class TestRequestsService {
     return this.database.withTransaction(async client => {
       const required = ['0004_test_passenger_requests', '0005_operational_observability',
         '0006_test_request_events', '0007_test_profiles', '0008_test_driver_acceptance',
-        '0009_test_acceptance_grace', '0010_test_wallet_and_trip'];
+        '0009_test_acceptance_grace', '0010_test_wallet_and_trip', '0011_test_request_coordinates'];
       const found = await client.query(
         'SELECT version FROM public.schema_migrations WHERE version = ANY($1::text[])',
         [required],
@@ -362,6 +368,8 @@ export class TestRequestsService {
     return this.database.withTransaction(async (client) => {
       const result = await client.query(
         `SELECT id, origin_label AS origin, destination_label AS destination,
+          CASE WHEN origin_lat IS NOT NULL THEN json_build_object('lat', origin_lat, 'lon', origin_lon) END AS \"originPoint\",
+          CASE WHEN destination_lat IS NOT NULL THEN json_build_object('lat', destination_lat, 'lon', destination_lon) END AS \"destinationPoint\",
           departure_start AS "departureStart", departure_end AS "departureEnd",
           offered_rate_minor_per_km / 100.0 AS "offeredRateUahPerKm",
           status, created_at AS "createdAt",
