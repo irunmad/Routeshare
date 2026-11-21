@@ -22,6 +22,7 @@ const migrations = [
   { version: "0003_otp_reservation_lifecycle", file: "src/database/migrations/0003_otp_reservation_lifecycle.sql" },
   { version: "0004_test_passenger_requests", file: "src/database/migrations/0004_test_passenger_requests.sql" },
   { version: "0005_operational_observability", file: "src/database/migrations/0005_operational_observability.sql" },
+  { version: "0006_test_request_events", file: "src/database/migrations/0006_test_request_events.sql" },
 ];
 
 try {
