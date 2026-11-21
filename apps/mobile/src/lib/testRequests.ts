@@ -91,3 +91,18 @@ export function startTestTrip(profileId: string, id: string): Promise<{ id: stri
 export function completeTestTrip(profileId: string, id: string, fareUah: number): Promise<{ id: string; fareMinor: number; driverNetMinor: number; platformFeeMinor: number }> {
   return request(`/test/passenger-requests/${id}/complete`, { method: 'POST', body: JSON.stringify({ fareUah }) }, profileId);
 }
+
+export interface TestFinanceJournal {
+  virtual: boolean;
+  feePercent: number;
+  balances: { kind: string; balance: string }[];
+  transactions: {
+    id: string; kind: string; requestId: string | null; amountMinor: string;
+    platformFeeMinor: string; createdAt: string; journalNetMinor: string;
+    passengerDeltaMinor: string; driverDeltaMinor: string;
+    platformDeltaMinor: string; sourceDeltaMinor: string; entryCount: number;
+  }[];
+}
+export function getTestFinanceJournal(): Promise<TestFinanceJournal> {
+  return request<TestFinanceJournal>('/test/passenger-requests/finance-journal');
+}
