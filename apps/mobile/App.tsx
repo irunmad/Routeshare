@@ -25,7 +25,7 @@ function testUuid(): string {
     const r = Math.floor(Math.random() * 16); return (c === 'x' ? r : (r & 3 | 8)).toString(16);
   });
 }
-type Mode = 'passenger' | 'driver';
+type Mode = 'passenger' | 'driver' | 'admin';
 type Design = 'classic' | 'new';
 const initialDesign = (): Design => {
   if (Platform.OS !== 'web' || typeof window === 'undefined') return 'classic';
@@ -178,6 +178,8 @@ async function roadDistanceKm(a: Coordinates, b: Coordinates): Promise<number> {
 export default function App() {
   const [mode, setMode] = useState<Mode>('passenger');
   const [tab, setTab] = useState<Tab>('home');
+  const modeTabs = useRef<Record<Mode, Tab>>({passenger:'home',driver:'home',admin:'home'});
+  const switchMode = (next: Mode) => { if(next===mode)return; modeTabs.current[mode]=tab; setMode(next); setTab(modeTabs.current[next]); setMenuOpen(false); setAccountScreen('none'); };
   const [menuOpen, setMenuOpen] = useState(false);
   const [profiles, setProfiles] = useState<TestProfile[]>(loadProfiles);
   const [activeProfileId, setActiveProfileId] = useState(() => {
@@ -390,14 +392,19 @@ export default function App() {
             <Text style={styles.headerCaption}>Твій маршрут. Твоя компанія.</Text>
           </View>
           <TouchableOpacity style={styles.avatar} onPress={() => {setMenuOpen(false);setAccountScreen('login');}}>
-            <Text style={styles.avatarText}>{activeProfile?.avatar || (mode === 'driver' ? '🚗' : '👤')}</Text>
+            <Text style={styles.avatarText}>{activeProfile?.avatar || (mode === 'driver' ? '🚗' : mode === 'admin' ? '🛡️' : '👤')}</Text>
           </TouchableOpacity>
         </View>
 
+        <View style={{flexDirection:'row',gap:5,paddingHorizontal:8,paddingVertical:5,backgroundColor:'#0D1C2A',borderBottomWidth:1,borderBottomColor:'#294153'}}>
+          {([['passenger','👤 Пасажир'],['driver','🚗 Водій'],['admin','🛡 Адмін']] as const).map(([key,label])=>(
+            <TouchableOpacity key={key} accessibilityLabel={'Режим '+label} onPress={()=>switchMode(key)} style={{flex:1,alignItems:'center',justifyContent:'center',paddingVertical:7,paddingHorizontal:2,borderRadius:8,backgroundColor:mode===key?'#0D664C':'#23384A',borderWidth:1,borderColor:mode===key?'#38E2A0':'#345066'}}>
+              <Text numberOfLines={1} style={{fontSize:11,fontWeight:'800',color:mode===key?'#FFFFFF':'#D3E1EB'}}>{label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
         {menuOpen && <View style={{ flex:1, backgroundColor: '#0B1722', padding: 18, gap: 16, borderTopWidth: 1, borderTopColor: '#284253' }}>
-          <TouchableOpacity onPress={()=>{setTab('trips');setMenuOpen(false);refreshTestRequests(true);}} style={{backgroundColor:'#243F51',padding:12,borderRadius:10}}><Text style={{color:'#FFFFFF',fontWeight:'900'}}>☷ Усі тестові заявки · {testRequests.length}</Text><Text style={{color:'#A8C0CF',fontSize:11}}>Адміністративний перегляд усіх отриманих заявок, незалежно від фільтрів водія</Text></TouchableOpacity>
-          <Text style={{ color:'#FFFFFF',fontSize:15,fontWeight:'900' }}>Режим RouteShare</Text>
-          <View style={{flexDirection:'row',gap:8}}>{(['passenger','driver'] as const).map(m => <TouchableOpacity key={m} onPress={() => {setMode(m);setTab('home');setDriverView('list');setDriverOffer(null);setNotice('');setMenuOpen(false);}} style={{flex:1,padding:11,alignItems:'center',borderRadius:10,backgroundColor:mode===m?'#00D86A':'#263A4B'}}><Text style={{color:mode===m?'#09241A':'#FFFFFF',fontWeight:'900'}}>{m==='driver'?'🚗 Водій':'👤 Пасажир'}</Text></TouchableOpacity>)}</View>
           <Text style={{ color: '#AFC8D6', fontWeight: '700', fontSize: 12 }}>ОФОРМЛЕННЯ</Text>
           <View style={{ flexDirection: 'row', gap: 8 }}><TouchableOpacity onPress={() => changeDesign('classic')} style={{ padding: 10, borderRadius: 8, borderWidth: 1, borderColor: design === 'classic' ? '#34D97B' : '#54677C' }}><Text style={{ color: '#FFFFFF' }}>Класичний {design === 'classic' ? '✓' : ''}</Text></TouchableOpacity><TouchableOpacity onPress={() => changeDesign('new')} style={{ padding: 10, borderRadius: 8, borderWidth: 1, borderColor: design === 'new' ? '#34D97B' : '#54677C' }}><Text style={{ color: '#FFFFFF' }}>Новий {design === 'new' ? '✓' : ''}</Text></TouchableOpacity></View>
           <View style={{ padding: 8, borderRadius: 9, backgroundColor: '#263F53', gap: 8 }}>
@@ -481,7 +488,24 @@ export default function App() {
 
           {tab === 'home' && <View style={{display:mode==='driver'?'flex':'none'}}><DriverOfferList liveRequests={testRequests} onRefresh={() => refreshTestRequests(true)} design={design} view={driverView} selectedOffer={driverOffer} onSelectOffer={(offer) => { setDriverOffer(offer); setDriverView('offer'); }} onBack={() => { setDriverOffer(null); setDriverView('list'); }} /></View>}
 
-          {tab === 'trips' && (
+          {tab === 'home' && mode === 'admin' && (
+            <View style={{gap:12}}>
+              <Text style={styles.pageTitle}>Панель адміністратора</Text>
+              <Text style={styles.pageSubtitle}>Тестовий режим · перегляд заявок з усіх пристроїв незалежно від фільтрів водія</Text>
+              <View style={{backgroundColor:'#172C3C',borderRadius:14,padding:16,gap:8,borderWidth:1,borderColor:'#31546A'}}>
+                <Text style={{color:'#A8C0CF',fontSize:12}}>Усього отриманих тестових заявок</Text>
+                <Text style={{color:'#49E5A2',fontWeight:'900',fontSize:30}}>{testRequests.length}</Text>
+                <TouchableOpacity onPress={()=>{setTab('trips');refreshTestRequests(true);}} style={{backgroundColor:'#145C46',borderRadius:10,padding:12,alignItems:'center'}}><Text style={{color:'#FFFFFF',fontWeight:'900'}}>☷ Усі заявки</Text></TouchableOpacity>
+              </View>
+              <View style={{backgroundColor:'#172C3C',borderRadius:14,padding:16,gap:7,borderWidth:1,borderColor:'#31546A'}}>
+                <Text style={{color:'#FFFFFF',fontWeight:'800'}}>Майбутні розділи</Text>
+                <Text style={{color:'#A8C0CF',fontSize:12}}>Спори, компенсації, водії, пасажири, фінансові операції та аудит дій адміністратора.</Text>
+                <Text style={{color:'#EFCB81',fontSize:11}}>Адміністративні повноваження поки не реалізовані. Це тестовий перегляд, не захищений доступ до даних.</Text>
+              </View>
+            </View>
+          )}
+
+          {tab === 'trips' && mode === 'admin' && (
             <>
               <Text style={styles.pageTitle}>Тестові заявки</Text>
               <Text style={styles.pageSubtitle}>Спільний список з усіх пристроїв · автооновлення кожні 5 секунд</Text>
