@@ -82,8 +82,26 @@
       return point;
     }
 
+    // Snap each address coordinate to a routable road before drawing.
+    // This is an OSRM test implementation; it is not Google Roads API.
+    const snappedCache = new Map();
+    async function snapToRoad(point, signal) {
+      const key = point.join(',');
+      if (snappedCache.has(key)) return snappedCache.get(key);
+      const url = 'https://router.project-osrm.org/nearest/v1/driving/' + key + '?number=1';
+      const data = await fetchJson(url, signal);
+      const candidate = data.waypoints?.[0];
+      if (data.code !== 'Ok' || !isPoint(candidate?.location)) throw new Error('Road snap unavailable');
+      // Reject distant road matches; an incorrect address must be fixed, not silently relocated.
+      const meters = Number(candidate.distance);
+      if (!Number.isFinite(meters) || meters > 120) throw new Error('Road is too far from the selected point');
+      snappedCache.set(key, candidate.location);
+      return candidate.location;
+    }
+
     async function roadGeometry(stops, signal) {
-      const coordinates = stops.map(stop => stop.join(',')).join(';');
+      const snapped = await Promise.all(stops.map(stop => snapToRoad(stop, signal)));
+      const coordinates = snapped.map(stop => stop.join(',')).join(';');
       const url = 'https://router.project-osrm.org/route/v1/driving/' + coordinates + '?overview=full&geometries=geojson';
       const data = await fetchJson(url, signal);
       const geometry = data.routes?.[0]?.geometry?.coordinates;
