@@ -1204,10 +1204,16 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
     const priorityOffers = new Map(offers.slice(0, priorityColors.length).map(offer => [offer.id, offer]));
     const matchedOffers = new Map(liveOffers.map(offer => [offer.id, offer]));
     for (const request of liveRequests.slice(0, 15)) {
+      const stops=request.originPoint && request.destinationPoint ? [toMapPoint(request.originPoint),toMapPoint(request.destinationPoint)] : matchedOffers.get(request.id)?.mapStops ?? [requestMapStop(request.origin), requestMapStop(request.destination)];
+      const priority=priorityOffers.has(request.id);
       mapRoutes.push({
-        stops: request.originPoint && request.destinationPoint ? [toMapPoint(request.originPoint),toMapPoint(request.destinationPoint)] : matchedOffers.get(request.id)?.mapStops ?? [requestMapStop(request.origin), requestMapStop(request.destination)],
+        stops,
         color: priorityOffers.get(request.id)?.color ?? priorityMemberColors.get(request.id) ?? neutralRouteColor,
         kind: 'passenger', separate: true,
+        // Display approach and departure legs for the highest-ranked individual
+        // offers as well as on the detail map.
+        approach:priority&&driverStart&&Array.isArray(stops[0])?[toMapPoint(driverStart),stops[0] as MapPoint]:undefined,
+        departure:priority&&destinationPoint&&Array.isArray(stops[stops.length-1])?[stops[stops.length-1] as MapPoint,toMapPoint(destinationPoint)]:undefined,
       });
     }
   }
