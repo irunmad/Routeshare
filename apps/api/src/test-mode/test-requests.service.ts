@@ -79,6 +79,11 @@ export class TestRequestsService {
            status, created_at AS "createdAt"`,
         [id, owner, origin, destination, start.toISOString(), end.toISOString(), Math.round(rate * 100)],
       );
+      await client.query(
+        `INSERT INTO test_request_events (request_id, actor_profile_id, event_type, details)
+         VALUES ($1, $2, 'request.created', $3::jsonb)`,
+        [id, owner, JSON.stringify({ origin, destination, offeredRateUahPerKm: rate })],
+      );
       return result.rows[0];
     });
   }
@@ -119,6 +124,11 @@ export class TestRequestsService {
         [requestId, owner],
       );
       if (!result.rowCount) throw new NotFoundException('Test request not found or not owned by this device.');
+      await client.query(
+        `INSERT INTO test_request_events (request_id, actor_profile_id, event_type)
+         VALUES ($1, $2, 'request.cancelled')`,
+        [requestId, owner],
+      );
       return result.rows[0];
     });
   }
