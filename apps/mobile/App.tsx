@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { acceptTestPassengerRequest, cancelTestPassengerRequest, createTestPassengerRequest, listTestPassengerRequests, registerTestProfile, releaseTestPassengerRequest, TestPassengerRequest } from './src/lib/testRequests';
+import { completeTestTrip, getTestWallet, startTestTrip, topupTestWallet, TestWallet, acceptTestPassengerRequest, cancelTestPassengerRequest, createTestPassengerRequest, listTestPassengerRequests, registerTestProfile, releaseTestPassengerRequest, TestPassengerRequest } from './src/lib/testRequests';
 import { StatusBar } from 'expo-status-bar';
 import {
   SafeAreaView,
@@ -260,6 +260,41 @@ export default function App() {
   };
   const [addressError, setAddressError] = useState('');
   const [testRequests, setTestRequests] = useState<TestPassengerRequest[]>([]);
+  const [testWallet, setTestWallet] = useState<TestWallet | null>(null);
+  const [topupAmount, setTopupAmount] = useState('200');
+  const [testFare, setTestFare] = useState('100');
+  const [walletBusy, setWalletBusy] = useState(false);
+  const refreshWallet = async () => {
+    if (!activeProfileId) { setTestWallet(null); return; }
+    try { setTestWallet(await getTestWallet(activeProfileId)); } catch { setTestWallet(null); }
+  };
+  useEffect(() => { refreshWallet(); }, [activeProfileId, menuOpen]);
+  const addVirtualFunds = async () => {
+    if (!activeProfile) { setNotice('Спочатку вибери профіль.'); return; }
+    const amount = Number(topupAmount.replace(',', '.'));
+    if (!Number.isFinite(amount) || amount < 1 || amount > 10000) { setNotice('Сума: 1–10000 грн.'); return; }
+    setWalletBusy(true);
+    try {
+      await registerTestProfile(activeProfile);
+      await topupTestWallet(activeProfile.id, amount);
+      await refreshWallet();
+      setNotice('Віртуальний баланс поповнено на ' + amount + ' грн.');
+    } catch(e) { setNotice(e instanceof Error ? e.message : 'Помилка поповнення.'); }
+    finally { setWalletBusy(false); }
+  };
+  const changeTestTrip = async (id: string, action: 'start' | 'complete') => {
+    if (!activeProfile) { setNotice('Вибери профіль водія.'); return; }
+    try {
+      if (action === 'start') await startTestTrip(activeProfile.id, id);
+      else {
+        const fare = Number(testFare.replace(',', '.'));
+        const result = await completeTestTrip(activeProfile.id, id, fare);
+        setNotice('Розрахунок: ' + (result.fareMinor/100) + ' грн; водію ' + (result.driverNetMinor/100) + '; платформі ' + (result.platformFeeMinor/100) + '.');
+      }
+      await refreshTestRequests();
+      await refreshWallet();
+    } catch(e) { setNotice(e instanceof Error ? e.message : 'Не вдалося змінити стан поїздки.'); }
+  };
   const [savingRequest, setSavingRequest] = useState(false);
   const [requestResult, setRequestResult] = useState<{ok: boolean; message: string} | null>(null);
 
@@ -431,6 +466,17 @@ export default function App() {
         </View>
 
         {menuOpen && <View style={{ flex:1, backgroundColor: '#0B1722', padding: 18, gap: 16, borderTopWidth: 1, borderTopColor: '#284253' }}>
+          {mode!=='admin' && <View style={{backgroundColor:'#1A3446',padding:12,borderRadius:12,gap:8}}>
+            <Text style={{color:'#FFFFFF',fontWeight:'900'}}>💳 {mode==='passenger'?'Баланс пасажира':'Баланс водія'} · ТЕСТ</Text>
+            <Text style={{color:'#52E2AD',fontWeight:'900',fontSize:23}}>{testWallet ? ((Number(testWallet.accounts.find(a=>a.kind===(mode==='passenger'?'passenger':'driver'))?.balance||0))/100).toFixed(2) : '—'} грн</Text>
+            <Text style={{color:'#AFC8D6',fontSize:11}}>Лише віртуальні кошти. Жодних реальних платежів.</Text>
+            {mode==='passenger' && <View style={{flexDirection:'row',gap:7,alignItems:'center'}}>
+              <TextInput value={topupAmount} onChangeText={setTopupAmount} keyboardType="decimal-pad" placeholder="Сума, грн" placeholderTextColor="#8196A4" style={{color:'#FFFFFF',backgroundColor:'#0D2231',padding:9,borderRadius:8,flex:1}}/>
+              <TouchableOpacity disabled={walletBusy} onPress={addVirtualFunds} style={{backgroundColor:'#137B5B',padding:11,borderRadius:8}}><Text style={{color:'#FFFFFF',fontWeight:'800'}}>Поповнити</Text></TouchableOpacity>
+            </View>}
+            <TouchableOpacity onPress={refreshWallet}><Text style={{color:'#9BCFF1',fontSize:12}}>Оновити баланс</Text></TouchableOpacity>
+            {testWallet?.transactions.slice(0,5).map(t=><Text key={t.id} style={{color:'#B9CCD7',fontSize:11}}>{t.kind==='topup'?'Поповнення':'Поїздка'} · {(Number(t.amountMinor)/100).toFixed(2)} грн · {new Date(t.createdAt).toLocaleString('uk-UA')}</Text>)}
+          </View>}
           <Text style={{ color: '#AFC8D6', fontWeight: '700', fontSize: 12 }}>ОФОРМЛЕННЯ</Text>
           <View style={{ flexDirection: 'row', gap: 8 }}><TouchableOpacity onPress={() => changeDesign('classic')} style={{ padding: 10, borderRadius: 8, borderWidth: 1, borderColor: design === 'classic' ? '#34D97B' : '#54677C' }}><Text style={{ color: '#FFFFFF' }}>Класичний {design === 'classic' ? '✓' : ''}</Text></TouchableOpacity><TouchableOpacity onPress={() => changeDesign('new')} style={{ padding: 10, borderRadius: 8, borderWidth: 1, borderColor: design === 'new' ? '#34D97B' : '#54677C' }}><Text style={{ color: '#FFFFFF' }}>Новий {design === 'new' ? '✓' : ''}</Text></TouchableOpacity></View>
           <View style={{ padding: 8, borderRadius: 9, backgroundColor: '#263F53', gap: 8 }}>
@@ -514,10 +560,16 @@ export default function App() {
 
           {tab === 'home' && <View style={{display:mode==='driver'?'flex':'none'}}><View style={{paddingHorizontal:10,paddingTop:8,gap:5}}>
             <Text style={{color:'#B5D3E0',fontSize:12,fontWeight:'800'}}>ТЕСТ · ДОСТУПНІ ЗАЯВКИ</Text>
-            {testRequests.filter(r=>r.status==='accepted' && r.acceptedByMe).slice(0,5).map(r=><View key={'accepted-'+r.id} style={{backgroundColor:'#173E40',padding:10,borderRadius:10,gap:5}}>
+            {testRequests.filter(r=>(r.status==='accepted'||r.status==='in_trip') && r.acceptedByMe).slice(0,5).map(r=><View key={'accepted-'+r.id} style={{backgroundColor:'#173E40',padding:10,borderRadius:10,gap:5}}>
               <Text style={{color:'#FFFFFF',fontSize:12}}>Прийнята заявка: {r.origin} → {r.destination}</Text>
               <Text style={{color:'#A9D9CF',fontSize:11}}>Водій: {r.driverUserId?.slice(0,8)} · Прийнято {r.acceptedAt ? new Date(r.acceptedAt).toLocaleTimeString('uk-UA') : '—'}</Text>
-              {r.acceptedAt && Date.now()-new Date(r.acceptedAt).getTime()<10000 && <TouchableOpacity onPress={()=>releaseTestRequest(r.id)} style={{padding:8,backgroundColor:'#75513C',borderRadius:7}}><Text style={{color:'#FFFFFF',fontWeight:'800'}}>Скасувати без штрафу (10 с)</Text></TouchableOpacity>}
+              {r.status==='accepted' && <TouchableOpacity onPress={()=>changeTestTrip(r.id,'start')} style={{padding:8,backgroundColor:'#176B51',borderRadius:7}}><Text style={{color:'#FFFFFF',fontWeight:'800'}}>Пасажир сів · Почати поїздку</Text></TouchableOpacity>}
+              {r.status==='in_trip' && <View style={{gap:6}}>
+                <Text style={{color:'#FFFFFF',fontSize:12}}>Тестова вартість, грн (введи вручну)</Text>
+                <TextInput value={testFare} onChangeText={setTestFare} keyboardType="decimal-pad" style={{color:'#FFFFFF',backgroundColor:'#0C2231',padding:8,borderRadius:7}}/>
+                <TouchableOpacity onPress={()=>changeTestTrip(r.id,'complete')} style={{padding:9,backgroundColor:'#176B51',borderRadius:7}}><Text style={{color:'#FFFFFF',fontWeight:'800'}}>Завершити · Розподілити суму</Text></TouchableOpacity>
+              </View>}
+              {r.status==='accepted' && r.acceptedAt && Date.now()-new Date(r.acceptedAt).getTime()<10000 && <TouchableOpacity onPress={()=>releaseTestRequest(r.id)} style={{padding:8,backgroundColor:'#75513C',borderRadius:7}}><Text style={{color:'#FFFFFF',fontWeight:'800'}}>Скасувати без штрафу (10 с)</Text></TouchableOpacity>}
             </View>)}
             {testRequests.filter(r=>r.status==='searching'&&!r.isMine).slice(0,5).map(r=><View key={r.id} style={{backgroundColor:'#193247',padding:10,borderRadius:10,flexDirection:'row',alignItems:'center',gap:8}}>
               <Text style={{color:'#FFFFFF',flex:1,fontSize:12}} numberOfLines={2}>{r.origin} → {r.destination}</Text>
