@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { completeTestTrip, getTestWallet, startTestTrip, topupTestWallet, TestWallet, acceptTestPassengerRequest, cancelTestPassengerRequest, createTestPassengerRequest, listTestPassengerRequests, registerTestProfile, releaseTestPassengerRequest, TestPassengerRequest } from './src/lib/testRequests';
+import { getTestFinanceJournal, TestFinanceJournal, completeTestTrip, getTestWallet, startTestTrip, topupTestWallet, TestWallet, acceptTestPassengerRequest, cancelTestPassengerRequest, createTestPassengerRequest, listTestPassengerRequests, registerTestProfile, releaseTestPassengerRequest, TestPassengerRequest } from './src/lib/testRequests';
 import { StatusBar } from 'expo-status-bar';
 import {
   SafeAreaView,
@@ -181,7 +181,17 @@ export default function App() {
   const modeTabs = useRef<Record<Mode, Tab>>({passenger:'home',driver:'home',admin:'home'});
   const switchMode = (next: Mode) => { if(next===mode)return; modeTabs.current[mode]=tab; setMode(next); setTab(modeTabs.current[next]); setMenuOpen(false); setAccountScreen('none'); };
   const [menuOpen, setMenuOpen] = useState(false);
-  const [adminSection, setAdminSection] = useState<'requests' | 'status' | 'logs'>('requests');
+  const [adminSection, setAdminSection] = useState<'requests' | 'status' | 'logs' | 'finance'>('requests');
+  const [financeJournal, setFinanceJournal] = useState<TestFinanceJournal | null>(null);
+  const [financeError, setFinanceError] = useState('');
+  const refreshFinance = async () => {
+    try { setFinanceJournal(await getTestFinanceJournal()); setFinanceError(''); }
+    catch (e) { setFinanceError(e instanceof Error ? e.message : 'Журнал недоступний'); }
+  };
+  useEffect(() => {
+    if (mode==='admin' && adminSection==='finance') refreshFinance();
+  }, [mode, adminSection]);
+
   const [profiles, setProfiles] = useState<TestProfile[]>(loadProfiles);
   const [activeProfileId, setActiveProfileId] = useState(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return '';
@@ -581,7 +591,7 @@ export default function App() {
             <View style={{gap:10}}>
               <Text style={styles.pageTitle}>Адмін · Тестування</Text>
               <View style={{flexDirection:'row',gap:5}}>
-                {([['requests','Заявки'],['status','Статуси'],['logs','Логи']] as const).map(([key,label])=><TouchableOpacity key={key} onPress={()=>{setAdminSection(key);if(key==='requests')refreshTestRequests(true);}} style={{flex:1,paddingVertical:10,borderRadius:9,alignItems:'center',backgroundColor:adminSection===key?'#145C46':'#243B4B',borderWidth:1,borderColor:adminSection===key?'#35D99B':'#345368'}}><Text style={{color:'#FFFFFF',fontWeight:'800',fontSize:12}}>{label}</Text></TouchableOpacity>)}
+                {([['requests','Заявки'],['status','Статуси'],['logs','Логи'],['finance','Фінанси']] as const).map(([key,label])=><TouchableOpacity key={key} onPress={()=>{setAdminSection(key);if(key==='requests')refreshTestRequests(true);}} style={{flex:1,paddingVertical:10,borderRadius:9,alignItems:'center',backgroundColor:adminSection===key?'#145C46':'#243B4B',borderWidth:1,borderColor:adminSection===key?'#35D99B':'#345368'}}><Text style={{color:'#FFFFFF',fontWeight:'800',fontSize:12}}>{label}</Text></TouchableOpacity>)}
               </View>
               {adminSection==='requests' && <>
                 <Text style={styles.pageSubtitle}>Усі тестові заявки · незалежно від фільтрів водія · оновлення кожні 5 с</Text>
@@ -596,6 +606,29 @@ export default function App() {
                   <Text style={{color:'#A8C0CF',fontSize:12}}>Інші статуси поїздок, підключення водіїв, GPS, резервування та завершення поїздок поки не надходять із тестового API.</Text>
                 </View>
               </>}
+              {adminSection==='finance' && <View style={{gap:9}}>
+                <Text style={{color:'#FFFFFF',fontWeight:'900',fontSize:17}}>Віртуальний фінансовий журнал</Text>
+                <Text style={{color:'#B3C8D5',fontSize:12}}>Тільки тестові кошти · Комісія 10% · Суми у гривнях</Text>
+                <TouchableOpacity onPress={refreshFinance} style={{padding:9,backgroundColor:'#20475B',borderRadius:9,alignSelf:'flex-start'}}><Text style={{color:'#FFFFFF',fontWeight:'800'}}>Оновити журнал</Text></TouchableOpacity>
+                {!!financeError && <Text style={{color:'#F2B3A5'}}>{financeError}</Text>}
+                {financeJournal && <View style={{padding:12,backgroundColor:'#142F3F',borderRadius:10,gap:6}}>
+                  <Text style={{color:'#FFFFFF',fontWeight:'800'}}>Залишки за типами рахунків</Text>
+                  {financeJournal.balances.map(b=><Text key={b.kind} style={{color:'#BDE3D5'}}>{b.kind}: {(Number(b.balance)/100).toFixed(2)} грн</Text>)}
+                  <Text style={{color:'#FFFFFF',fontWeight:'800'}}>Операцій: {financeJournal.transactions.length} (останні 100)</Text>
+                </View>}
+                {financeJournal?.transactions.map(t=>{
+                  const balanced=Number(t.journalNetMinor)===0;
+                  const fare=Number(t.amountMinor)/100;
+                  return <View key={t.id} style={{padding:12,backgroundColor:'#172C3C',borderRadius:10,gap:5,borderLeftWidth:3,borderLeftColor:balanced?'#45D69C':'#F18B76'}}>
+                    <Text style={{color:'#FFFFFF',fontWeight:'900'}}>{t.kind==='topup'?'Поповнення':'Розрахунок поїздки'} · {fare.toFixed(2)} грн</Text>
+                    <Text style={{color:'#A8C0CF',fontSize:11}}>{new Date(t.createdAt).toLocaleString('uk-UA')} · {t.requestId ? 'Заявка '+t.requestId.slice(0,8) : 'Без заявки'} · {t.entryCount} проводки</Text>
+                    <Text style={{color:'#D3E4ED',fontSize:12}}>Пасажири: {(Number(t.passengerDeltaMinor)/100).toFixed(2)} · Водії: {(Number(t.driverDeltaMinor)/100).toFixed(2)} · Платформа: {(Number(t.platformDeltaMinor)/100).toFixed(2)}</Text>
+                    <Text style={{color:'#B2C6D1',fontSize:11}}>Тестове джерело: {(Number(t.sourceDeltaMinor)/100).toFixed(2)} грн</Text>
+                    <Text style={{color:balanced?'#54E2A7':'#FF9D8C',fontWeight:'800'}}>{balanced?'✓ Проводки збалансовані':'⚠ Помилка балансу проводок: '+t.journalNetMinor+' коп.'}</Text>
+                  </View>;
+                })}
+                {financeJournal?.transactions.length===0 && <Text style={{color:'#A8C0CF'}}>Поки немає тестових фінансових операцій.</Text>}
+              </View>}
               {adminSection==='logs' && <View style={{padding:15,borderRadius:12,backgroundColor:'#172C3C',gap:9}}>
                 <Text style={{color:'#FFFFFF',fontWeight:'800'}}>Журнал подій</Text>
                 <Text style={{color:'#A8C0CF',fontSize:12}}>Серверний журнал ще не підключено. Тут будуть події створення й скасування заявки, резервування маршрутів, прийняття, прибуття, очікування, неявки, компенсацій, втрати зв’язку та помилок.</Text>
