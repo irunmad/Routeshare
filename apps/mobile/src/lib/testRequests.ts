@@ -9,7 +9,7 @@ export interface TestPassengerRequest {
   departureStart: string;
   departureEnd: string;
   offeredRateUahPerKm: number;
-  status: 'searching' | 'accepted';
+  status: 'searching' | 'accepted' | 'in_trip' | 'completed';
   driverUserId?: string | null;
   acceptedAt?: string | null;
   createdAt: string;
@@ -72,4 +72,22 @@ export function acceptTestPassengerRequest(id: string, driverProfileId: string):
 
 export function releaseTestPassengerRequest(id: string, driverProfileId: string): Promise<{ id: string; status: string }> {
   return request(`/test/passenger-requests/${id}/release`, { method: 'POST' }, driverProfileId);
+}
+
+export interface TestWallet {
+  userId: string;
+  accounts: { kind: string; balance: string }[];
+  transactions: { id: string; kind: string; requestId?: string; amountMinor: string; platformFeeMinor: string; createdAt: string }[];
+}
+export function getTestWallet(profileId: string): Promise<TestWallet> {
+  return request<TestWallet>('/test/passenger-requests/wallet', {}, profileId);
+}
+export function topupTestWallet(profileId: string, amountUah: number): Promise<{ transactionId: string }> {
+  return request('/test/passenger-requests/wallet/topup', { method: 'POST', body: JSON.stringify({ amountUah }) }, profileId);
+}
+export function startTestTrip(profileId: string, id: string): Promise<{ id: string; status: string }> {
+  return request(`/test/passenger-requests/${id}/start`, { method: 'POST' }, profileId);
+}
+export function completeTestTrip(profileId: string, id: string, fareUah: number): Promise<{ id: string; fareMinor: number; driverNetMinor: number; platformFeeMinor: number }> {
+  return request(`/test/passenger-requests/${id}/complete`, { method: 'POST', body: JSON.stringify({ fareUah }) }, profileId);
 }
