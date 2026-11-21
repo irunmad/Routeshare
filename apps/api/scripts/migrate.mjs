@@ -23,6 +23,7 @@ const migrations = [
   { version: "0004_test_passenger_requests", file: "src/database/migrations/0004_test_passenger_requests.sql" },
   { version: "0005_operational_observability", file: "src/database/migrations/0005_operational_observability.sql" },
   { version: "0006_test_request_events", file: "src/database/migrations/0006_test_request_events.sql" },
+  { version: "0007_test_profiles", file: "src/database/migrations/0007_test_profiles.sql" },
 ];
 
 try {
