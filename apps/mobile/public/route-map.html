@@ -187,7 +187,7 @@
                 if(signal.aborted)return;
                 L.polyline(geometry.map(toLatLng),{color:'#C8D4DF',weight:3,opacity:.9,dashArray:'6 7'}).addTo(routeLayers);
               } catch {
-                L.polyline(segment.map(toLatLng),{color:'#C8D4DF',weight:2,opacity:.65,dashArray:'5 7'}).addTo(routeLayers);
+                unavailable++; // Do not draw a straight line through buildings when routing fails.
               }
             }
           }
@@ -202,7 +202,7 @@
                 L.polyline(path,{color,weight:4+count*2,opacity:1}).addTo(routeLayers);
                 drawn++;
               }catch{
-                L.polyline([stops[k],stops[k+1]].map(toLatLng),{color,weight:3+count*2,dashArray:'4 5'}).addTo(routeLayers);
+                unavailable++; // Never substitute an off-road chord for a driven segment.
               }
             }
             fitRoutes();
@@ -214,24 +214,14 @@
               if (signal.aborted) return;
               const width = route.kind === 'driver' ? 5 : route.separate ? 2.5 : 4;
               const path = geometry.map(toLatLng);
-              // Small lateral separation lets coincident colored routes remain visible.
-              const shift = route.separate && color !== neutral ? ((routeIndex % 5) - 2) * 1.8 : 0;
-              const shifted = shift ? path.map((point,i) => {
-                const prev = map.project(path[Math.max(0,i-1)],map.getZoom());
-                const next = map.project(path[Math.min(path.length-1,i+1)],map.getZoom());
-                const dx=next.x-prev.x,dy=next.y-prev.y;
-                const length=Math.hypot(dx,dy)||1;
-                const pixel=map.project(point,map.getZoom());
-                return map.unproject([pixel.x-dy/length*shift,pixel.y+dx/length*shift],map.getZoom());
-              }) : path;
-              L.polyline(shifted, { color: '#fff', weight: width+1, opacity: .68 }).addTo(routeLayers);
-              L.polyline(shifted, { color, weight: width, opacity: .95 }).addTo(routeLayers);
+              // All overlapping routes use the exact OSRM road geometry; no pixel offsets.
+              L.polyline(path, { color: '#fff', weight: width+1, opacity: .68 }).addTo(routeLayers);
+              L.polyline(path, { color, weight: width, opacity: .95 }).addTo(routeLayers);
               drawn++;
             } catch {
               if (signal.aborted) return;
               if (route.kind === 'demo') {
-                L.polyline(pair.map(toLatLng), { color, weight: 2, dashArray: '6 5' }).addTo(routeLayers);
-                demoSchemes++;
+                demoSchemes++; // Routing unavailable: report, never invent a road geometry.
               } else unavailable++;
             }
           }
@@ -247,7 +237,8 @@
         if (demos) status.push('Демо: ' + demos);
         if (demoSchemes) status.push('Демо-схеми: ' + demoSchemes);
         if (missing) status.push('Без координат: ' + missing);
-        if (unavailable) status.push('Недоступні: ' + unavailable);
+        if (unavailable) status.push('Не вдалося прокласти: ' + unavailable);
+        if (unavailable || demoSchemes) status.push('Прямі лінії вимкнено');
         info.textContent = status.join(' · ');
       }
 
