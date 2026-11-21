@@ -177,7 +177,8 @@ export class TestRequestsService {
           offered_rate_minor_per_km / 100.0 AS "offeredRateUahPerKm",
           status, created_at AS "createdAt",
           (installation_id = $1 OR user_id = (SELECT user_id FROM test_profiles WHERE profile_id = $1)) AS "isMine",
-          user_id AS "userId", accepted_driver_user_id AS "driverUserId", accepted_at AS "acceptedAt"
+          user_id AS "userId", accepted_driver_user_id AS "driverUserId", accepted_at AS "acceptedAt",
+          (accepted_driver_user_id = (SELECT user_id FROM test_profiles WHERE profile_id = $1)) AS "acceptedByMe"
          FROM test_passenger_requests
          WHERE status IN ('searching','accepted')
          ORDER BY created_at DESC
