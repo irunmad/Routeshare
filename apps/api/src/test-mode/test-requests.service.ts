@@ -194,6 +194,23 @@ export class TestRequestsService {
     }
   }
 
+  async readiness() {
+    this.assertEnabled();
+    return this.database.withTransaction(async client => {
+      const required = ['0004_test_passenger_requests', '0005_operational_observability',
+        '0006_test_request_events', '0007_test_profiles', '0008_test_driver_acceptance',
+        '0009_test_acceptance_grace', '0010_test_wallet_and_trip'];
+      const found = await client.query(
+        'SELECT version FROM public.schema_migrations WHERE version = ANY($1::text[])',
+        [required],
+      );
+      const applied = new Set<string>(found.rows.map((row: { version: string }) => row.version));
+      const missing = required.filter(version => !applied.has(version));
+      return { ready: missing.length === 0, applied: required.filter(v => applied.has(v)),
+        missing, testMode: true, realPayments: false };
+    });
+  }
+
   async financeJournal() {
     this.assertEnabled();
     return this.database.withTransaction(async client => {
