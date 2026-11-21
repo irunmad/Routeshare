@@ -25,6 +25,7 @@ const migrations = [
   { version: "0006_test_request_events", file: "src/database/migrations/0006_test_request_events.sql" },
   { version: "0007_test_profiles", file: "src/database/migrations/0007_test_profiles.sql" },
   { version: "0008_test_driver_acceptance", file: "src/database/migrations/0008_test_driver_acceptance.sql" },
+  { version: "0009_test_acceptance_grace", file: "src/database/migrations/0009_test_acceptance_grace.sql" },
 ];
 
 try {
