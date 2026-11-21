@@ -34,6 +34,14 @@ export class TestRequestsController {
     return this.requests.list(installationId);
   }
 
+  @Post(':id/accept')
+  accept(
+    @Headers('x-test-installation-id') profileId: string,
+    @Param('id') id: string,
+  ) {
+    return this.requests.accept(profileId, id);
+  }
+
   @Delete(':id')
   cancel(
     @Headers('x-test-installation-id') installationId: string,
