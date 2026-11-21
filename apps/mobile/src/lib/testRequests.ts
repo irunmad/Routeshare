@@ -14,6 +14,7 @@ export interface TestPassengerRequest {
   acceptedAt?: string | null;
   createdAt: string;
   isMine: boolean;
+  acceptedByMe?: boolean;
   userId?: string | null;
 }
 
