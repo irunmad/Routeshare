@@ -9,7 +9,9 @@ export interface TestPassengerRequest {
   departureStart: string;
   departureEnd: string;
   offeredRateUahPerKm: number;
-  status: 'searching';
+  status: 'searching' | 'accepted';
+  driverUserId?: string | null;
+  acceptedAt?: string | null;
   createdAt: string;
   isMine: boolean;
   userId?: string | null;
@@ -61,4 +63,8 @@ export function registerTestProfile(profile: { id: string; name: string; phone: 
     method: 'POST',
     body: JSON.stringify({ name: profile.name, phone: profile.phone }),
   }, profile.id);
+}
+
+export function acceptTestPassengerRequest(id: string, driverProfileId: string): Promise<{ id: string; status: string; driverUserId: string }> {
+  return request(`/test/passenger-requests/${id}/accept`, { method: 'POST' }, driverProfileId);
 }
