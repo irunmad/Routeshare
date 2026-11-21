@@ -1147,13 +1147,13 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
       {view === 'list' && <Text style={{ color: design === 'new' ? '#526D7D' : '#9DB2C2', fontSize: 11, marginBottom: 5 }}>{matchingState}{comboStatus ? ' · '+comboStatus : ''}</Text>}
       {view === 'list' && offers.length === 0 && <Text style={driverStyles.empty}>{online?'Немає варіантів для цих фільтрів.':'Пошук вимкнено. Поточна поїздка не скасовується.'}</Text>}
       {view === 'list' && offers.map(o => (
-        <TouchableOpacity key={o.id} onPress={() => onSelectOffer(o)} activeOpacity={0.8} style={[driverStyles.offer, { borderColor: o.color, borderLeftWidth: 4, borderTopWidth: 1, borderRightWidth: 1, borderBottomWidth: 1, borderRadius: 12, paddingVertical: 10, marginBottom: 7, borderTopColor:o.color, shadowColor: o.color, shadowOpacity: 0.17, shadowRadius: 4, shadowOffset: {width:0,height:0}, elevation: 1 }, design === 'new' && { backgroundColor: '#FFFFFF' }]}>
+        <TouchableOpacity key={o.id} onPress={() => onSelectOffer(o)} activeOpacity={0.8} style={[driverStyles.offer, { borderColor: '#33495C', borderLeftColor: o.color, borderLeftWidth: 4, borderTopWidth: 1, borderRightWidth: 1, borderBottomWidth: 1, borderRadius: 16, paddingVertical: 12, marginBottom: 9, shadowColor: '#000000', shadowOpacity: 0.10, shadowRadius: 3, shadowOffset: {width:0,height:2}, elevation: 1 }, design === 'new' && { backgroundColor: '#FFFFFF' }]}>
 
-          <View pointerEvents="none" style={{position:'absolute',left:1,right:1,top:1,height:155,overflow:'hidden',borderTopLeftRadius:11,borderTopRightRadius:11}}>
-            <Image resizeMode="stretch" source={{uri:'data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="155"><defs><linearGradient id="fade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="'+o.color+'" stop-opacity=".13"/><stop offset=".35" stop-color="'+o.color+'" stop-opacity=".075"/><stop offset=".76" stop-color="'+o.color+'" stop-opacity=".025"/><stop offset="1" stop-color="'+o.color+'" stop-opacity="0"/></linearGradient></defs><rect width="400" height="105" fill="url(#fade)"/></svg>')}} style={{width:'100%',height:155}} />
+          <View pointerEvents="none" style={{position:'absolute',left:1,right:1,top:1,height:155,overflow:'hidden',borderTopLeftRadius:15,borderTopRightRadius:15}}>
+            <Image resizeMode="stretch" source={{uri:'data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="155"><defs><linearGradient id="fade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="'+o.color+'" stop-opacity=".07"/><stop offset=".35" stop-color="'+o.color+'" stop-opacity=".035"/><stop offset=".76" stop-color="'+o.color+'" stop-opacity=".012"/><stop offset="1" stop-color="'+o.color+'" stop-opacity="0"/></linearGradient></defs><rect width="400" height="105" fill="url(#fade)"/></svg>')}} style={{width:'100%',height:155}} />
           </View>
           <View style={[driverStyles.metrics,{gap:4,alignItems:'center'}]}>
-            <Text style={[driverStyles.total,{flexShrink:0,color:'#FFFFFF',textShadowColor:'#75828F',textShadowRadius:1.5,textShadowOffset:{width:0,height:1}}]}>₴{o.amount}</Text>
+            <Text style={[driverStyles.total,{flexShrink:0,color:'#FFFFFF',textShadowColor:'transparent',textShadowRadius:0,textShadowOffset:{width:0,height:0}}]}>₴{o.amount}</Text>
             <Text style={{fontSize:10,color:'#A5B4C1',flexShrink:0}}>▴ {o.distance.toFixed(1)} км</Text>
             <Text style={[driverStyles.metric,{flexShrink:0,fontSize:11}]}><Text style={[driverStyles.green,{fontSize:17}]}>{perKm(o).toFixed(1)}</Text> ₴/км</Text>
             <Text style={{fontSize:10,color:'#A5B4C1',flexShrink:0}}>◷ {o.minutes} хв</Text>
@@ -1294,22 +1294,22 @@ const detailStyles = StyleSheet.create({
 
 const driverStyles = StyleSheet.create({
   wrap: { gap: 8 }, heading: { color: '#FFFFFF', fontSize: 17, fontWeight: '800', marginBottom: 6 },
-  preview: { color: '#D9B890', fontSize: 10 }, filters: { flexDirection: 'row', gap: 5, marginBottom: 5 },
-  filter: { flex: 1, minWidth: 0, borderWidth: 1, borderColor: '#53616F', backgroundColor:'#213247', borderRadius: 12, paddingVertical: 7, paddingHorizontal:2, alignItems: 'center', justifyContent:'center' },
+  preview: { color: '#D9B890', fontSize: 10 }, filters: { flexDirection: 'row', gap: 8, marginBottom: 8 },
+  filter: { flex: 1, minWidth: 0, borderWidth: 1, borderColor: '#3C5368', backgroundColor:'#213247', borderRadius: 14, paddingVertical: 12, paddingHorizontal:8, alignItems: 'center', justifyContent:'center', minHeight: 46 },
   legend: { color: '#D1DBE4', fontSize: 10, marginBottom: 3, fontWeight:'700' }, filterValue: { color: '#F6F8FB', fontSize: 12, fontWeight: '900' },
-  sortRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 5 },
+  sortRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 8, minHeight: 40 },
   count: { color: '#FFFFFF', fontSize: 14, fontWeight: '800', flex: 1 },
   sortLabel: { color: '#9CAFC1', fontSize: 10 },
-  sortChip: { paddingHorizontal: 7, paddingVertical: 6, borderWidth: 1, borderColor: '#536374', borderRadius: 9 },
-  sortActive: { borderColor: '#5ABCA7', backgroundColor: '#103628' }, sortText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
-  offer: { backgroundColor: '#182638', borderWidth: 1, borderRadius: 12, paddingHorizontal: 7, paddingVertical: 8, marginBottom: 5 },
-  metrics: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 3, marginBottom: 7 },
+  sortChip: { paddingHorizontal: 12, paddingVertical: 9, borderWidth: 1, borderColor: '#3F566B', backgroundColor:'#213247', borderRadius: 12, minHeight: 38, justifyContent:'center' },
+  sortActive: { borderColor: '#7CC8D6', backgroundColor: '#285064' }, sortText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
+  offer: { backgroundColor: '#182638', borderWidth: 1, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 12, marginBottom: 9 },
+  metrics: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 6, marginBottom: 10, flexWrap: 'wrap' },
   total: { color: '#FFFFFF', fontSize: 24, fontWeight: '900' }, gps: { color: '#75C9B2', fontSize: 9, fontWeight: '800' },
   metric: { color: '#FFFFFF', fontSize: 10, fontWeight: '700' }, green: { color: '#76CBB3', fontSize: 17, fontWeight: '900' },
   orange: { color: '#D6AE78', fontSize: 17, fontWeight: '900' }, address: { color: '#E1E9F0', fontSize: 10, marginBottom: 3 },
   tripInfo: { flexDirection: 'row', justifyContent: 'flex-end', gap: 14, marginBottom: 4 },
   tripInfoText: { color: '#A8B9C7', fontSize: 11 },
-  person: { borderTopWidth: 1, borderTopColor: '#2A3948', flexDirection: 'row', alignItems: 'center', minHeight: 35, gap: 3 },
+  person: { borderTopWidth: 1, borderTopColor: '#2A3948', flexDirection: 'row', alignItems: 'center', minHeight: 42, gap: 6 },
   personAvatar: { width: 23, height: 23, borderRadius: 12, backgroundColor: '#32485D', alignItems: 'center', justifyContent: 'center' },
   personAvatarText: { color: '#FFFFFF', fontSize: 10, fontWeight: '700' }, personName: { flex: 1, minWidth: 0, flexShrink: 1, color: '#F5F7FA', fontSize: 16, fontWeight:'700' },
   acceptance: { color: '#79CBB6', fontSize: 14, fontWeight: '700', width: 36, textAlign: 'right' },
