@@ -144,6 +144,29 @@ export class TestRequestsService {
     });
   }
 
+  async release(profileId: string, requestId: string) {
+    this.assertEnabled();
+    const actor = this.validateInstallationId(profileId);
+    const id = this.validateInstallationId(requestId);
+    return this.database.withTransaction(async client => {
+      const result = await client.query(
+        `UPDATE test_passenger_requests
+         SET status = 'searching', accepted_driver_user_id = NULL, accepted_at = NULL
+         WHERE id = $1 AND status = 'accepted'
+           AND accepted_driver_user_id = (SELECT user_id FROM test_profiles WHERE profile_id = $2)
+           AND accepted_at >= now() - interval '10 seconds'
+         RETURNING id, status`,
+        [id, actor],
+      );
+      if (!result.rowCount) throw new BadRequestException('Free driver cancellation window has expired or this request is not yours.');
+      await client.query(
+        "INSERT INTO test_request_events (request_id, actor_profile_id, event_type) VALUES ($1, $2, 'request.driver_released')",
+        [id, actor],
+      );
+      return result.rows[0];
+    });
+  }
+
   async list(installationId: string) {
     this.assertEnabled();
     const owner = this.validateInstallationId(installationId);
@@ -176,7 +199,8 @@ export class TestRequestsService {
       const result = await client.query(
         `UPDATE test_passenger_requests
          SET status = 'cancelled', cancelled_at = now()
-         WHERE id = $1 AND (installation_id = $2 OR user_id = (SELECT user_id FROM test_profiles WHERE profile_id = $2)) AND status = 'searching'
+         WHERE id = $1 AND (installation_id = $2 OR user_id = (SELECT user_id FROM test_profiles WHERE profile_id = $2))
+           AND (status = 'searching' OR (status = 'accepted' AND accepted_at >= now() - interval '10 seconds'))
          RETURNING id, status`,
         [requestId, owner],
       );
