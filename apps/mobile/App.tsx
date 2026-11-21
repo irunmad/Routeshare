@@ -181,6 +181,7 @@ export default function App() {
   const modeTabs = useRef<Record<Mode, Tab>>({passenger:'home',driver:'home',admin:'home'});
   const switchMode = (next: Mode) => { if(next===mode)return; modeTabs.current[mode]=tab; setMode(next); setTab(modeTabs.current[next]); setMenuOpen(false); setAccountScreen('none'); };
   const [menuOpen, setMenuOpen] = useState(false);
+  const [adminSection, setAdminSection] = useState<'requests' | 'status' | 'logs'>('requests');
   const [profiles, setProfiles] = useState<TestProfile[]>(loadProfiles);
   const [activeProfileId, setActiveProfileId] = useState(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return '';
@@ -489,19 +490,29 @@ export default function App() {
           {tab === 'home' && <View style={{display:mode==='driver'?'flex':'none'}}><DriverOfferList liveRequests={testRequests} onRefresh={() => refreshTestRequests(true)} design={design} view={driverView} selectedOffer={driverOffer} onSelectOffer={(offer) => { setDriverOffer(offer); setDriverView('offer'); }} onBack={() => { setDriverOffer(null); setDriverView('list'); }} /></View>}
 
           {tab === 'home' && mode === 'admin' && (
-            <View style={{gap:12}}>
-              <Text style={styles.pageTitle}>Панель адміністратора</Text>
-              <Text style={styles.pageSubtitle}>Тестовий режим · перегляд заявок з усіх пристроїв незалежно від фільтрів водія</Text>
-              <View style={{backgroundColor:'#172C3C',borderRadius:14,padding:16,gap:8,borderWidth:1,borderColor:'#31546A'}}>
-                <Text style={{color:'#A8C0CF',fontSize:12}}>Усього отриманих тестових заявок</Text>
-                <Text style={{color:'#49E5A2',fontWeight:'900',fontSize:30}}>{testRequests.length}</Text>
-                <TouchableOpacity onPress={()=>{setTab('trips');refreshTestRequests(true);}} style={{backgroundColor:'#145C46',borderRadius:10,padding:12,alignItems:'center'}}><Text style={{color:'#FFFFFF',fontWeight:'900'}}>☷ Усі заявки</Text></TouchableOpacity>
+            <View style={{gap:10}}>
+              <Text style={styles.pageTitle}>Адмін · Тестування</Text>
+              <View style={{flexDirection:'row',gap:5}}>
+                {([['requests','Заявки'],['status','Статуси'],['logs','Логи']] as const).map(([key,label])=><TouchableOpacity key={key} onPress={()=>{setAdminSection(key);if(key==='requests')refreshTestRequests(true);}} style={{flex:1,paddingVertical:10,borderRadius:9,alignItems:'center',backgroundColor:adminSection===key?'#145C46':'#243B4B',borderWidth:1,borderColor:adminSection===key?'#35D99B':'#345368'}}><Text style={{color:'#FFFFFF',fontWeight:'800',fontSize:12}}>{label}</Text></TouchableOpacity>)}
               </View>
-              <View style={{backgroundColor:'#172C3C',borderRadius:14,padding:16,gap:7,borderWidth:1,borderColor:'#31546A'}}>
-                <Text style={{color:'#FFFFFF',fontWeight:'800'}}>Майбутні розділи</Text>
-                <Text style={{color:'#A8C0CF',fontSize:12}}>Спори, компенсації, водії, пасажири, фінансові операції та аудит дій адміністратора.</Text>
-                <Text style={{color:'#EFCB81',fontSize:11}}>Адміністративні повноваження поки не реалізовані. Це тестовий перегляд, не захищений доступ до даних.</Text>
-              </View>
+              {adminSection==='requests' && <>
+                <Text style={styles.pageSubtitle}>Усі тестові заявки · незалежно від фільтрів водія · оновлення кожні 5 с</Text>
+                <Text style={{color:'#49E5A2',fontWeight:'900',fontSize:16}}>Заявок: {testRequests.length}</Text>
+                {testRequests.length===0?<View style={styles.emptyCard}><Text style={styles.emptyTitle}>Заявок поки немає</Text><Text style={styles.emptyText}>Створи маршрут у режимі пасажира.</Text></View>:testRequests.map(request=><TestRequestCard key={request.id} request={request} onCancel={cancelTestRequest}/>)}
+                <TouchableOpacity style={styles.secondaryButton} onPress={()=>refreshTestRequests(true)}><Text style={styles.secondaryButtonText}>Оновити зараз</Text></TouchableOpacity>
+              </>}
+              {adminSection==='status' && <>
+                <Text style={styles.pageSubtitle}>Поточні стани, які реально повертає тестовий API</Text>
+                <View style={{padding:15,borderRadius:12,backgroundColor:'#172C3C',gap:9}}>
+                  <Text style={{color:'#FFFFFF',fontWeight:'800'}}>Заявки у пошуку: {testRequests.filter(x=>x.status==='searching').length}</Text>
+                  <Text style={{color:'#A8C0CF',fontSize:12}}>Інші статуси поїздок, підключення водіїв, GPS, резервування та завершення поїздок поки не надходять із тестового API.</Text>
+                </View>
+              </>}
+              {adminSection==='logs' && <View style={{padding:15,borderRadius:12,backgroundColor:'#172C3C',gap:9}}>
+                <Text style={{color:'#FFFFFF',fontWeight:'800'}}>Журнал подій</Text>
+                <Text style={{color:'#A8C0CF',fontSize:12}}>Серверний журнал ще не підключено. Тут будуть події створення й скасування заявки, резервування маршрутів, прийняття, прибуття, очікування, неявки, компенсацій, втрати зв’язку та помилок.</Text>
+                <Text style={{color:'#EFCB81',fontSize:11}}>Не показуємо вигадані записи: журнал з’явиться після підключення API подій.</Text>
+              </View>}
             </View>
           )}
 
