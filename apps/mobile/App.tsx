@@ -463,18 +463,10 @@ export default function App() {
     <SafeAreaView style={styles.safe}>
       <StatusBar style="light" />
       <View style={[styles.screen, design === 'new' && { backgroundColor: '#E9F0F6' }]}>
-        <View style={[styles.header, design === 'new' && { backgroundColor: '#27495E', borderBottomColor: '#2B7088' }]}>
-          <TouchableOpacity accessibilityLabel="Відкрити меню" onPress={()=>{setMenuOpen(v=>!v);setAccountScreen('none');}} style={{paddingHorizontal:8,paddingVertical:7}}><Text style={{color:'#E8F7FF',fontSize:25,fontWeight:'900'}}>☰</Text></TouchableOpacity>
-          <View>
-            <Text style={styles.brand}>ROUTE<Text style={styles.brandAccent}>SHARE</Text></Text>
-            <Text style={styles.headerCaption}>Твій маршрут. Твоя компанія.</Text>
-          </View>
-          <TouchableOpacity style={styles.avatar} onPress={() => {setMenuOpen(false);setAccountScreen('login');}}>
-            <Text style={styles.avatarText}>{activeProfile?.avatar || (mode === 'driver' ? '🚗' : mode === 'admin' ? '🛡️' : '👤')}</Text>
+        <View style={{flexDirection:'row',gap:6,paddingHorizontal:9,paddingVertical:6,backgroundColor:'#152231',borderBottomWidth:1,borderBottomColor:'#294153',alignItems:'center'}}>
+          <TouchableOpacity accessibilityLabel="Відкрити меню" onPress={()=>{setMenuOpen(v=>!v);setAccountScreen('none');}} style={{width:43,minHeight:42,alignItems:'center',justifyContent:'center',borderRadius:11,backgroundColor:'#213247'}}>
+            <Text style={{color:'#E8F7FF',fontSize:23,fontWeight:'800'}}>☰</Text>
           </TouchableOpacity>
-        </View>
-
-        <View style={{flexDirection:'row',gap:5,paddingHorizontal:8,paddingVertical:5,backgroundColor:'#0D1C2A',borderBottomWidth:1,borderBottomColor:'#294153'}}>
           {([['passenger','👤 Пасажир'],['driver','🚗 Водій'],['admin','🛡 Адмін']] as const).map(([key,label])=>(
             <TouchableOpacity key={key} accessibilityLabel={'Режим '+label} onPress={()=>switchMode(key)} style={{flex:1,alignItems:'center',justifyContent:'center',paddingVertical:7,paddingHorizontal:2,borderRadius:8,backgroundColor:mode===key?'#0D664C':'#23384A',borderWidth:1,borderColor:mode===key?'#60C4B5':'#345066'}}>
               <Text numberOfLines={1} style={{fontSize:11,fontWeight:'800',color:mode===key?'#FFFFFF':'#D3E1EB'}}>{label}</Text>
@@ -1204,7 +1196,7 @@ function RouteMapPreview({ detail, routes }: { detail: boolean; routes: MapRoute
   if (Platform.OS !== 'web') return <View style={detailStyles.mapPlaceholder}><Text style={detailStyles.mapText}>Веб-карта доступна у браузері.</Text></View>;
   return <View style={{ height: detail ? 190 : 360, borderRadius: 9, overflow: 'hidden', borderWidth: 1, borderColor: '#526373' }}>
     {React.createElement('iframe', {
-      ref: frame, src: './route-map.html?v=6', onLoad: sendRoutes, title: 'Карта маршрутів RouteShare',
+      ref: frame, src: './route-map.html?v=8', onLoad: sendRoutes, title: 'Карта маршрутів RouteShare',
       style: { width: '100%', height: '100%', border: 0 },
     })}
   </View>;
