@@ -68,3 +68,7 @@ export function registerTestProfile(profile: { id: string; name: string; phone: 
 export function acceptTestPassengerRequest(id: string, driverProfileId: string): Promise<{ id: string; status: string; driverUserId: string }> {
   return request(`/test/passenger-requests/${id}/accept`, { method: 'POST' }, driverProfileId);
 }
+
+export function releaseTestPassengerRequest(id: string, driverProfileId: string): Promise<{ id: string; status: string }> {
+  return request(`/test/passenger-requests/${id}/release`, { method: 'POST' }, driverProfileId);
+}
