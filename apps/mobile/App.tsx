@@ -918,6 +918,59 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
     for(const [key,value] of [['seats',seats],['pickup',pickupLimit],['final',finalLimit],['unique',unique]] as const)
       window.localStorage.setItem('rs-driver-filter-'+key,JSON.stringify(value));
   },[seats,pickupLimit,finalLimit,unique]);
+  const [seedBusy,setSeedBusy] = useState(false);
+  const [seedMessage,setSeedMessage] = useState('');
+  // These are actual test API records, not visual-only demo lines.
+  // All points originate from the current driver's OSRM road geometry.
+  const seedNearbyRequests = async () => {
+    if (!driverStart || !destinationPoint || seedBusy) return;
+    setSeedBusy(true); setSeedMessage('Прокладаємо маршрут водія…');
+    let created = 0;
+    try {
+      const url='https://router.project-osrm.org/route/v1/driving/'+driverStart.lon+','+driverStart.lat+';'+destinationPoint.lon+','+destinationPoint.lat+'?overview=full&geometries=geojson';
+      const response=await fetch(url);
+      if(!response.ok)throw Error('OSRM недоступний');
+      const geometry=(await response.json()).routes?.[0]?.geometry?.coordinates as number[][] | undefined;
+      if(!geometry || geometry.length<8)throw Error('Маршрут водія занадто короткий або недоступний');
+      const cumulative=[0];
+      for(let i=1;i<geometry.length;i++){
+        const a=geometry[i-1],b=geometry[i];
+        cumulative.push(cumulative[i-1]+Math.hypot((b[1]-a[1])*111000,(b[0]-a[0])*71000));
+      }
+      const total=cumulative[cumulative.length-1];
+      if(total<2500)throw Error('Для тесту потрібен маршрут водія від 2,5 км');
+      const pointAt=(fraction:number): Coordinates=>{
+        const target=total*fraction;
+        let i=1;while(i<cumulative.length-1 && cumulative[i]<target)i++;
+        const part=(target-cumulative[i-1])/Math.max(0.001,cumulative[i]-cumulative[i-1]);
+        return {lon:geometry[i-1][0]+(geometry[i][0]-geometry[i-1][0])*part,lat:geometry[i-1][1]+(geometry[i][1]-geometry[i-1][1])*part};
+      };
+      const reverse=async(p:Coordinates)=>{
+        try {
+          const response=await fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&addressdetails=1&accept-language=uk&lat='+p.lat+'&lon='+p.lon);
+          if(!response.ok)throw Error('reverse');
+          const data=await response.json();const a=data.address||{};
+          return [a.road||a.pedestrian||a.residential||a.suburb,a.house_number,a.city||a.town||'Київ'].filter(Boolean).join(', ') || p.lat.toFixed(5)+', '+p.lon.toFixed(5);
+        }catch{return 'GPS '+p.lat.toFixed(5)+', '+p.lon.toFixed(5);}
+      };
+      const key='routeshare.generated-test-profile';
+      let id=window.localStorage.getItem(key);
+      if(!id){id=testUuid();window.localStorage.setItem(key,id);}
+      await registerTestProfile({id,name:'Тестовий пасажир RouteShare',phone:''});
+      const pairs:[[number,number],[number,number],[number,number]]=[[0.12,0.46],[0.27,0.68],[0.48,0.88]];
+      for(const [from,to] of pairs){
+        const originPoint=pointAt(from),destinationPoint=pointAt(to);
+        const [origin,destination]=await Promise.all([reverse(originPoint),reverse(destinationPoint)]);
+        const departureStart=new Date();
+        const departureEnd=new Date(departureStart.getTime()+11*60000);
+        await createTestPassengerRequest({origin,destination,originPoint,destinationPoint,departureStart:departureStart.toISOString(),departureEnd:departureEnd.toISOString(),offeredRateUahPerKm:15},id);
+        created++;setSeedMessage('Створено '+created+'/3 заявок');
+      }
+      await onRefresh();
+      setSeedMessage('Створено 3 реальні тестові заявки вздовж маршруту водія');
+    }catch(e){setSeedMessage('Створено '+created+'/3. '+(e instanceof Error?e.message:'Помилка'));}
+    finally{setSeedBusy(false);}
+  };
   const [showDemo, setShowDemo] = useState(false);
   const [sortBy, setSortBy] = useState<'km' | 'hour'>('km');
   const [replaceName, setReplaceName] = useState<string | null>(null);
@@ -1114,6 +1167,10 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
   return (
     <View style={[driverStyles.wrap, design === 'new' && { backgroundColor: '#E9F0F6', padding: 8, borderRadius: 14 }]}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}><Text style={[driverStyles.heading, design === 'new' && { color: '#27495E' }]}>Маршрути</Text><Text style={{ color: design === 'new' ? '#526D7D' : '#91A8B7', fontSize: 11 }}>{liveRequests.length} активних пасажирських заявок</Text></View>
+      {view === 'list' && <TouchableOpacity disabled={!driverStart||!destinationPoint||seedBusy} onPress={seedNearbyRequests} style={{padding:11,marginBottom:7,borderRadius:12,backgroundColor:'#285064',borderWidth:1,borderColor:'#4E8291',opacity:!driverStart||!destinationPoint||seedBusy?.55:1}}>
+        <Text style={{color:'#E8F7FF',fontSize:12,fontWeight:'800'}}>{seedBusy?'Створюємо заявки…':'＋ Створити 3 тестові заявки вздовж мого маршруту'}</Text>
+      </TouchableOpacity>}
+      {!!seedMessage && view === 'list' && <Text style={{color:'#AFC8D6',fontSize:11,marginBottom:5}}>{seedMessage}</Text>}
       <View style={{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginBottom:5}}>
         <Text style={{color:'#B8CBD7',fontSize:11}}>Реальні тестові заявки: {liveRequests.length}</Text>
         <TouchableOpacity onPress={()=>setShowDemo(v=>!v)} style={{paddingVertical:4,paddingHorizontal:9,borderRadius:9,backgroundColor:showDemo?'#26473B':'#233341'}}>
