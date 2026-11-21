@@ -34,6 +34,11 @@ export class TestRequestsController {
     return this.requests.list(installationId);
   }
 
+  @Get('finance-journal')
+  financeJournal() {
+    return this.requests.financeJournal();
+  }
+
   @Get('wallet')
   wallet(@Headers('x-test-installation-id') profileId: string) {
     return this.requests.wallet(profileId);
