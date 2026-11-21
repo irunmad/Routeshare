@@ -118,6 +118,32 @@ export class TestRequestsService {
     });
   }
 
+  async accept(profileId: string, requestId: string) {
+    this.assertEnabled();
+    const actor = this.validateInstallationId(profileId);
+    const id = this.validateInstallationId(requestId);
+    return this.database.withTransaction(async client => {
+      const identity = await client.query('SELECT user_id FROM test_profiles WHERE profile_id = $1', [actor]);
+      if (!identity.rowCount) throw new BadRequestException('Register a driver test profile first.');
+      const driverId = identity.rows[0].user_id;
+      const result = await client.query(
+        `UPDATE test_passenger_requests
+         SET status = 'accepted', accepted_driver_user_id = $2, accepted_at = now()
+         WHERE id = $1 AND status = 'searching' AND user_id IS DISTINCT FROM $2
+         RETURNING id, status, user_id AS "passengerUserId", accepted_driver_user_id AS "driverUserId", accepted_at AS "acceptedAt"`,
+        [id, driverId],
+      );
+      if (!result.rowCount) throw new BadRequestException('Request unavailable, already accepted, or belongs to this driver.');
+      await client.query("INSERT INTO user_roles (user_id, role) VALUES ($1, 'driver') ON CONFLICT DO NOTHING", [driverId]);
+      await client.query(
+        `INSERT INTO test_request_events (request_id, actor_profile_id, event_type, details)
+         VALUES ($1, $2, 'request.accepted', $3::jsonb)`,
+        [id, actor, JSON.stringify({ driverUserId: driverId })],
+      );
+      return result.rows[0];
+    });
+  }
+
   async list(installationId: string) {
     this.assertEnabled();
     const owner = this.validateInstallationId(installationId);
@@ -128,9 +154,9 @@ export class TestRequestsService {
           offered_rate_minor_per_km / 100.0 AS "offeredRateUahPerKm",
           status, created_at AS "createdAt",
           (installation_id = $1 OR user_id = (SELECT user_id FROM test_profiles WHERE profile_id = $1)) AS "isMine",
-          user_id AS "userId"
+          user_id AS "userId", accepted_driver_user_id AS "driverUserId", accepted_at AS "acceptedAt"
          FROM test_passenger_requests
-         WHERE status = 'searching'
+         WHERE status IN ('searching','accepted')
          ORDER BY created_at DESC
          LIMIT 200`,
         [owner],
