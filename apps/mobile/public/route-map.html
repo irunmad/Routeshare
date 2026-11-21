@@ -65,44 +65,35 @@
       if (isPoint(stop)) return stop;
       if (typeof stop !== 'string' || !stop.trim() || stop === 'Моя GPS-точка') return null;
 
-      const key = 'rs-geo-photon:' + stop.toLowerCase().trim();
+      const key = 'rs-geo-photon:v2:' + stop.toLowerCase().trim();
       try {
         const cached = JSON.parse(localStorage.getItem(key) || 'null');
         if (isPoint(cached)) return cached;
       } catch {}
 
-      const url = 'https://photon.komoot.io/api/?limit=6&lat=50.45&lon=30.52&q=' + encodeURIComponent(stop);
+      const url = 'https://photon.komoot.io/api/?limit=15&lat=50.45&lon=30.52&q=' + encodeURIComponent(stop);
       const { features = [] } = await fetchJson(url, signal);
-      const match = features.find(feature =>
-        (!feature.properties?.countrycode || String(feature.properties.countrycode).toUpperCase() === 'UA') && isPoint(feature.geometry?.coordinates)
+      const matches = features.filter(feature =>
+        String(feature.properties?.countrycode || '').toUpperCase() === 'UA' && isPoint(feature.geometry?.coordinates)
       );
+      const kyiv = matches.filter(feature => {
+        const p = feature.properties || {};
+        const text = [p.city,p.county,p.state,p.name].filter(Boolean).join(' ').toLowerCase();
+        return /київ|киев|kyiv|kiev|київська|киевская/.test(text);
+      });
+      const match = (kyiv.length ? kyiv : matches)[0];
       if (!match) return null;
       const point = match.geometry.coordinates;
       try { localStorage.setItem(key, JSON.stringify(point)); } catch {}
       return point;
     }
 
-    // Snap each address coordinate to a routable road before drawing.
-    // This is an OSRM test implementation; it is not Google Roads API.
-    const snappedCache = new Map();
-    async function snapToRoad(point, signal) {
-      const key = point.join(',');
-      if (snappedCache.has(key)) return snappedCache.get(key);
-      const url = 'https://router.project-osrm.org/nearest/v1/driving/' + key + '?number=1';
-      const data = await fetchJson(url, signal);
-      const candidate = data.waypoints?.[0];
-      if (data.code !== 'Ok' || !isPoint(candidate?.location)) throw new Error('Road snap unavailable');
-      // Reject distant road matches; an incorrect address must be fixed, not silently relocated.
-      const meters = Number(candidate.distance);
-      if (!Number.isFinite(meters) || meters > 120) throw new Error('Road is too far from the selected point');
-      snappedCache.set(key, candidate.location);
-      return candidate.location;
-    }
-
+    // OSRM /route snaps waypoints to its road graph automatically.
+    // Avoid a separate /nearest request for every stop: it doubled network
+    // traffic and a single 120 m rejection made entire routes disappear.
     async function roadGeometry(stops, signal) {
-      const snapped = await Promise.all(stops.map(stop => snapToRoad(stop, signal)));
-      const coordinates = snapped.map(stop => stop.join(',')).join(';');
-      const url = 'https://router.project-osrm.org/route/v1/driving/' + coordinates + '?overview=full&geometries=geojson';
+      const coordinates = stops.map(stop => stop.join(',')).join(';');
+      const url = 'https://router.project-osrm.org/route/v1/driving/' + coordinates + '?overview=full&geometries=geojson&steps=false';
       const data = await fetchJson(url, signal);
       const geometry = data.routes?.[0]?.geometry?.coordinates;
       if (data.code !== 'Ok' || !geometry?.length) throw new Error('Маршрут не знайдено');
