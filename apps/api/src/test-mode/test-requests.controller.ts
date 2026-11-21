@@ -34,6 +34,27 @@ export class TestRequestsController {
     return this.requests.list(installationId);
   }
 
+  @Get('wallet')
+  wallet(@Headers('x-test-installation-id') profileId: string) {
+    return this.requests.wallet(profileId);
+  }
+
+  @Post('wallet/topup')
+  topup(@Headers('x-test-installation-id') profileId: string, @Body() body: { amountUah?: number }) {
+    return this.requests.topup(profileId, body);
+  }
+
+  @Post(':id/start')
+  start(@Headers('x-test-installation-id') profileId: string, @Param('id') id: string) {
+    return this.requests.startTrip(profileId, id);
+  }
+
+  @Post(':id/complete')
+  complete(@Headers('x-test-installation-id') profileId: string, @Param('id') id: string,
+    @Body() body: { fareUah?: number }) {
+    return this.requests.completeTrip(profileId, id, body);
+  }
+
   @Post(':id/accept')
   accept(
     @Headers('x-test-installation-id') profileId: string,
