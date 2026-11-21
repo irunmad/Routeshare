@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { cancelTestPassengerRequest, createTestPassengerRequest, listTestPassengerRequests, registerTestProfile, TestPassengerRequest } from './src/lib/testRequests';
+import { acceptTestPassengerRequest, cancelTestPassengerRequest, createTestPassengerRequest, listTestPassengerRequests, registerTestProfile, TestPassengerRequest } from './src/lib/testRequests';
 import { StatusBar } from 'expo-status-bar';
 import {
   SafeAreaView,
@@ -374,6 +374,18 @@ export default function App() {
     }
   };
 
+  const acceptTestRequest = async (id: string) => {
+    if (!activeProfile) { setNotice('Створи або вибери тестовий профіль водія.'); return; }
+    try {
+      await registerTestProfile(activeProfile);
+      await acceptTestPassengerRequest(id, activeProfile.id);
+      await refreshTestRequests();
+      setNotice('Тестову заявку прийнято водієм ' + activeProfile.name);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Не вдалося прийняти заявку.');
+    }
+  };
+
   const cancelTestRequest = async (id: string) => {
     try {
       await cancelTestPassengerRequest(id, activeProfileId || undefined);
@@ -491,7 +503,13 @@ export default function App() {
             </>
           )}
 
-          {tab === 'home' && <View style={{display:mode==='driver'?'flex':'none'}}><DriverOfferList liveRequests={testRequests} onRefresh={() => refreshTestRequests(true)} design={design} view={driverView} selectedOffer={driverOffer} onSelectOffer={(offer) => { setDriverOffer(offer); setDriverView('offer'); }} onBack={() => { setDriverOffer(null); setDriverView('list'); }} /></View>}
+          {tab === 'home' && <View style={{display:mode==='driver'?'flex':'none'}}><View style={{paddingHorizontal:10,paddingTop:8,gap:5}}>
+            <Text style={{color:'#B5D3E0',fontSize:12,fontWeight:'800'}}>ТЕСТ · ДОСТУПНІ ЗАЯВКИ</Text>
+            {testRequests.filter(r=>r.status==='searching'&&!r.isMine).slice(0,5).map(r=><View key={r.id} style={{backgroundColor:'#193247',padding:10,borderRadius:10,flexDirection:'row',alignItems:'center',gap:8}}>
+              <Text style={{color:'#FFFFFF',flex:1,fontSize:12}} numberOfLines={2}>{r.origin} → {r.destination}</Text>
+              <TouchableOpacity onPress={()=>acceptTestRequest(r.id)} style={{backgroundColor:'#176B51',padding:9,borderRadius:8}}><Text style={{color:'#FFFFFF',fontWeight:'800'}}>Прийняти</Text></TouchableOpacity>
+            </View>)}
+          </View><DriverOfferList liveRequests={testRequests.filter(r=>r.status==='searching')} onRefresh={() => refreshTestRequests(true)} design={design} view={driverView} selectedOffer={driverOffer} onSelectOffer={(offer) => { setDriverOffer(offer); setDriverView('offer'); }} onBack={() => { setDriverOffer(null); setDriverView('list'); }} /></View>}
 
           {tab === 'home' && mode === 'admin' && (
             <View style={{gap:10}}>
@@ -1198,12 +1216,12 @@ function TestRequestCard({ request, onCancel }: { request: TestPassengerRequest;
   return (
     <View style={styles.testRequestCard}>
       <View style={styles.testRequestHeader}>
-        <Text style={styles.testRequestBadge}>ТЕСТ · {request.isMine ? 'ТВОЯ ЗАЯВКА' : 'ІНШИЙ ПРИСТРІЙ'}</Text>
+        <Text style={styles.testRequestBadge}>ТЕСТ · {request.status==='accepted'?'ПРИЙНЯТО ВОДІЄМ':request.isMine ? 'ТВОЯ ЗАЯВКА' : 'ІНШИЙ ПРОФІЛЬ'}</Text>
         <Text style={styles.testRequestRate}>{formatRate(request.offeredRateUahPerKm)} грн/км</Text>
       </View>
       <Text style={styles.testRequestRoute}>{displayTestAddress(request.origin)} → {displayTestAddress(request.destination)}</Text>
       <Text style={styles.testRequestMeta}>Виїзд: {departure}</Text>
-      {request.isMine && <TouchableOpacity style={styles.cancelRequestButton} onPress={() => onCancel(request.id)}><Text style={styles.cancelRequestText}>Скасувати заявку</Text></TouchableOpacity>}
+      {request.isMine && request.status==='searching' && <TouchableOpacity style={styles.cancelRequestButton} onPress={() => onCancel(request.id)}><Text style={styles.cancelRequestText}>Скасувати заявку</Text></TouchableOpacity>}
     </View>
   );
 }
