@@ -126,6 +126,29 @@
         attribution: '© OpenStreetMap contributors',
       }).addTo(map);
       const layers = L.featureGroup().addTo(map);
+      // Long press works with mouse and touch; ignore panning and dragging.
+      let holdTimer = null;
+      let holdStart = null;
+      let holdFired = false;
+      const cancelHold = () => { if(holdTimer)clearTimeout(holdTimer);holdTimer=null; };
+      map.on('mousedown touchstart', event => {
+        cancelHold();
+        holdFired = false;
+        holdStart = event.latlng;
+        if (!holdStart) return;
+        holdTimer=setTimeout(()=>{
+          holdTimer=null;
+          holdFired=true;
+          window.parent.postMessage({type:'routeshare:longpress',lat:holdStart.lat,lon:holdStart.lng},window.location.origin);
+        },650);
+      });
+      map.on('mousemove dragstart zoomstart touchmove mouseup touchend touchcancel',cancelHold);
+      map.on('contextmenu',event=>{
+        cancelHold();
+        if(holdFired)return;
+        window.parent.postMessage({type:'routeshare:longpress',lat:event.latlng.lat,lon:event.latlng.lng},window.location.origin);
+      });
+
       let previousPayload;
       let renderController;
 
