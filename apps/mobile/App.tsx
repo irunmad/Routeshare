@@ -35,7 +35,7 @@ const initialDesign = (): Design => {
 type Tab = 'home' | 'trips' | 'messages' | 'profile';
 
 const sampleTrips = [
-  { id: '1', from: 'Київ', to: 'Житомир', time: 'Сьогодні, 14:30', price: '180 грн', seats: '2 місця', driver: 'Олександр', car: 'Skoda Octavia', color: '#55D6BE' },
+  { id: '1', from: 'Київ', to: 'Житомир', time: 'Сьогодні, 14:30', price: '180 грн', seats: '2 місця', driver: 'Олександр', car: 'Skoda Octavia', color: '#7CC8D6' },
   { id: '2', from: 'Київ', to: 'Черкаси', time: 'Сьогодні, 17:00', price: '320 грн', seats: '3 місця', driver: 'Андрій', car: 'Volkswagen Passat', color: '#8EA8FF' },
   { id: '3', from: 'Бровари', to: 'Київ', time: 'Завтра, 08:15', price: '75 грн', seats: '1 місце', driver: 'Марина', car: 'Toyota Corolla', color: '#F2B76B' },
 ];
@@ -49,7 +49,7 @@ const navSvgPaths: Record<string, string> = {
   offerNew: '<rect x="4" y="3" width="16" height="18" rx="3"/><path d="M8 8h8M8 12h8M8 16h4"/><path d="m13 16 2 2 4-5"/>',
 };
 function NavGraphic({ kind, active, design }: { kind: 'list' | 'map' | 'offer'; active: boolean; design: Design }) {
-  const stroke = design === 'new' ? (active ? '#FFFFFF' : '#146E87') : (active ? '#35E08B' : '#8495A8');
+  const stroke = design === 'new' ? (active ? '#FFFFFF' : '#146E87') : (active ? '#70C5AD' : '#8495A8');
   const key = kind + (design === 'new' ? 'New' : 'Classic');
   const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24"><defs><linearGradient id="metal" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#FFFFFF"/><stop offset=".42" stop-color="' + stroke + '"/><stop offset="1" stop-color="#436A7C"/></linearGradient><filter id="glow"><feGaussianBlur stdDeviation=".55"/></filter></defs><g fill="none" stroke="url(#metal)" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">' + navSvgPaths[key] + '</g><path d="M5 3h14" stroke="#FFFFFF" opacity=".3" stroke-width=".5"/></svg>';
   return <Image source={{ uri: 'data:image/svg+xml,' + encodeURIComponent(svg) }} style={{ width: 28, height: 28 }} resizeMode="contain" />;
@@ -463,7 +463,7 @@ export default function App() {
     <SafeAreaView style={styles.safe}>
       <StatusBar style="light" />
       <View style={[styles.screen, design === 'new' && { backgroundColor: '#E9F0F6' }]}>
-        <View style={[styles.header, design === 'new' && { backgroundColor: '#123B52', borderBottomColor: '#2B7088' }]}>
+        <View style={[styles.header, design === 'new' && { backgroundColor: '#27495E', borderBottomColor: '#2B7088' }]}>
           <TouchableOpacity accessibilityLabel="Відкрити меню" onPress={()=>{setMenuOpen(v=>!v);setAccountScreen('none');}} style={{paddingHorizontal:8,paddingVertical:7}}><Text style={{color:'#E8F7FF',fontSize:25,fontWeight:'900'}}>☰</Text></TouchableOpacity>
           <View>
             <Text style={styles.brand}>ROUTE<Text style={styles.brandAccent}>SHARE</Text></Text>
@@ -476,13 +476,13 @@ export default function App() {
 
         <View style={{flexDirection:'row',gap:5,paddingHorizontal:8,paddingVertical:5,backgroundColor:'#0D1C2A',borderBottomWidth:1,borderBottomColor:'#294153'}}>
           {([['passenger','👤 Пасажир'],['driver','🚗 Водій'],['admin','🛡 Адмін']] as const).map(([key,label])=>(
-            <TouchableOpacity key={key} accessibilityLabel={'Режим '+label} onPress={()=>switchMode(key)} style={{flex:1,alignItems:'center',justifyContent:'center',paddingVertical:7,paddingHorizontal:2,borderRadius:8,backgroundColor:mode===key?'#0D664C':'#23384A',borderWidth:1,borderColor:mode===key?'#38E2A0':'#345066'}}>
+            <TouchableOpacity key={key} accessibilityLabel={'Режим '+label} onPress={()=>switchMode(key)} style={{flex:1,alignItems:'center',justifyContent:'center',paddingVertical:7,paddingHorizontal:2,borderRadius:8,backgroundColor:mode===key?'#0D664C':'#23384A',borderWidth:1,borderColor:mode===key?'#60C4B5':'#345066'}}>
               <Text numberOfLines={1} style={{fontSize:11,fontWeight:'800',color:mode===key?'#FFFFFF':'#D3E1EB'}}>{label}</Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        {menuOpen && <View style={{ flex:1, backgroundColor: '#0B1722', padding: 18, gap: 16, borderTopWidth: 1, borderTopColor: '#284253' }}>
+        {menuOpen && <View style={{ flex:1, backgroundColor: '#152231', padding: 18, gap: 16, borderTopWidth: 1, borderTopColor: '#284253' }}>
           {mode!=='admin' && <View style={{backgroundColor:'#1A3446',padding:12,borderRadius:12,gap:8}}>
             <Text style={{color:'#FFFFFF',fontWeight:'900'}}>💳 {mode==='passenger'?'Баланс пасажира':'Баланс водія'} · ТЕСТ</Text>
             <Text style={{color:'#52E2AD',fontWeight:'900',fontSize:23}}>{testWallet ? ((Number(testWallet.accounts.find(a=>a.kind===(mode==='passenger'?'passenger':'driver'))?.balance||0))/100).toFixed(2) : '—'} грн</Text>
@@ -499,9 +499,9 @@ export default function App() {
           <View style={{ padding: 8, borderRadius: 9, backgroundColor: '#263F53', gap: 8 }}>
             <Text style={{ color: '#FFFFFF', fontWeight: '900' }}>{activeProfile ? activeProfile.avatar + ' ' + activeProfile.name : 'Гість · тестовий режим'}</Text>
             <View style={{ flexDirection: 'row', gap: 10 }}>
-              <TouchableOpacity onPress={() => { setAccountScreen('register'); setMenuOpen(false); }}><Text style={{ color: '#42E5A5', fontWeight: '800' }}>Реєстрація</Text></TouchableOpacity>
-              <TouchableOpacity onPress={() => { setAccountScreen('login'); setMenuOpen(false); }}><Text style={{ color: '#42E5A5', fontWeight: '800' }}>Вхід</Text></TouchableOpacity>
-              <TouchableOpacity onPress={() => selectProfile('')}><Text style={{ color: '#FFB6B6', fontWeight: '800' }}>Вихід</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => { setAccountScreen('register'); setMenuOpen(false); }}><Text style={{ color: '#66C9BC', fontWeight: '800' }}>Реєстрація</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => { setAccountScreen('login'); setMenuOpen(false); }}><Text style={{ color: '#66C9BC', fontWeight: '800' }}>Вхід</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => selectProfile('')}><Text style={{ color: '#DFA4AB', fontWeight: '800' }}>Вихід</Text></TouchableOpacity>
             </View>
           </View>
           <TouchableOpacity onPress={()=>setMenuOpen(false)} style={{alignSelf:'flex-start',padding:11,borderRadius:10,backgroundColor:'#243949'}}><Text style={{color:'#FFFFFF',fontWeight:'800'}}>← Повернутися</Text></TouchableOpacity>
@@ -514,8 +514,8 @@ export default function App() {
           {accountScreen === 'register' ? <>
             <TextInput value={profileName} onChangeText={setProfileName} placeholder="Ім’я" placeholderTextColor="#92A8B8" style={{ backgroundColor: '#28465A', color: '#FFFFFF', padding: 12, borderRadius: 8 }} />
             <TextInput value={profilePhone} onChangeText={setProfilePhone} placeholder="Телефон (тестовий)" placeholderTextColor="#92A8B8" keyboardType="phone-pad" style={{ backgroundColor: '#28465A', color: '#FFFFFF', padding: 12, borderRadius: 8 }} />
-            <View style={{ flexDirection: 'row', gap: 9 }}>{([['male','Чоловік'],['female','Жінка'],['other','Інше']] as const).map(([v,l]) => <TouchableOpacity key={v} onPress={() => setProfileGender(v)} style={{ padding: 9, borderWidth: 1, borderColor: profileGender === v ? '#35DFA3' : '#698095', borderRadius: 8 }}><Text style={{ color: '#FFFFFF' }}>{l}</Text></TouchableOpacity>)}</View>
-            <View style={{ flexDirection: 'row', gap: 14 }}>{['🙂','😎','👩','👨','🧑','🚴'].map(v => <TouchableOpacity key={v} onPress={() => setProfileAvatar(v)} style={{ padding: 5, borderWidth: profileAvatar === v ? 2 : 0, borderColor: '#35DFA3' }}><Text style={{ fontSize: 25 }}>{v}</Text></TouchableOpacity>)}</View>
+            <View style={{ flexDirection: 'row', gap: 9 }}>{([['male','Чоловік'],['female','Жінка'],['other','Інше']] as const).map(([v,l]) => <TouchableOpacity key={v} onPress={() => setProfileGender(v)} style={{ padding: 9, borderWidth: 1, borderColor: profileGender === v ? '#64C7BC' : '#698095', borderRadius: 8 }}><Text style={{ color: '#FFFFFF' }}>{l}</Text></TouchableOpacity>)}</View>
+            <View style={{ flexDirection: 'row', gap: 14 }}>{['🙂','😎','👩','👨','🧑','🚴'].map(v => <TouchableOpacity key={v} onPress={() => setProfileAvatar(v)} style={{ padding: 5, borderWidth: profileAvatar === v ? 2 : 0, borderColor: '#64C7BC' }}><Text style={{ fontSize: 25 }}>{v}</Text></TouchableOpacity>)}</View>
             <TouchableOpacity onPress={registerProfile} style={{ padding: 13, backgroundColor: '#128D68', borderRadius: 8 }}><Text style={{ color: '#FFFFFF', fontWeight: '900' }}>Створити профіль</Text></TouchableOpacity>
           </> : profiles.length ? profiles.map(p => <TouchableOpacity key={p.id} onPress={() => selectProfile(p.id)} style={{ padding: 12, backgroundColor: '#28465A', borderRadius: 9 }}><Text style={{ color: '#FFFFFF', fontWeight: '800' }}>{p.avatar} {p.name} · {p.phone}</Text></TouchableOpacity>) : <Text style={{ color: '#FFFFFF' }}>Спочатку зареєструй тестового пасажира.</Text>}
           <TouchableOpacity onPress={() => setAccountScreen('none')}><Text style={{ color: '#D6E5F0' }}>Закрити</Text></TouchableOpacity>
@@ -525,19 +525,19 @@ export default function App() {
             <>
               <View style={{backgroundColor:'#101B29',borderRadius:14,padding:9,marginBottom:8,borderWidth:1,borderColor:'#2A4050'}}>
                 <View style={{flexDirection:'row',alignItems:'center',gap:8,marginBottom:4}}>
-                  <Text style={{color:'#00E66D',fontSize:16}}>●</Text>
+                  <Text style={{color:'#48BFA5',fontSize:16}}>●</Text>
                   <TextInput value={from} onChangeText={v=>{setFrom(v);setFromPoint(null);setEditingAddress('from');setShowPassengerRoute(false);}} onFocus={()=>setEditingAddress('from')} placeholder="Початок маршруту" placeholderTextColor="#8899A8" style={{flex:1,minWidth:0,color:'#FFFFFF',fontSize:16,paddingVertical:10}}/>
-                  {houseTarget === 'from' && <View style={{width:85,flexDirection:'row',alignItems:'center',gap:3,borderBottomWidth:1,borderBottomColor:'#00E36B'}}><TextInput autoFocus value={houseNumber} onChangeText={setHouseNumber} onSubmitEditing={confirmHouse} placeholder="№ дому" placeholderTextColor="#A0ADBA" style={{flex:1,minWidth:0,color:'#FFFFFF',fontSize:14,paddingVertical:7}}/><TouchableOpacity onPress={confirmHouse} disabled={houseBusy}><Text style={{color:'#00E66D',fontSize:18}}>✓</Text></TouchableOpacity></View>}
+                  {houseTarget === 'from' && <View style={{width:85,flexDirection:'row',alignItems:'center',gap:3,borderBottomWidth:1,borderBottomColor:'#48BEA2'}}><TextInput autoFocus value={houseNumber} onChangeText={setHouseNumber} onSubmitEditing={confirmHouse} placeholder="№ дому" placeholderTextColor="#A0ADBA" style={{flex:1,minWidth:0,color:'#FFFFFF',fontSize:14,paddingVertical:7}}/><TouchableOpacity onPress={confirmHouse} disabled={houseBusy}><Text style={{color:'#48BFA5',fontSize:18}}>✓</Text></TouchableOpacity></View>}
                   {!!from && <TouchableOpacity onPress={()=>{setFrom('');setFromPoint(null);setEditingAddress('from');}}><Text style={{color:'#DDE8F2',fontSize:23}}>×</Text></TouchableOpacity>}
-                  <TouchableOpacity onPress={()=>{setMapTarget('from');setEditingAddress(null);}} style={{padding:6}}><Text style={{color:'#00D978',fontSize:23}}>⌖</Text></TouchableOpacity>
+                  <TouchableOpacity onPress={()=>{setMapTarget('from');setEditingAddress(null);}} style={{padding:6}}><Text style={{color:'#4ABFA8',fontSize:23}}>⌖</Text></TouchableOpacity>
                 </View>
                 <View style={{height:1,backgroundColor:'#304253',marginLeft:26}}/>
                 <View style={{flexDirection:'row',alignItems:'center',gap:8}}>
-                  <Text style={{color:'#FF465A',fontSize:16}}>●</Text>
+                  <Text style={{color:'#D77B88',fontSize:16}}>●</Text>
                   <TextInput value={to} onChangeText={v=>{setTo(v);setToPoint(null);setEditingAddress('to');setShowPassengerRoute(false);}} onFocus={()=>setEditingAddress('to')} placeholder="Кінець маршруту" placeholderTextColor="#8899A8" style={{flex:1,color:'#FFFFFF',fontSize:16,paddingVertical:10}}/>
-                  {houseTarget === 'to' && <View style={{width:85,flexDirection:'row',alignItems:'center',gap:3,borderBottomWidth:1,borderBottomColor:'#00E36B'}}><TextInput autoFocus value={houseNumber} onChangeText={setHouseNumber} onSubmitEditing={confirmHouse} placeholder="№ дому" placeholderTextColor="#A0ADBA" style={{flex:1,minWidth:0,color:'#FFFFFF',fontSize:14,paddingVertical:7}}/><TouchableOpacity onPress={confirmHouse} disabled={houseBusy||!houseNumber.trim()}><Text style={{color:'#00E66D',fontSize:18}}>✓</Text></TouchableOpacity></View>}
+                  {houseTarget === 'to' && <View style={{width:85,flexDirection:'row',alignItems:'center',gap:3,borderBottomWidth:1,borderBottomColor:'#48BEA2'}}><TextInput autoFocus value={houseNumber} onChangeText={setHouseNumber} onSubmitEditing={confirmHouse} placeholder="№ дому" placeholderTextColor="#A0ADBA" style={{flex:1,minWidth:0,color:'#FFFFFF',fontSize:14,paddingVertical:7}}/><TouchableOpacity onPress={confirmHouse} disabled={houseBusy||!houseNumber.trim()}><Text style={{color:'#48BFA5',fontSize:18}}>✓</Text></TouchableOpacity></View>}
                   {!!to && <TouchableOpacity onPress={()=>{setTo('');setToPoint(null);setEditingAddress('to');}}><Text style={{color:'#DDE8F2',fontSize:23}}>×</Text></TouchableOpacity>}
-                  <TouchableOpacity onPress={()=>{setMapTarget('to');setEditingAddress(null);}} style={{padding:6}}><Text style={{color:'#00D978',fontSize:23}}>⌖</Text></TouchableOpacity>
+                  <TouchableOpacity onPress={()=>{setMapTarget('to');setEditingAddress(null);}} style={{padding:6}}><Text style={{color:'#4ABFA8',fontSize:23}}>⌖</Text></TouchableOpacity>
                 </View>
               </View>
               {editingAddress && (editingAddress==='from'?from:to).trim().length<2 && addressHistory.length>0 && <View style={{backgroundColor:'#192A38',borderRadius:10,paddingHorizontal:10,marginBottom:8}}>
@@ -551,21 +551,21 @@ export default function App() {
 
 
                   {mapTarget && <MapPointPicker initial={mapTarget === 'from' ? fromPoint : toPoint} onCancel={() => setMapTarget(null)} onConfirm={p => { if(mapTarget === 'from'){setFrom(p.label);setFromPoint(p);} else {setTo(p.label);setToPoint(p);}setMapTarget(null);setHouseTarget(null);setShowPassengerRoute(false); }} />}
-                  {!!addressError && <Text style={{ color: '#FFAD84', fontSize: 12, marginBottom: 8 }}>{addressError}</Text>}
+                  {!!addressError && <Text style={{ color: '#D3B29B', fontSize: 12, marginBottom: 8 }}>{addressError}</Text>}
                   {(fromPoint || toPoint) && <RouteMapPreview detail routes={[{stops: fromPoint && toPoint ? [toMapPoint(fromPoint),toMapPoint(toPoint)] : [toMapPoint((fromPoint||toPoint)!),toMapPoint((fromPoint||toPoint)!)],kind:'passenger',color:'#00DB79'}]} />}
                   <Text style={{ color: '#00EF78', fontWeight: '800', marginVertical: 9 }}>{routeBusy ? 'Розрахунок маршруту…' : distanceKm === null ? 'Вибери обидві точки' : distanceKm.toFixed(1) + ' км · ≈ ' + Math.round(distanceKm/25*60) + ' хв · ' + Math.ceil(distanceKm*15) + ' ₴'}</Text>
                   <View style={styles.rateRow}>
                     <Text style={styles.rateLabel}>ТАРИФ, грн/км (мін. 15)</Text>
                     <TextInput value={rate} onChangeText={setRate} keyboardType="decimal-pad" style={styles.rateInput} />
-                    <TouchableOpacity onPress={()=>setRate(v=>String(Math.max(15,(Number(v.replace(',','.'))||15)+1)))} style={{padding:9,borderRadius:9,backgroundColor:'#164835'}}><Text style={{color:'#00F486',fontSize:17,fontWeight:'900'}}>+1</Text></TouchableOpacity>
-                    <TouchableOpacity onPress={()=>setRate(v=>String(Math.max(15,(Number(v.replace(',','.'))||15)+5)))} style={{padding:9,borderRadius:9,backgroundColor:'#164835'}}><Text style={{color:'#00F486',fontSize:17,fontWeight:'900'}}>+5</Text></TouchableOpacity>
+                    <TouchableOpacity onPress={()=>setRate(v=>String(Math.max(15,(Number(v.replace(',','.'))||15)+1)))} style={{padding:9,borderRadius:9,backgroundColor:'#244D48'}}><Text style={{color:'#56CDB3',fontSize:17,fontWeight:'900'}}>+1</Text></TouchableOpacity>
+                    <TouchableOpacity onPress={()=>setRate(v=>String(Math.max(15,(Number(v.replace(',','.'))||15)+5)))} style={{padding:9,borderRadius:9,backgroundColor:'#244D48'}}><Text style={{color:'#56CDB3',fontSize:17,fontWeight:'900'}}>+5</Text></TouchableOpacity>
                   </View>
                   {distanceKm !== null && <View style={{backgroundColor:'#0C1E23',borderColor:'#00DE72',borderWidth:1,borderRadius:12,padding:11,marginBottom:10,shadowColor:'#00FF80',shadowOpacity:0.35,shadowRadius:9,elevation:4}}><Text style={{color:'#90A9B5',fontSize:11,fontWeight:'700'}}>ВАРТІСТЬ ПОЇЗДКИ</Text><Text style={{color:'#00F17C',fontWeight:'900',fontSize:27,textShadowColor:'#00D870',textShadowRadius:9}}>{Math.ceil(distanceKm * Math.max(15, Number(rate.replace(',', '.')) || 15))} ₴</Text><Text style={{color:'#E0EBF1',fontSize:12}}>{distanceKm.toFixed(1)} км · ≈ {Math.round(distanceKm/25*60)} хв · {Math.max(15,Number(rate.replace(',','.'))||15)} ₴/км</Text></View>}
                   <View style={{flexDirection:'row',gap:7}}>
-                    <TouchableOpacity style={[styles.primaryButton,{flex:1,backgroundColor:'#00D969',borderRadius:13,justifyContent:'center'}]} disabled={savingRequest || distanceKm === null || routeBusy} onPress={createTestRequest}>
+                    <TouchableOpacity style={[styles.primaryButton,{flex:1,backgroundColor:'#47B69F',borderRadius:13,justifyContent:'center'}]} disabled={savingRequest || distanceKm === null || routeBusy} onPress={createTestRequest}>
                       <Text style={[styles.primaryButtonText,{color:'#061C13',fontWeight:'900'}]}>{savingRequest?'Зберігаємо…':'Замовити'}</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity accessibilityLabel="Срочність поїздки" onPress={()=>setUrgency(v=>v==='now'?'flex':'now')} style={{width:55,height:49,marginTop:14,alignItems:'center',justifyContent:'center',backgroundColor:urgency==='now'?'#00D969':'#1A2C39',borderWidth:1,borderColor:'#00D969',borderRadius:13}}><Text style={{color:urgency==='now'?'#062219':'#E9F4F5',fontSize:26}}>◷</Text></TouchableOpacity>
+                    <TouchableOpacity accessibilityLabel="Срочність поїздки" onPress={()=>setUrgency(v=>v==='now'?'flex':'now')} style={{width:55,height:49,marginTop:14,alignItems:'center',justifyContent:'center',backgroundColor:urgency==='now'?'#47B69F':'#1A2C39',borderWidth:1,borderColor:'#47B69F',borderRadius:13}}><Text style={{color:urgency==='now'?'#062219':'#E9F4F5',fontSize:26}}>◷</Text></TouchableOpacity>
                   </View>
 
                   {requestResult && <View style={{ marginTop: 12, padding: 12, borderRadius: 8, backgroundColor: requestResult.ok ? '#14563C' : '#692C36', borderWidth: 1, borderColor: requestResult.ok ? '#39D58A' : '#FF7883' }}><Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '800' }}>{requestResult.message}</Text></View>}
@@ -580,17 +580,17 @@ export default function App() {
             {testRequests.filter(r=>(r.status==='accepted'||r.status==='in_trip') && r.acceptedByMe).slice(0,5).map(r=><View key={'accepted-'+r.id} style={{backgroundColor:'#173E40',padding:10,borderRadius:10,gap:5}}>
               <Text style={{color:'#FFFFFF',fontSize:12}}>Прийнята заявка: {r.origin} → {r.destination}</Text>
               <Text style={{color:'#A9D9CF',fontSize:11}}>Водій: {r.driverUserId?.slice(0,8)} · Прийнято {r.acceptedAt ? new Date(r.acceptedAt).toLocaleTimeString('uk-UA') : '—'}</Text>
-              {r.status==='accepted' && <TouchableOpacity onPress={()=>changeTestTrip(r.id,'start')} style={{padding:8,backgroundColor:'#176B51',borderRadius:7}}><Text style={{color:'#FFFFFF',fontWeight:'800'}}>Пасажир сів · Почати поїздку</Text></TouchableOpacity>}
+              {r.status==='accepted' && <TouchableOpacity onPress={()=>changeTestTrip(r.id,'start')} style={{padding:8,backgroundColor:'#32766E',borderRadius:7}}><Text style={{color:'#FFFFFF',fontWeight:'800'}}>Пасажир сів · Почати поїздку</Text></TouchableOpacity>}
               {r.status==='in_trip' && <View style={{gap:6}}>
                 <Text style={{color:'#FFFFFF',fontSize:12}}>Тестова вартість, грн (введи вручну)</Text>
                 <TextInput value={testFare} onChangeText={setTestFare} keyboardType="decimal-pad" style={{color:'#FFFFFF',backgroundColor:'#0C2231',padding:8,borderRadius:7}}/>
-                <TouchableOpacity onPress={()=>changeTestTrip(r.id,'complete')} style={{padding:9,backgroundColor:'#176B51',borderRadius:7}}><Text style={{color:'#FFFFFF',fontWeight:'800'}}>Завершити · Розподілити суму</Text></TouchableOpacity>
+                <TouchableOpacity onPress={()=>changeTestTrip(r.id,'complete')} style={{padding:9,backgroundColor:'#32766E',borderRadius:7}}><Text style={{color:'#FFFFFF',fontWeight:'800'}}>Завершити · Розподілити суму</Text></TouchableOpacity>
               </View>}
               {r.status==='accepted' && r.acceptedAt && Date.now()-new Date(r.acceptedAt).getTime()<10000 && <TouchableOpacity onPress={()=>releaseTestRequest(r.id)} style={{padding:8,backgroundColor:'#75513C',borderRadius:7}}><Text style={{color:'#FFFFFF',fontWeight:'800'}}>Скасувати без штрафу (10 с)</Text></TouchableOpacity>}
             </View>)}
             {testRequests.filter(r=>r.status==='searching'&&!r.isMine).slice(0,5).map(r=><View key={r.id} style={{backgroundColor:'#193247',padding:10,borderRadius:10,flexDirection:'row',alignItems:'center',gap:8}}>
               <Text style={{color:'#FFFFFF',flex:1,fontSize:12}} numberOfLines={2}>{r.origin} → {r.destination}</Text>
-              <TouchableOpacity onPress={()=>acceptTestRequest(r.id)} style={{backgroundColor:'#176B51',padding:9,borderRadius:8}}><Text style={{color:'#FFFFFF',fontWeight:'800'}}>Прийняти</Text></TouchableOpacity>
+              <TouchableOpacity onPress={()=>acceptTestRequest(r.id)} style={{backgroundColor:'#32766E',padding:9,borderRadius:8}}><Text style={{color:'#FFFFFF',fontWeight:'800'}}>Прийняти</Text></TouchableOpacity>
             </View>)}
           </View><DriverOfferList liveRequests={testRequests.filter(r=>r.status==='searching')} onRefresh={() => refreshTestRequests(true)} design={design} view={driverView} selectedOffer={driverOffer} onSelectOffer={(offer) => { setDriverOffer(offer); setDriverView('offer'); }} onBack={() => { setDriverOffer(null); setDriverView('list'); }} /></View>}
 
@@ -608,12 +608,12 @@ export default function App() {
               </>}
               {adminSection==='status' && <>
                 <Text style={styles.pageSubtitle}>Поточні стани, які реально повертає тестовий API</Text>
-                <View style={{padding:15,borderRadius:12,backgroundColor:'#172C3C',gap:9}}>
+                <View style={{padding:15,borderRadius:12,backgroundColor:'#22364A',gap:9}}>
                   <Text style={{color:'#FFFFFF',fontWeight:'800'}}>Заявки у пошуку: {testRequests.filter(x=>x.status==='searching').length}</Text>
                   <Text style={{color:'#FFFFFF',fontWeight:'800'}}>Готовність тестової бази</Text>
-                  <Text style={{color:testReadiness?.ready?'#54E2A7':'#F2B68C',fontWeight:'800'}}>{testReadiness ? (testReadiness.ready?'✓ Міграції застосовано':'⚠ Не всі міграції застосовано') : 'Не перевірено'}</Text>
-                  {testReadiness?.missing.map(v=><Text key={v} style={{color:'#F2B68C',fontSize:12}}>Бракує: {v}</Text>)}
-                  {!!readinessError && <Text style={{color:'#F2B68C',fontSize:12}}>API: {readinessError}</Text>}
+                  <Text style={{color:testReadiness?.ready?'#72C9BC':'#D3B5A2',fontWeight:'800'}}>{testReadiness ? (testReadiness.ready?'✓ Міграції застосовано':'⚠ Не всі міграції застосовано') : 'Не перевірено'}</Text>
+                  {testReadiness?.missing.map(v=><Text key={v} style={{color:'#D3B5A2',fontSize:12}}>Бракує: {v}</Text>)}
+                  {!!readinessError && <Text style={{color:'#D3B5A2',fontSize:12}}>API: {readinessError}</Text>}
                   <TouchableOpacity onPress={refreshReadiness} style={{padding:8,backgroundColor:'#20475B',borderRadius:8,alignSelf:'flex-start'}}><Text style={{color:'#FFFFFF'}}>Перевірити зараз</Text></TouchableOpacity>
                   <Text style={{color:'#A8C0CF',fontSize:12}}>Перевірка міграцій не замінює наскрізний тест платежів. GPS і резервування маршрутів ще не підключені.</Text>
                 </View>
@@ -631,17 +631,17 @@ export default function App() {
                 {financeJournal?.transactions.map(t=>{
                   const balanced=Number(t.journalNetMinor)===0;
                   const fare=Number(t.amountMinor)/100;
-                  return <View key={t.id} style={{padding:12,backgroundColor:'#172C3C',borderRadius:10,gap:5,borderLeftWidth:3,borderLeftColor:balanced?'#45D69C':'#F18B76'}}>
+                  return <View key={t.id} style={{padding:12,backgroundColor:'#22364A',borderRadius:10,gap:5,borderLeftWidth:3,borderLeftColor:balanced?'#45D69C':'#F18B76'}}>
                     <Text style={{color:'#FFFFFF',fontWeight:'900'}}>{t.kind==='topup'?'Поповнення':'Розрахунок поїздки'} · {fare.toFixed(2)} грн</Text>
                     <Text style={{color:'#A8C0CF',fontSize:11}}>{new Date(t.createdAt).toLocaleString('uk-UA')} · {t.requestId ? 'Заявка '+t.requestId.slice(0,8) : 'Без заявки'} · {t.entryCount} проводки</Text>
                     <Text style={{color:'#D3E4ED',fontSize:12}}>Пасажири: {(Number(t.passengerDeltaMinor)/100).toFixed(2)} · Водії: {(Number(t.driverDeltaMinor)/100).toFixed(2)} · Платформа: {(Number(t.platformDeltaMinor)/100).toFixed(2)}</Text>
                     <Text style={{color:'#B2C6D1',fontSize:11}}>Тестове джерело: {(Number(t.sourceDeltaMinor)/100).toFixed(2)} грн</Text>
-                    <Text style={{color:balanced?'#54E2A7':'#FF9D8C',fontWeight:'800'}}>{balanced?'✓ Проводки збалансовані':'⚠ Помилка балансу проводок: '+t.journalNetMinor+' коп.'}</Text>
+                    <Text style={{color:balanced?'#72C9BC':'#FF9D8C',fontWeight:'800'}}>{balanced?'✓ Проводки збалансовані':'⚠ Помилка балансу проводок: '+t.journalNetMinor+' коп.'}</Text>
                   </View>;
                 })}
                 {financeJournal?.transactions.length===0 && <Text style={{color:'#A8C0CF'}}>Поки немає тестових фінансових операцій.</Text>}
               </View>}
-              {adminSection==='logs' && <View style={{padding:15,borderRadius:12,backgroundColor:'#172C3C',gap:9}}>
+              {adminSection==='logs' && <View style={{padding:15,borderRadius:12,backgroundColor:'#22364A',gap:9}}>
                 <Text style={{color:'#FFFFFF',fontWeight:'800'}}>Журнал подій</Text>
                 <Text style={{color:'#A8C0CF',fontSize:12}}>Серверний журнал ще не підключено. Тут будуть події створення й скасування заявки, резервування маршрутів, прийняття, прибуття, очікування, неявки, компенсацій, втрати зв’язку та помилок.</Text>
                 <Text style={{color:'#EFCB81',fontSize:11}}>Не показуємо вигадані записи: журнал з’явиться після підключення API подій.</Text>
@@ -889,7 +889,7 @@ function DriverAddressPicker({ label, value, onValue, onPoint, suggestions, onSe
     <View style={{flexDirection:'row',gap:5,alignItems:'center',backgroundColor:'#253F52',borderRadius:9}}>
       <TextInput value={value} onChangeText={v=>{onValue(v);onPoint(null);setStreet('');setHouse('');}} placeholder="Вулиця" placeholderTextColor="#8295A5" style={{flex:1,minWidth:0,color:'#FFFFFF',padding:11,fontSize:15}}/>
       {!!street&&<TextInput autoFocus value={house} onChangeText={setHouse} onSubmitEditing={confirm} placeholder="№ буд." keyboardType="default" placeholderTextColor="#8295A5" style={{width:83,borderLeftWidth:1,borderLeftColor:'#526777',color:'#FFFFFF',paddingVertical:11,paddingHorizontal:6,fontSize:15}}/>}
-      {!!street&&<TouchableOpacity onPress={confirm} disabled={busy} style={{padding:8}}><Text style={{color:'#00EF81',fontWeight:'900',fontSize:17}}>✓</Text></TouchableOpacity>}
+      {!!street&&<TouchableOpacity onPress={confirm} disabled={busy} style={{padding:8}}><Text style={{color:'#52C7AF',fontWeight:'900',fontSize:17}}>✓</Text></TouchableOpacity>}
       {!!value&&<TouchableOpacity onPress={()=>{onValue('');onPoint(null);setStreet('');setHouse('');}} style={{padding:8}}><Text style={{color:'#FFFFFF',fontSize:21}}>×</Text></TouchableOpacity>}
     </View>
     <TouchableOpacity onPress={()=>setShowMap(v=>!v)} style={{paddingVertical:7}}><Text style={{color:'#38DCA4',fontWeight:'800'}}>◎ Обрати на мапі</Text></TouchableOpacity>
@@ -1100,26 +1100,26 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
     }
   }
   if (view === 'offer') return selectedOffer ? <DriverOfferDetail design={design} offer={selectedOffer} increase={increase} setIncrease={setIncrease} onBack={onBack} driverStart={driverStart} driverEnd={destinationPoint} /> : <View style={driverStyles.wrap}><Text style={driverStyles.empty}>Заявку ще не вибрано. Відкрий «Список» і натисни на потрібну комбінацію.</Text></View>;
-  if(filterScreen) return <View style={{flex:1,backgroundColor:'#0B1722',padding:12,gap:12}}>
+  if(filterScreen) return <View style={{flex:1,backgroundColor:'#152231',padding:12,gap:12}}>
     <Text style={{color:'#FFFFFF',fontSize:20,fontWeight:'900'}}>{filterScreen==='all'?'Фільтр замовлень':filterScreen==='pickup'?'Подача':'Фінал'} · налаштування</Text>
-    {filterScreen==='all'?<><View style={{flexDirection:'row',gap:8}}><TouchableOpacity onPress={()=>setFilterScreen('pickup')} style={driverStyles.filter}><Text style={driverStyles.filterValue}>↗ Подача · {pickupLimit.toFixed(1)} км</Text></TouchableOpacity><TouchableOpacity onPress={()=>setFilterScreen('final')} style={driverStyles.filter}><Text style={driverStyles.filterValue}>⚑ Фінал · {finalLimit.toFixed(1)} км</Text></TouchableOpacity></View><Text style={{color:'#FFFFFF'}}>Місць: {seats}</Text><RadiusSlider value={seats} max={3} onChange={v=>setSeats(Math.max(1,Math.round(v)))}/><TouchableOpacity onPress={()=>setUnique(v=>!v)}><Text style={{color:'#00EF81'}}>Унікальні: {unique?'☑':'☐'}</Text></TouchableOpacity><Text style={{color:'#AABBC8'}}>Налаштування адрес і радіусів відкриваються вище.</Text></>:filterScreen==='pickup'?<>
+    {filterScreen==='all'?<><View style={{flexDirection:'row',gap:8}}><TouchableOpacity onPress={()=>setFilterScreen('pickup')} style={driverStyles.filter}><Text style={driverStyles.filterValue}>↗ Подача · {pickupLimit.toFixed(1)} км</Text></TouchableOpacity><TouchableOpacity onPress={()=>setFilterScreen('final')} style={driverStyles.filter}><Text style={driverStyles.filterValue}>⚑ Фінал · {finalLimit.toFixed(1)} км</Text></TouchableOpacity></View><Text style={{color:'#FFFFFF'}}>Місць: {seats}</Text><RadiusSlider value={seats} max={3} onChange={v=>setSeats(Math.max(1,Math.round(v)))}/><TouchableOpacity onPress={()=>setUnique(v=>!v)}><Text style={{color:'#52C7AF'}}>Унікальні: {unique?'☑':'☐'}</Text></TouchableOpacity><Text style={{color:'#AABBC8'}}>Налаштування адрес і радіусів відкриваються вище.</Text></>:filterScreen==='pickup'?<>
       <View style={{flexDirection:'row',alignItems:'center',gap:8}}><Text style={{color:'#B2C4D0',flex:1}} numberOfLines={1}>{startPoint?.label||gpsMessage}</Text><TouchableOpacity onPress={requestGps} style={{padding:10,backgroundColor:'#193B32',borderRadius:10}}><Text style={{color:'#00F082',fontWeight:'900'}}>⌖ GPS</Text></TouchableOpacity></View>
       <DriverAddressPicker label="Початкова адреса" value={manualStart} onValue={setManualStart} onPoint={setStartPoint} suggestions={manualSuggestions} onSelect={p=>{setStartPoint(p);setManualStart(p.label);setManualSuggestions([]);}} error={setDriverRouteError}/>
-      <Text style={{color:'#00EF81',fontWeight:'900',fontSize:20}}>≤ {pickupLimit.toFixed(1)} км</Text>
+      <Text style={{color:'#52C7AF',fontWeight:'900',fontSize:20}}>≤ {pickupLimit.toFixed(1)} км</Text>
       <RadiusSlider value={pickupLimit} onChange={setPickupLimit}/>
-      <RouteMapPreview detail routes={driverStart?[{stops:[toMapPoint(driverStart),toMapPoint(driverStart)],kind:'driver',color:'#00F080'}]:[]}/>
+      <RouteMapPreview detail routes={driverStart?[{stops:[toMapPoint(driverStart),toMapPoint(driverStart)],kind:'driver',color:'#54C7AD'}]:[]}/>
     </>:<>
       <DriverAddressPicker label="Кінцева адреса" value={destination} onValue={setDestination} onPoint={setDestinationPoint} suggestions={destinationSuggestions} onSelect={p=>{setDestinationPoint(p);setDestination(p.label);setDestinationSuggestions([]);}} error={setDriverRouteError}/>
-      <Text style={{color:'#00EF81',fontWeight:'900',fontSize:20}}>≤ {finalLimit.toFixed(1)} км</Text>
+      <Text style={{color:'#52C7AF',fontWeight:'900',fontSize:20}}>≤ {finalLimit.toFixed(1)} км</Text>
       <RadiusSlider value={finalLimit} onChange={setFinalLimit}/>
-      <RouteMapPreview detail routes={destinationPoint?[{stops:[toMapPoint(destinationPoint),toMapPoint(destinationPoint)],kind:'driver',color:'#00F080'}]:[]}/>
+      <RouteMapPreview detail routes={destinationPoint?[{stops:[toMapPoint(destinationPoint),toMapPoint(destinationPoint)],kind:'driver',color:'#54C7AD'}]:[]}/>
     </>}
     {!!driverRouteError&&<Text style={{color:'#FF9C9C'}}>{driverRouteError}</Text>}
     <View style={{flexDirection:'row',gap:10,marginTop:'auto'}}>{['Повернутися','Зберегти'].map((name,i)=><TouchableOpacity key={name} onPress={()=>setFilterScreen(null)} style={{flex:1,padding:14,borderRadius:12,backgroundColor:i?'#00D971':'#273747',alignItems:'center'}}><Text style={{color:i?'#09291A':'#FFFFFF',fontWeight:'900'}}>{name}</Text></TouchableOpacity>)}</View>
   </View>;
   return (
     <View style={[driverStyles.wrap, design === 'new' && { backgroundColor: '#E9F0F6', padding: 8, borderRadius: 14 }]}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}><Text style={[driverStyles.heading, design === 'new' && { color: '#123B52' }]}>Маршрути</Text><Text style={{ color: design === 'new' ? '#526D7D' : '#91A8B7', fontSize: 11 }}>{liveRequests.length} активних пасажирських заявок</Text></View>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}><Text style={[driverStyles.heading, design === 'new' && { color: '#27495E' }]}>Маршрути</Text><Text style={{ color: design === 'new' ? '#526D7D' : '#91A8B7', fontSize: 11 }}>{liveRequests.length} активних пасажирських заявок</Text></View>
       <View style={{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginBottom:5}}>
         <Text style={{color:'#B8CBD7',fontSize:11}}>Реальні тестові заявки: {liveRequests.length}</Text>
         <TouchableOpacity onPress={()=>setShowDemo(v=>!v)} style={{paddingVertical:4,paddingHorizontal:9,borderRadius:9,backgroundColor:showDemo?'#26473B':'#233341'}}>
@@ -1139,10 +1139,10 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
 
       {view === 'map' && <RouteMapPreview detail={false} routes={mapRoutes} />}
       {view === 'list' && <View style={driverStyles.sortRow}>
-        <Text style={[driverStyles.count, design === 'new' && { color: '#123B52' }]}>Заявки ({offers.length})</Text>
+        <Text style={[driverStyles.count, design === 'new' && { color: '#27495E' }]}>Заявки ({offers.length})</Text>
         <Text style={[driverStyles.sortLabel, design === 'new' && { color: '#476175' }]}>Сортування:</Text>
-        <TouchableOpacity onPress={() => setSortBy('km')} style={[driverStyles.sortChip, sortBy === 'km' && driverStyles.sortActive, design === 'new' && { backgroundColor: '#173D52', borderRadius: 15 }]}><Text style={driverStyles.sortText}>₴/км</Text></TouchableOpacity>
-        <TouchableOpacity onPress={() => setSortBy('hour')} style={[driverStyles.sortChip, sortBy === 'hour' && driverStyles.sortActive, design === 'new' && { backgroundColor: '#173D52', borderRadius: 15 }]}><Text style={driverStyles.sortText}>₴/год</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => setSortBy('km')} style={[driverStyles.sortChip, sortBy === 'km' && driverStyles.sortActive, design === 'new' && { backgroundColor: '#28485D', borderRadius: 15 }]}><Text style={driverStyles.sortText}>₴/км</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => setSortBy('hour')} style={[driverStyles.sortChip, sortBy === 'hour' && driverStyles.sortActive, design === 'new' && { backgroundColor: '#28485D', borderRadius: 15 }]}><Text style={driverStyles.sortText}>₴/год</Text></TouchableOpacity>
       </View>}
       {view === 'list' && <Text style={{ color: design === 'new' ? '#526D7D' : '#9DB2C2', fontSize: 11, marginBottom: 5 }}>{matchingState}{comboStatus ? ' · '+comboStatus : ''}</Text>}
       {view === 'list' && offers.length === 0 && <Text style={driverStyles.empty}>{online?'Немає варіантів для цих фільтрів.':'Пошук вимкнено. Поточна поїздка не скасовується.'}</Text>}
@@ -1162,12 +1162,12 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
           <View style={{gap:2,marginBottom:4}}>
             <View style={{flexDirection:'row',alignItems:'center',gap:5,minHeight:20}}>
               <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{color:'#A9B8C7',fontSize:10,width:84,flexShrink:0,textAlign:'left'}}>┄ {o.pickupKm.toFixed(1)} км ➜</Text>
-              <Image source={{uri:'data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="16" height="21" viewBox="0 0 16 21"><path d="M8 1C4 1 1 4 1 8c0 5 7 12 7 12s7-7 7-12c0-4-3-7-7-7z" fill="#00E878"/><path d="M8 2C4.7 2 2 4.7 2 8" fill="none" stroke="#fff" stroke-opacity=".32" stroke-width="1.3"/><circle cx="8" cy="8" r="3" fill="#101B28"/></svg>')}} style={{width:13,height:17}} />
+              <Image source={{uri:'data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="16" height="21" viewBox="0 0 16 21"><path d="M8 1C4 1 1 4 1 8c0 5 7 12 7 12s7-7 7-12c0-4-3-7-7-7z" fill="#4ABFA5"/><path d="M8 2C4.7 2 2 4.7 2 8" fill="none" stroke="#fff" stroke-opacity=".32" stroke-width="1.3"/><circle cx="8" cy="8" r="3" fill="#182638"/></svg>')}} style={{width:13,height:17}} />
               <Text numberOfLines={1} style={[driverStyles.address,{flex:1,fontSize:14,marginBottom:0},design==='new'&&{color:'#244B61'}]}>{o.pickup}</Text>
             </View>
             <View style={{flexDirection:'row',alignItems:'center',gap:5,minHeight:20}}>
               <View style={{width:84,flexShrink:0}} />
-              <Image source={{uri:'data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="16" height="21" viewBox="0 0 16 21"><path d="M8 1C4 1 1 4 1 8c0 5 7 12 7 12s7-7 7-12c0-4-3-7-7-7z" fill="#FF354B"/><path d="M8 2C4.7 2 2 4.7 2 8" fill="none" stroke="#fff" stroke-opacity=".32" stroke-width="1.3"/><circle cx="8" cy="8" r="3" fill="#101B28"/></svg>')}} style={{width:13,height:17}} />
+              <Image source={{uri:'data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="16" height="21" viewBox="0 0 16 21"><path d="M8 1C4 1 1 4 1 8c0 5 7 12 7 12s7-7 7-12c0-4-3-7-7-7z" fill="#FF354B"/><path d="M8 2C4.7 2 2 4.7 2 8" fill="none" stroke="#fff" stroke-opacity=".32" stroke-width="1.3"/><circle cx="8" cy="8" r="3" fill="#182638"/></svg>')}} style={{width:13,height:17}} />
               <Text numberOfLines={1} style={[driverStyles.address,{fontSize:14,marginBottom:0,flexShrink:1}]}>{o.dropoff}</Text>
               <Text numberOfLines={1} style={{color:'#A9B8C7',fontSize:10,flexShrink:0,marginLeft:0}}>┄ {o.finalKm.toFixed(1)} км ➜</Text>
             </View>
@@ -1180,8 +1180,8 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
               <Text style={[driverStyles.acceptance, design === 'new' && { color: '#00854E' }]}>{p.acceptance}%</Text>
               <Text style={[driverStyles.noShow, design === 'new' && { color: '#B06B00' }]}>{p.noShow}%</Text>
               <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={[driverStyles.personKm, design === 'new' && { color: '#244B61' }]}>{p.km.toFixed(1)} км</Text>
-              <Text style={[driverStyles.personFare, design === 'new' && { color: '#123B52' }]}>₴{p.fare}</Text>
-              <TouchableOpacity accessibilityLabel={'Замінити ' + p.name} onPress={() => setReplaceName(p.name)}><Text style={[driverStyles.replace, design === 'new' && { color: '#123B52' }]}>⟳</Text></TouchableOpacity>
+              <Text style={[driverStyles.personFare, design === 'new' && { color: '#27495E' }]}>₴{p.fare}</Text>
+              <TouchableOpacity accessibilityLabel={'Замінити ' + p.name} onPress={() => setReplaceName(p.name)}><Text style={[driverStyles.replace, design === 'new' && { color: '#27495E' }]}>⟳</Text></TouchableOpacity>
             </View>
           ))}
         </TouchableOpacity>
@@ -1231,14 +1231,14 @@ function DriverOfferDetail({ design, offer, increase, setIncrease, onBack, drive
   const displayMinutes=roadEstimate?.minutes??offer.minutes;
   return (
     <View style={[detailStyles.wrap, design === 'new' && { backgroundColor: '#E9F0F6', padding: 10, borderRadius: 16 }]}>
-      <View style={[detailStyles.head, design === 'new' && { backgroundColor: '#173D52', borderRadius: 15, padding: 10 }]}>
+      <View style={[detailStyles.head, design === 'new' && { backgroundColor: '#28485D', borderRadius: 15, padding: 10 }]}>
         <Text style={detailStyles.title}>Заявка {offer.live ? '' : '· демо'}</Text>
         <Text style={detailStyles.amount}>₴{updated}</Text>
         <Text style={detailStyles.stat}><Text style={detailStyles.km}>{(updated / displayKm).toFixed(1)}</Text> ₴/км</Text>
         <Text style={detailStyles.stat}>{roadEstimate?displayKm.toFixed(1)+' км · '+displayMinutes+' хв (без пробок)':'Час орієнтовний'} </Text>
         <Text style={detailStyles.stat}><Text style={detailStyles.hour}>{Math.round(updated / displayMinutes * 60)}</Text> ₴/год</Text>
       </View>
-      <View style={[detailStyles.frame, { borderColor: offer.color }, design === 'new' && { backgroundColor: '#173D52', borderRadius: 20, borderWidth: 2 }]}>
+      <View style={[detailStyles.frame, { borderColor: offer.color }, design === 'new' && { backgroundColor: '#28485D', borderRadius: 20, borderWidth: 2 }]}>
         <Text style={detailStyles.segment}>┄ {offer.pickupKm.toFixed(1)} км → Перша посадка</Text>
         {offer.passengers.map((p, index) => (
           <View key={p.name} style={detailStyles.passenger}>
@@ -1248,7 +1248,7 @@ function DriverOfferDetail({ design, offer, increase, setIncrease, onBack, drive
               <Text style={detailStyles.rating}>{p.acceptance}% · неявка {p.noShow}%</Text>
               <Text style={detailStyles.fare}>₴{p.fare}</Text>
             </View>
-            <Text numberOfLines={1} style={detailStyles.address}><Text style={{color:'#00E878'}}>●</Text>  {p.pickup || (index === 0 ? offer.pickup : 'Адреса не задана')}</Text>
+            <Text numberOfLines={1} style={detailStyles.address}><Text style={{color:'#4ABFA5'}}>●</Text>  {p.pickup || (index === 0 ? offer.pickup : 'Адреса не задана')}</Text>
             <Text numberOfLines={1} style={detailStyles.address}><Text style={{color:'#FF5365'}}>●</Text>  {p.dropoff || (index === offer.passengers.length - 1 ? offer.dropoff : 'Адреса не задана')}</Text>
             <View style={{flexDirection:'row',justifyContent:'flex-end'}}><Text numberOfLines={1} style={[detailStyles.distance,{flexShrink:0,minWidth:65}]}>{p.km.toFixed(1)} км</Text></View>
           </View>
@@ -1276,50 +1276,50 @@ function DriverOfferDetail({ design, offer, increase, setIncrease, onBack, drive
 const detailStyles = StyleSheet.create({
   wrap: { gap: 4 }, head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 5 },
   title: { color: '#FFFFFF', fontSize: 17, fontWeight: '800' }, amount: { color: '#FFFFFF', fontSize: 23, fontWeight: '900' },
-  stat: { color: '#FFFFFF', fontSize: 10, fontWeight: '700' }, km: { color: '#3CF28C', fontSize: 15, fontWeight: '900' },
-  hour: { color: '#FFA72B', fontSize: 15, fontWeight: '900' }, frame: { borderWidth: 1, borderRadius: 11, padding: 7, gap: 2 },
+  stat: { color: '#FFFFFF', fontSize: 10, fontWeight: '700' }, km: { color: '#79CDB7', fontSize: 15, fontWeight: '900' },
+  hour: { color: '#D6AE78', fontSize: 15, fontWeight: '900' }, frame: { borderWidth: 1, borderRadius: 11, padding: 7, gap: 2 },
   segment: { color: '#BFCBDA', fontSize: 11 }, passenger: { borderTopWidth: 1, borderTopColor: '#334050', paddingTop: 3, gap: 1 },
   personTop: { flexDirection: 'row', alignItems: 'center', gap: 4, flexWrap:'nowrap' }, name: { color: '#FFFFFF', fontSize: 12, flex: 1, fontWeight: '700' },
   rating: { color: '#B8C8D6', fontSize: 10, flexShrink:0 }, fare: { color: '#FFFFFF', fontSize: 12, fontWeight: '800', flexShrink:0 },
   address: { color: '#E1E9F2', fontSize: 11, marginLeft: 28 }, distance: { color: '#B5C6D8', fontSize: 10, textAlign: 'right', flexShrink:0 },
-  mapPlaceholder: { height: 165, backgroundColor: '#172737', borderWidth: 1, borderColor: '#34485C', borderRadius: 10, justifyContent: 'center', alignItems: 'center', padding: 18, gap: 9 },
+  mapPlaceholder: { height: 165, backgroundColor: '#213449', borderWidth: 1, borderColor: '#34485C', borderRadius: 10, justifyContent: 'center', alignItems: 'center', padding: 18, gap: 9 },
   mapTitle: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' }, mapText: { color: '#AFC0D1', fontSize: 11, textAlign: 'center' },
   priceRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, alignItems: 'center' }, priceLabel: { color: '#FFFFFF', fontSize: 11, width: '100%' },
   priceChip: { paddingVertical: 4, paddingHorizontal: 8, borderWidth: 1, borderColor: '#506073', borderRadius: 7 },
-  priceActive: { borderColor: '#31DE7D', backgroundColor: '#16412C' }, priceText: { color: '#FFFFFF', fontSize: 11 },
+  priceActive: { borderColor: '#5BBEAA', backgroundColor: '#16412C' }, priceText: { color: '#FFFFFF', fontSize: 11 },
   actions: { flexDirection: 'row', gap: 10 }, back: { flex: 1, padding: 8, alignItems: 'center', borderWidth: 1, borderColor: '#67798A', borderRadius: 8 },
-  accept: { flex: 1, padding: 8, alignItems: 'center', backgroundColor: '#1E9B60', borderRadius: 8 },
+  accept: { flex: 1, padding: 8, alignItems: 'center', backgroundColor: '#368D82', borderRadius: 8 },
   actionText: { color: '#FFFFFF', fontSize: 13, fontWeight: '800' }, warning: { color: '#AFC0D1', fontSize: 10 },
 });
 
 const driverStyles = StyleSheet.create({
   wrap: { gap: 8 }, heading: { color: '#FFFFFF', fontSize: 17, fontWeight: '800', marginBottom: 6 },
-  preview: { color: '#FFBD68', fontSize: 10 }, filters: { flexDirection: 'row', gap: 5, marginBottom: 5 },
-  filter: { flex: 1, minWidth: 0, borderWidth: 1, borderColor: '#53616F', backgroundColor:'#172330', borderRadius: 12, paddingVertical: 7, paddingHorizontal:2, alignItems: 'center', justifyContent:'center' },
+  preview: { color: '#D9B890', fontSize: 10 }, filters: { flexDirection: 'row', gap: 5, marginBottom: 5 },
+  filter: { flex: 1, minWidth: 0, borderWidth: 1, borderColor: '#53616F', backgroundColor:'#213247', borderRadius: 12, paddingVertical: 7, paddingHorizontal:2, alignItems: 'center', justifyContent:'center' },
   legend: { color: '#D1DBE4', fontSize: 10, marginBottom: 3, fontWeight:'700' }, filterValue: { color: '#F6F8FB', fontSize: 12, fontWeight: '900' },
   sortRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 5 },
   count: { color: '#FFFFFF', fontSize: 14, fontWeight: '800', flex: 1 },
   sortLabel: { color: '#9CAFC1', fontSize: 10 },
   sortChip: { paddingHorizontal: 7, paddingVertical: 6, borderWidth: 1, borderColor: '#536374', borderRadius: 9 },
-  sortActive: { borderColor: '#21D775', backgroundColor: '#103628' }, sortText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
-  offer: { backgroundColor: '#101B28', borderWidth: 1, borderRadius: 12, paddingHorizontal: 7, paddingVertical: 8, marginBottom: 5 },
+  sortActive: { borderColor: '#5ABCA7', backgroundColor: '#103628' }, sortText: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
+  offer: { backgroundColor: '#182638', borderWidth: 1, borderRadius: 12, paddingHorizontal: 7, paddingVertical: 8, marginBottom: 5 },
   metrics: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 3, marginBottom: 7 },
-  total: { color: '#FFFFFF', fontSize: 24, fontWeight: '900' }, gps: { color: '#2FEF82', fontSize: 9, fontWeight: '800' },
-  metric: { color: '#FFFFFF', fontSize: 10, fontWeight: '700' }, green: { color: '#32F183', fontSize: 17, fontWeight: '900' },
-  orange: { color: '#FFA52B', fontSize: 17, fontWeight: '900' }, address: { color: '#E1E9F0', fontSize: 10, marginBottom: 3 },
+  total: { color: '#FFFFFF', fontSize: 24, fontWeight: '900' }, gps: { color: '#75C9B2', fontSize: 9, fontWeight: '800' },
+  metric: { color: '#FFFFFF', fontSize: 10, fontWeight: '700' }, green: { color: '#76CBB3', fontSize: 17, fontWeight: '900' },
+  orange: { color: '#D6AE78', fontSize: 17, fontWeight: '900' }, address: { color: '#E1E9F0', fontSize: 10, marginBottom: 3 },
   tripInfo: { flexDirection: 'row', justifyContent: 'flex-end', gap: 14, marginBottom: 4 },
   tripInfoText: { color: '#A8B9C7', fontSize: 11 },
   person: { borderTopWidth: 1, borderTopColor: '#2A3948', flexDirection: 'row', alignItems: 'center', minHeight: 35, gap: 3 },
   personAvatar: { width: 23, height: 23, borderRadius: 12, backgroundColor: '#32485D', alignItems: 'center', justifyContent: 'center' },
   personAvatarText: { color: '#FFFFFF', fontSize: 10, fontWeight: '700' }, personName: { flex: 1, minWidth: 0, flexShrink: 1, color: '#F5F7FA', fontSize: 16, fontWeight:'700' },
-  acceptance: { color: '#3FE985', fontSize: 14, fontWeight: '700', width: 36, textAlign: 'right' },
-  noShow: { color: '#FFCB48', fontSize: 13, fontWeight: '700', width: 27, textAlign: 'right' },
+  acceptance: { color: '#79CBB6', fontSize: 14, fontWeight: '700', width: 36, textAlign: 'right' },
+  noShow: { color: '#DAC48B', fontSize: 13, fontWeight: '700', width: 27, textAlign: 'right' },
   personKm: { color: '#D5DEE8', fontSize: 13, width: 64, flexShrink: 0, textAlign: 'right' },
   personFare: { color: '#FFFFFF', fontSize: 15, fontWeight: '800', width: 47, textAlign: 'right' },
   replace: { color: '#F1F5F9', fontSize: 23, marginLeft: 3 }, empty: { color: '#ABB8C7', padding: 15 },
   confirm: { backgroundColor: '#253346', borderRadius: 12, padding: 14, gap: 12 },
   confirmText: { color: '#FFFFFF', fontSize: 13 }, confirmActions: { flexDirection: 'row', justifyContent: 'space-around' },
-  confirmYes: { color: '#45E991', fontWeight: '900' }, disclaimer: { color: '#8A9BAB', fontSize: 10, marginTop: 4 },
+  confirmYes: { color: '#7CCDB9', fontWeight: '900' }, disclaimer: { color: '#8A9BAB', fontSize: 10, marginTop: 4 },
 });
 
 function TestRequestCard({ request, onCancel }: { request: TestPassengerRequest; onCancel: (id: string) => void }) {
@@ -1352,23 +1352,23 @@ function NavItem({ icon, label, active, onPress }: { icon: string; label: string
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#091321' },
-  screen: { flex: 1, backgroundColor: '#091321' },
+  safe: { flex: 1, backgroundColor: '#101A28' },
+  screen: { flex: 1, backgroundColor: '#101A28' },
   header: { paddingHorizontal: 12, paddingTop: 12, paddingBottom: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   brand: { color: '#FFFFFF', fontSize: 17, fontWeight: '900', letterSpacing: 2 },
-  brandAccent: { color: '#55D6BE' },
+  brandAccent: { color: '#7CC8D6' },
   headerCaption: { color: '#718096', fontSize: 11, marginTop: 4, letterSpacing: 0.3 },
   avatar: { width: 42, height: 42, borderRadius: 15, backgroundColor: '#1C3446', borderWidth: 1, borderColor: '#31536A', alignItems: 'center', justifyContent: 'center' },
-  avatarText: { color: '#55D6BE', fontWeight: '800', fontSize: 17 },
-  modeSwitch: { marginHorizontal: 22, padding: 4, borderRadius: 14, backgroundColor: '#142235', flexDirection: 'row', marginBottom: 8 },
+  avatarText: { color: '#7CC8D6', fontWeight: '800', fontSize: 17 },
+  modeSwitch: { marginHorizontal: 22, padding: 4, borderRadius: 14, backgroundColor: '#1E3044', flexDirection: 'row', marginBottom: 8 },
   modeButton: { flex: 1, paddingVertical: 11, borderRadius: 11, alignItems: 'center' },
-  modeButtonActive: { backgroundColor: '#55D6BE' },
+  modeButtonActive: { backgroundColor: '#7CC8D6' },
   modeText: { color: '#94A3B8', fontSize: 14, fontWeight: '700' },
-  modeTextActive: { color: '#071923' },
+  modeTextActive: { color: '#111F2D' },
   content: { paddingHorizontal: 9, paddingTop: 10, paddingBottom: 26 },
-  hero: { backgroundColor: '#123448', borderRadius: 25, padding: 20, overflow: 'hidden', borderWidth: 1, borderColor: '#245269' },
+  hero: { backgroundColor: '#1E394E', borderRadius: 25, padding: 20, overflow: 'hidden', borderWidth: 1, borderColor: '#35566C' },
   heroGlow: { position: 'absolute', width: 190, height: 190, borderRadius: 95, backgroundColor: '#1C796F', opacity: 0.28, right: -65, top: -80 },
-  eyebrow: { color: '#70DCC8', fontSize: 9, fontWeight: '900', letterSpacing: 1.7 },
+  eyebrow: { color: '#86CCD5', fontSize: 9, fontWeight: '900', letterSpacing: 1.7 },
   heroTitle: { color: '#FFFFFF', fontSize: 30, lineHeight: 35, fontWeight: '900', marginTop: 10 },
   heroSubtitle: { color: '#B7CBD6', fontSize: 13, lineHeight: 19, marginTop: 9, marginBottom: 17, maxWidth: 285 },
   routeCard: { backgroundColor: '#F7FAFC', borderRadius: 18, padding: 15 },
@@ -1388,70 +1388,70 @@ const styles = StyleSheet.create({
   dateChipActive: { backgroundColor: '#D6F4EC' },
   dateChipText: { color: '#64748B', fontSize: 11, fontWeight: '700' },
   dateChipTextActive: { color: '#087D6D' },
-  primaryButton: { backgroundColor: '#55D6BE', minHeight: 49, borderRadius: 12, paddingHorizontal: 15, marginTop: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
-  primaryButtonText: { color: '#071923', fontSize: 14, fontWeight: '900' },
-  buttonArrow: { color: '#071923', fontSize: 20, fontWeight: '800', marginLeft: 9, marginTop: -2 },
+  primaryButton: { backgroundColor: '#7CC8D6', minHeight: 49, borderRadius: 12, paddingHorizontal: 15, marginTop: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  primaryButtonText: { color: '#111F2D', fontSize: 14, fontWeight: '900' },
+  buttonArrow: { color: '#111F2D', fontSize: 20, fontWeight: '800', marginLeft: 9, marginTop: -2 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 25, marginBottom: 12 },
   sectionTitle: { color: '#F3F7FB', fontSize: 17, fontWeight: '800' },
   sectionSubtitle: { color: '#718096', fontSize: 11, marginTop: 4 },
-  seeAll: { color: '#55D6BE', fontSize: 12, fontWeight: '700' },
+  seeAll: { color: '#7CC8D6', fontSize: 12, fontWeight: '700' },
   popularRow: { flexDirection: 'row', gap: 10 },
-  popularCard: { flex: 1, backgroundColor: '#142337', borderRadius: 15, padding: 13, borderWidth: 1, borderColor: '#20354C' },
+  popularCard: { flex: 1, backgroundColor: '#1D2E43', borderRadius: 15, padding: 13, borderWidth: 1, borderColor: '#2A4056' },
   popularIcon: { fontSize: 20, marginBottom: 9 },
   popularRoute: { color: '#EAF2F8', fontSize: 12, fontWeight: '800' },
-  popularMeta: { color: '#55D6BE', fontSize: 11, marginTop: 5 },
-  testRequestCard: { backgroundColor: '#142337', borderRadius: 16, padding: 15, marginBottom: 10, borderWidth: 1, borderColor: '#29445A' },
+  popularMeta: { color: '#7CC8D6', fontSize: 11, marginTop: 5 },
+  testRequestCard: { backgroundColor: '#1D2E43', borderRadius: 16, padding: 15, marginBottom: 10, borderWidth: 1, borderColor: '#29445A' },
   testRequestHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  testRequestBadge: { color: '#70DCC8', fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
-  testRequestRate: { color: '#55D6BE', fontSize: 12, fontWeight: '900' },
+  testRequestBadge: { color: '#86CCD5', fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
+  testRequestRate: { color: '#7CC8D6', fontSize: 12, fontWeight: '900' },
   testRequestRoute: { color: '#F1F5F9', fontSize: 16, fontWeight: '800', marginTop: 11 },
   testRequestMeta: { color: '#91A2B6', fontSize: 11, marginTop: 6 },
   cancelRequestButton: { alignSelf: 'flex-start', marginTop: 11, borderRadius: 8, paddingHorizontal: 11, paddingVertical: 7, backgroundColor: '#3A2630' },
   cancelRequestText: { color: '#FF9EAD', fontSize: 10, fontWeight: '800' },
   secondaryButton: { borderWidth: 1, borderColor: '#31536A', borderRadius: 11, padding: 12, alignItems: 'center', marginTop: 8 },
-  secondaryButtonText: { color: '#70DCC8', fontSize: 12, fontWeight: '800' },
-  tripCard: { backgroundColor: '#142337', borderRadius: 17, padding: 15, marginBottom: 10, borderWidth: 1, borderColor: '#20354C' },
+  secondaryButtonText: { color: '#86CCD5', fontSize: 12, fontWeight: '800' },
+  tripCard: { backgroundColor: '#1D2E43', borderRadius: 17, padding: 15, marginBottom: 10, borderWidth: 1, borderColor: '#2A4056' },
   tripTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   tripTime: { color: '#91A2B6', fontSize: 11, fontWeight: '600' },
   tripAccent: { width: 7, height: 7, borderRadius: 4 },
   tripRoute: { flexDirection: 'row', alignItems: 'center', marginTop: 14 },
   tripStops: { width: 18, alignItems: 'center', marginRight: 9 },
-  tripDotStart: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#55D6BE' },
+  tripDotStart: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#7CC8D6' },
   tripStem: { width: 1, height: 18, backgroundColor: '#52677E' },
   tripDotEnd: { width: 8, height: 8, borderRadius: 2, backgroundColor: '#8EA8FF' },
   tripCity: { color: '#F1F5F9', fontSize: 15, fontWeight: '800' },
   tripCityEnd: { color: '#F1F5F9', fontSize: 15, fontWeight: '800', marginTop: 9 },
   tripPriceWrap: { marginLeft: 'auto', alignItems: 'flex-end' },
-  tripPrice: { color: '#55D6BE', fontSize: 15, fontWeight: '900' },
+  tripPrice: { color: '#7CC8D6', fontSize: 15, fontWeight: '900' },
   tripSeats: { color: '#8293A8', fontSize: 10, marginTop: 5 },
   tripBottom: { borderTopWidth: 1, borderTopColor: '#26394F', marginTop: 13, paddingTop: 10, flexDirection: 'row', justifyContent: 'space-between' },
   tripDriver: { color: '#91A2B6', fontSize: 10 },
-  tripDetails: { color: '#55D6BE', fontSize: 10, fontWeight: '800' },
+  tripDetails: { color: '#7CC8D6', fontSize: 10, fontWeight: '800' },
   driverHero: { backgroundColor: '#183C42', borderRadius: 24, padding: 21, borderWidth: 1, borderColor: '#2B6560' },
   statsRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
-  statCard: { flex: 1, backgroundColor: '#142337', borderRadius: 15, padding: 16, borderWidth: 1, borderColor: '#20354C' },
-  statValue: { color: '#55D6BE', fontSize: 25, fontWeight: '900' },
+  statCard: { flex: 1, backgroundColor: '#1D2E43', borderRadius: 15, padding: 16, borderWidth: 1, borderColor: '#2A4056' },
+  statValue: { color: '#7CC8D6', fontSize: 25, fontWeight: '900' },
   statLabel: { color: '#91A2B6', fontSize: 10, marginTop: 5 },
-  stepCard: { flexDirection: 'row', padding: 15, backgroundColor: '#142337', borderRadius: 15, marginBottom: 9, borderWidth: 1, borderColor: '#20354C' },
-  stepNumber: { color: '#55D6BE', fontSize: 17, fontWeight: '900', width: 43 },
+  stepCard: { flexDirection: 'row', padding: 15, backgroundColor: '#1D2E43', borderRadius: 15, marginBottom: 9, borderWidth: 1, borderColor: '#2A4056' },
+  stepNumber: { color: '#7CC8D6', fontSize: 17, fontWeight: '900', width: 43 },
   stepText: { flex: 1 },
   stepTitle: { color: '#F1F5F9', fontSize: 13, fontWeight: '800' },
   stepDescription: { color: '#91A2B6', fontSize: 11, lineHeight: 16, marginTop: 4 },
   pageTitle: { color: '#F3F7FB', fontSize: 25, fontWeight: '900', marginTop: 7 },
   pageSubtitle: { color: '#8293A8', fontSize: 12, marginTop: 6, marginBottom: 18 },
-  emptyCard: { backgroundColor: '#142337', borderRadius: 19, padding: 22, alignItems: 'center', borderWidth: 1, borderColor: '#20354C', marginTop: 18 },
+  emptyCard: { backgroundColor: '#1D2E43', borderRadius: 19, padding: 22, alignItems: 'center', borderWidth: 1, borderColor: '#2A4056', marginTop: 18 },
   emptyIcon: { fontSize: 32, marginBottom: 12 },
   emptyTitle: { color: '#F1F5F9', fontSize: 16, fontWeight: '800', marginTop: 8 },
   emptyText: { color: '#91A2B6', fontSize: 12, lineHeight: 18, textAlign: 'center', marginTop: 8 },
-  profileCard: { backgroundColor: '#142337', borderRadius: 20, padding: 22, alignItems: 'center', marginTop: 15, borderWidth: 1, borderColor: '#20354C' },
+  profileCard: { backgroundColor: '#1D2E43', borderRadius: 20, padding: 22, alignItems: 'center', marginTop: 15, borderWidth: 1, borderColor: '#2A4056' },
   profileAvatar: { width: 68, height: 68, borderRadius: 23, backgroundColor: '#1C4550', alignItems: 'center', justifyContent: 'center' },
-  profileAvatarText: { color: '#55D6BE', fontSize: 27, fontWeight: '900' },
+  profileAvatarText: { color: '#7CC8D6', fontSize: 27, fontWeight: '900' },
   profileName: { color: '#F1F5F9', fontSize: 18, fontWeight: '800', marginTop: 13 },
   profilePhone: { color: '#8293A8', fontSize: 11, marginTop: 5 },
   profileDivider: { height: 1, backgroundColor: '#293D53', alignSelf: 'stretch', marginVertical: 18 },
   profileHint: { color: '#A5B4C5', fontSize: 12, lineHeight: 19, textAlign: 'center' },
   demoTag: { backgroundColor: '#253B4C', borderRadius: 7, paddingHorizontal: 10, paddingVertical: 6, marginTop: 17 },
-  demoTagText: { color: '#70DCC8', fontSize: 9, fontWeight: '900', letterSpacing: 1 },
+  demoTagText: { color: '#86CCD5', fontSize: 9, fontWeight: '900', letterSpacing: 1 },
   notice: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#3A321F', borderColor: '#776236', borderWidth: 1, padding: 13, borderRadius: 12, marginTop: 16 },
   noticeText: { color: '#F4D58D', fontSize: 11, flex: 1, lineHeight: 16 },
   noticeClose: { color: '#F4D58D', fontSize: 20, marginLeft: 10 },
@@ -1460,5 +1460,5 @@ const styles = StyleSheet.create({
   navItem: { alignItems: 'center', minWidth: 60 },
   navIcon: { color: '#718096', fontSize: 21, lineHeight: 24 },
   navLabel: { color: '#718096', fontSize: 9, marginTop: 3, fontWeight: '600' },
-  navActive: { color: '#55D6BE' },
+  navActive: { color: '#7CC8D6' },
 });
