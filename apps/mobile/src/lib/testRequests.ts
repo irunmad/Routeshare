@@ -6,6 +6,8 @@ export interface TestPassengerRequest {
   id: string;
   origin: string;
   destination: string;
+  originPoint?: { lat: number; lon: number } | null;
+  destinationPoint?: { lat: number; lon: number } | null;
   departureStart: string;
   departureEnd: string;
   offeredRateUahPerKm: number;
@@ -43,6 +45,8 @@ export function listTestPassengerRequests(profileId?: string): Promise<TestPasse
 export async function createTestPassengerRequest(input: {
   origin: string;
   destination: string;
+  originPoint?: { lat: number; lon: number };
+  destinationPoint?: { lat: number; lon: number };
   departureStart: string;
   departureEnd: string;
   offeredRateUahPerKm: number;
