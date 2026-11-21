@@ -12,6 +12,7 @@ export interface TestPassengerRequest {
   status: 'searching';
   createdAt: string;
   isMine: boolean;
+  userId?: string | null;
 }
 
 async function request<T>(path: string, init: RequestInit = {}, profileId?: string): Promise<T> {
@@ -53,4 +54,11 @@ export async function cancelTestPassengerRequest(id: string, profileId?: string)
   await request<{ id: string; status: string }>(`/test/passenger-requests/${id}`, {
     method: 'DELETE',
   }, profileId);
+}
+
+export function registerTestProfile(profile: { id: string; name: string; phone: string }): Promise<{ profileId: string; userId: string }> {
+  return request('/test/passenger-requests/profiles', {
+    method: 'POST',
+    body: JSON.stringify({ name: profile.name, phone: profile.phone }),
+  }, profile.id);
 }
