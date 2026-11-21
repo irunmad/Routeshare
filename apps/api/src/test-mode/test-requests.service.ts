@@ -174,17 +174,19 @@ export class TestRequestsService {
   }
 
   private async postEntries(client: { query: (sql: string, params?: unknown[]) => Promise<any> },
-    transactionId: string, entries: { userId: string; kind: string; delta: number }[]) {
+    transactionId: string, entries: { userId: string; kind: string; delta: number }[], alreadyDebited?: { userId: string; kind: string }) {
     if (entries.reduce((sum, e) => sum + e.delta, 0) !== 0) throw new Error('Unbalanced virtual journal.');
     for (const e of entries) {
       await client.query(
         'INSERT INTO test_wallet_accounts (user_id, account_kind) VALUES ($1,$2) ON CONFLICT DO NOTHING',
         [e.userId, e.kind],
       );
-      await client.query(
-        'UPDATE test_wallet_accounts SET balance_minor = balance_minor + $3 WHERE user_id = $1 AND account_kind = $2',
-        [e.userId, e.kind, e.delta],
-      );
+      if (!(alreadyDebited && alreadyDebited.userId === e.userId && alreadyDebited.kind === e.kind)) {
+        await client.query(
+          'UPDATE test_wallet_accounts SET balance_minor = balance_minor + $3 WHERE user_id = $1 AND account_kind = $2',
+          [e.userId, e.kind, e.delta],
+        );
+      }
       await client.query(
         'INSERT INTO test_wallet_entries (transaction_id, user_id, account_kind, delta_minor) VALUES ($1,$2,$3,$4)',
         [transactionId, e.userId, e.kind, e.delta],
@@ -291,17 +293,11 @@ export class TestRequestsService {
          VALUES ($1,'ride_settlement',$2,$3,$4,$5)`,
         [transactionId, id, driverId, minor, fee],
       );
-      // Passenger debit was conditional above; record its journal entry without debiting twice.
-      await client.query(
-        "INSERT INTO test_wallet_entries (transaction_id,user_id,account_kind,delta_minor) VALUES ($1,$2,'passenger',$3)",
-        [transactionId, passengerId, -minor],
-      );
       await this.postEntries(client, transactionId, [
+        { userId: passengerId, kind: 'passenger', delta: -minor },
         { userId: driverId, kind: 'driver', delta: minor - fee },
         { userId: driverId, kind: 'platform', delta: fee },
-        { userId: driverId, kind: 'test_source', delta: -minor },
-        { userId: driverId, kind: 'test_source', delta: minor },
-      ].filter(e => e.delta !== 0));
+      ].filter(e => e.delta !== 0), { userId: passengerId, kind: 'passenger' });
       await client.query(
         "UPDATE test_passenger_requests SET status = 'completed', completed_at = now() WHERE id = $1",
         [id],
