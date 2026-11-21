@@ -546,7 +546,19 @@ export default function App() {
 
                   {mapTarget && <MapPointPicker initial={mapTarget === 'from' ? fromPoint : toPoint} onCancel={() => setMapTarget(null)} onConfirm={p => { if(mapTarget === 'from'){setFrom(p.label);setFromPoint(p);} else {setTo(p.label);setToPoint(p);}setMapTarget(null);setHouseTarget(null);setShowPassengerRoute(false); }} />}
                   {!!addressError && <Text style={{ color: '#D3B29B', fontSize: 12, marginBottom: 8 }}>{addressError}</Text>}
-                  {(fromPoint || toPoint) && <RouteMapPreview detail routes={[{stops: fromPoint && toPoint ? [toMapPoint(fromPoint),toMapPoint(toPoint)] : [toMapPoint((fromPoint||toPoint)!),toMapPoint((fromPoint||toPoint)!)],kind:'passenger',color:'#00DB79'}]} />}
+                  {(fromPoint || toPoint) && <>
+                    <Text style={{color:'#93B5C6',fontSize:11,marginBottom:4}}>Утримуй точку на карті: зміниться найближча точка посадки або висадки та її адреса.</Text>
+                    <RouteMapPreview detail routes={[{stops: fromPoint && toPoint ? [toMapPoint(fromPoint),toMapPoint(toPoint)] : [toMapPoint((fromPoint||toPoint)!),toMapPoint((fromPoint||toPoint)!)],kind:'passenger',color:'#00DB79'}]} onLongPress={async(lat,lon)=>{
+                      const reference={lat,lon};
+                      const d=(p:Coordinates|null)=>p?Math.hypot((p.lat-lat)*111000,(p.lon-lon)*71000):Infinity;
+                      const target=!fromPoint?'from':!toPoint?'to':d(fromPoint)<=d(toPoint)?'from':'to';
+                      let label='GPS '+lat.toFixed(5)+', '+lon.toFixed(5);
+                      try{const response=await fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&accept-language=uk&lat='+lat+'&lon='+lon);if(response.ok){const data=await response.json();if(data.display_name)label=data.display_name;}}catch{}
+                      const point:AddressSuggestion={...reference,label,source:'map'};
+                      if(target==='from'){setFrom(label);setFromPoint(point);}else{setTo(label);setToPoint(point);}
+                      setShowPassengerRoute(false);
+                    }} />
+                  </>}
                   <Text style={{ color: '#00EF78', fontWeight: '800', marginVertical: 9 }}>{routeBusy ? 'Розрахунок маршруту…' : distanceKm === null ? 'Вибери обидві точки' : distanceKm.toFixed(1) + ' км · ≈ ' + Math.round(distanceKm/25*60) + ' хв · ' + Math.ceil(distanceKm*15) + ' ₴'}</Text>
                   <View style={styles.rateRow}>
                     <Text style={styles.rateLabel}>ТАРИФ, грн/км (мін. 15)</Text>
@@ -987,7 +999,10 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
             return point;
           }catch{}
         }
-        throw Error('Не знайдено доступну сусідню вулицю біля '+Math.round(fraction*100)+'% маршруту');
+        // Dense urban roads, bridges and one-way streets may make a strict
+        // perpendicular search fail. Use a real OSRM waypoint on the driver's
+        // route as a safe fallback, rather than aborting all three requests.
+        return anchor;
       };
       const reverse=async(p:Coordinates)=>{
         try {
@@ -1017,7 +1032,7 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
         created++;setSeedMessage('Створено '+created+'/3 заявок');
       }
       await onRefresh();
-      setSeedMessage('Створено 3 тестові заявки із заїздами на сусідні вулиці');
+      setSeedMessage('Створено 3 заявки. Де сусідні вулиці недоступні — використано дорожню точку основного маршруту.');
     }catch(e){setSeedMessage('Створено '+created+'/3. '+(e instanceof Error?e.message:'Помилка'));}
     finally{setSeedBusy(false);}
   };
@@ -1293,7 +1308,7 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
   );
 }
 
-function RouteMapPreview({ detail, routes }: { detail: boolean; routes: MapRoute[] }) {
+function RouteMapPreview({ detail, routes, onLongPress }: { detail: boolean; routes: MapRoute[]; onLongPress?: (lat:number,lon:number)=>void }) {
   const frame = useRef<HTMLIFrameElement>(null);
   const payload = JSON.stringify(routes);
   const sendRoutes = useCallback(() => {
@@ -1301,11 +1316,22 @@ function RouteMapPreview({ detail, routes }: { detail: boolean; routes: MapRoute
     if (target) target.postMessage({ type: 'routeshare:routes', payload }, window.location.origin);
   }, [payload]);
   useEffect(sendRoutes, [sendRoutes]);
+  useEffect(() => {
+    if (!onLongPress || Platform.OS !== 'web') return;
+    const receive=(event:MessageEvent)=>{
+      if(event.source===frame.current?.contentWindow && event.origin===window.location.origin && event.data?.type==='routeshare:longpress'){
+        const {lat,lon}=event.data;
+        if(Number.isFinite(lat)&&Number.isFinite(lon))onLongPress(lat,lon);
+      }
+    };
+    window.addEventListener('message',receive);
+    return ()=>window.removeEventListener('message',receive);
+  },[onLongPress]);
 
   if (Platform.OS !== 'web') return <View style={detailStyles.mapPlaceholder}><Text style={detailStyles.mapText}>Веб-карта доступна у браузері.</Text></View>;
-  return <View style={{ height: detail ? 190 : 360, borderRadius: 9, overflow: 'hidden', borderWidth: 1, borderColor: '#526373' }}>
+  return <View style={{ height: detail ? 350 : Math.max(350, Platform.OS === 'web' && typeof window !== 'undefined' ? Math.min(window.innerWidth - 28, 650) : 350), borderRadius: 9, overflow: 'hidden', borderWidth: 1, borderColor: '#526373' }}>
     {React.createElement('iframe', {
-      ref: frame, src: './route-map.html?v=8', onLoad: sendRoutes, title: 'Карта маршрутів RouteShare',
+      ref: frame, src: './route-map.html?v=10', onLoad: sendRoutes, title: 'Карта маршрутів RouteShare',
       style: { width: '100%', height: '100%', border: 0 },
     })}
   </View>;
