@@ -320,7 +320,7 @@ export default function App() {
     let active = true;
     const refresh = async () => {
       try {
-        const rows = await listTestPassengerRequests();
+        const rows = await listTestPassengerRequests(activeProfileId || undefined);
         if (active) setTestRequests(rows);
       } catch {
         // Shared test mode is enabled on the API separately.
@@ -514,7 +514,7 @@ export default function App() {
 
           {tab === 'home' && <View style={{display:mode==='driver'?'flex':'none'}}><View style={{paddingHorizontal:10,paddingTop:8,gap:5}}>
             <Text style={{color:'#B5D3E0',fontSize:12,fontWeight:'800'}}>ТЕСТ · ДОСТУПНІ ЗАЯВКИ</Text>
-            {testRequests.filter(r=>r.status==='accepted' && r.driverUserId && profiles.some(p=>p.id===activeProfileId)).slice(0,5).map(r=><View key={'accepted-'+r.id} style={{backgroundColor:'#173E40',padding:10,borderRadius:10,gap:5}}>
+            {testRequests.filter(r=>r.status==='accepted' && r.acceptedByMe).slice(0,5).map(r=><View key={'accepted-'+r.id} style={{backgroundColor:'#173E40',padding:10,borderRadius:10,gap:5}}>
               <Text style={{color:'#FFFFFF',fontSize:12}}>Прийнята заявка: {r.origin} → {r.destination}</Text>
               <Text style={{color:'#A9D9CF',fontSize:11}}>Водій: {r.driverUserId?.slice(0,8)} · Прийнято {r.acceptedAt ? new Date(r.acceptedAt).toLocaleTimeString('uk-UA') : '—'}</Text>
               {r.acceptedAt && Date.now()-new Date(r.acceptedAt).getTime()<10000 && <TouchableOpacity onPress={()=>releaseTestRequest(r.id)} style={{padding:8,backgroundColor:'#75513C',borderRadius:7}}><Text style={{color:'#FFFFFF',fontWeight:'800'}}>Скасувати без штрафу (10 с)</Text></TouchableOpacity>}
