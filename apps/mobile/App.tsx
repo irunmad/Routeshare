@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { cancelTestPassengerRequest, createTestPassengerRequest, listTestPassengerRequests, TestPassengerRequest } from './src/lib/testRequests';
+import { cancelTestPassengerRequest, createTestPassengerRequest, listTestPassengerRequests, registerTestProfile, TestPassengerRequest } from './src/lib/testRequests';
 import { StatusBar } from 'expo-status-bar';
 import {
   SafeAreaView,
@@ -197,14 +197,16 @@ export default function App() {
     setActiveProfileId(id); setAccountScreen('none'); setMenuOpen(false);
     if (Platform.OS === 'web' && typeof window !== 'undefined') window.localStorage.setItem('routeshare.active-test-profile', id);
   };
-  const registerProfile = () => {
+  const registerProfile = async () => {
     if (profileName.trim().length < 2 || !/^\\+?[0-9 ()-]{9,18}$/.test(profilePhone.trim())) {
       setNotice('Вкажи ім’я (від 2 символів) та номер телефону.'); return;
     }
     const profile: TestProfile = { id: testUuid(), name: profileName.trim(), phone: profilePhone.trim(), gender: profileGender, avatar: profileAvatar };
     const next = [...profiles, profile]; setProfiles(next);
     if (Platform.OS === 'web' && typeof window !== 'undefined') window.localStorage.setItem(PROFILE_KEY, JSON.stringify(next));
-    selectProfile(profile.id); setNotice('Тестовий профіль створено: ' + profile.name);
+    selectProfile(profile.id);
+    try { await registerTestProfile(profile); setNotice('Тестовий акаунт створено: ' + profile.name); }
+    catch (error) { setNotice('Профіль збережено локально. Сервер: ' + (error instanceof Error ? error.message : 'помилка')); }
   };
   const [design, setDesign] = useState<Design>(initialDesign);
   const changeDesign = (next: Design) => {
@@ -349,6 +351,8 @@ export default function App() {
     const departureEnd = new Date(departure.getTime() + 11 * 60 * 1000);
     setSavingRequest(true);
     try {
+      if (!activeProfile) { setNotice('Спочатку створи тестовий профіль.'); setSavingRequest(false); return; }
+      await registerTestProfile(activeProfile);
       const created = await createTestPassengerRequest({
         // The test API accepts text addresses, including GPS latitude and longitude.
         origin: fromPoint.source === 'gps' ? 'GPS ' + fromPoint.lat.toFixed(5) + ', ' + fromPoint.lon.toFixed(5) : from.trim(),
