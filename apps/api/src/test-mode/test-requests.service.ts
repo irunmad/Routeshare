@@ -167,6 +167,153 @@ export class TestRequestsService {
     });
   }
 
+  private async testUser(client: { query: (sql: string, params?: unknown[]) => Promise<any> }, profileId: string): Promise<string> {
+    const identity = await client.query('SELECT user_id FROM test_profiles WHERE profile_id = $1', [this.validateInstallationId(profileId)]);
+    if (!identity.rowCount) throw new BadRequestException('Register a test profile first.');
+    return identity.rows[0].user_id as string;
+  }
+
+  private async postEntries(client: { query: (sql: string, params?: unknown[]) => Promise<any> },
+    transactionId: string, entries: { userId: string; kind: string; delta: number }[]) {
+    if (entries.reduce((sum, e) => sum + e.delta, 0) !== 0) throw new Error('Unbalanced virtual journal.');
+    for (const e of entries) {
+      await client.query(
+        'INSERT INTO test_wallet_accounts (user_id, account_kind) VALUES ($1,$2) ON CONFLICT DO NOTHING',
+        [e.userId, e.kind],
+      );
+      await client.query(
+        'UPDATE test_wallet_accounts SET balance_minor = balance_minor + $3 WHERE user_id = $1 AND account_kind = $2',
+        [e.userId, e.kind, e.delta],
+      );
+      await client.query(
+        'INSERT INTO test_wallet_entries (transaction_id, user_id, account_kind, delta_minor) VALUES ($1,$2,$3,$4)',
+        [transactionId, e.userId, e.kind, e.delta],
+      );
+    }
+  }
+
+  async wallet(profileId: string) {
+    this.assertEnabled();
+    return this.database.withTransaction(async client => {
+      const userId = await this.testUser(client, profileId);
+      const accounts = await client.query(
+        "SELECT account_kind AS kind, balance_minor::text AS balance FROM test_wallet_accounts WHERE user_id = $1",
+        [userId],
+      );
+      const transactions = await client.query(
+        `SELECT t.id, t.kind, t.request_id AS "requestId", t.amount_minor::text AS "amountMinor",
+          t.platform_fee_minor::text AS "platformFeeMinor", t.created_at AS "createdAt"
+         FROM test_wallet_transactions t
+         WHERE t.actor_user_id = $1 OR EXISTS (
+           SELECT 1 FROM test_wallet_entries e WHERE e.transaction_id = t.id AND e.user_id = $1 AND e.account_kind IN ('passenger','driver')
+         )
+         ORDER BY t.created_at DESC LIMIT 50`,
+        [userId],
+      );
+      return { userId, accounts: accounts.rows, transactions: transactions.rows };
+    });
+  }
+
+  async topup(profileId: string, input: { amountUah?: number }) {
+    this.assertEnabled();
+    const amount = Number(input?.amountUah);
+    if (!Number.isFinite(amount) || amount < 1 || amount > 10000 || Math.round(amount * 100) !== amount * 100) {
+      throw new BadRequestException('Virtual top-up must be 1–10000 UAH, at most two decimals.');
+    }
+    return this.database.withTransaction(async client => {
+      const userId = await this.testUser(client, profileId);
+      const minor = Math.round(amount * 100);
+      const transactionId = randomUUID();
+      await client.query(
+        "INSERT INTO test_wallet_transactions (id, kind, actor_user_id, amount_minor) VALUES ($1,'topup',$2,$3)",
+        [transactionId, userId, minor],
+      );
+      await this.postEntries(client, transactionId, [
+        { userId, kind: 'test_source', delta: -minor },
+        { userId, kind: 'passenger', delta: minor },
+      ]);
+      return { transactionId, amountMinor: minor, virtual: true };
+    });
+  }
+
+  async startTrip(profileId: string, requestId: string) {
+    this.assertEnabled();
+    const id = this.validateInstallationId(requestId);
+    return this.database.withTransaction(async client => {
+      const driverId = await this.testUser(client, profileId);
+      const result = await client.query(
+        `UPDATE test_passenger_requests SET status = 'in_trip'
+         WHERE id = $1 AND status = 'accepted' AND accepted_driver_user_id = $2
+         RETURNING id, status`,
+        [id, driverId],
+      );
+      if (!result.rowCount) throw new BadRequestException('Only the assigned driver can start an accepted request.');
+      await client.query(
+        "INSERT INTO test_request_events (request_id, actor_profile_id, event_type) VALUES ($1,$2,'request.started')",
+        [id, profileId],
+      );
+      return result.rows[0];
+    });
+  }
+
+  async completeTrip(profileId: string, requestId: string, input: { fareUah?: number }) {
+    this.assertEnabled();
+    const id = this.validateInstallationId(requestId);
+    const fare = Number(input?.fareUah);
+    if (!Number.isFinite(fare) || fare < 1 || fare > 10000 || Math.round(fare * 100) !== fare * 100) {
+      throw new BadRequestException('Test fare must be 1–10000 UAH, at most two decimals.');
+    }
+    return this.database.withTransaction(async client => {
+      const driverId = await this.testUser(client, profileId);
+      const locked = await client.query(
+        "SELECT user_id, accepted_driver_user_id, status FROM test_passenger_requests WHERE id = $1 FOR UPDATE",
+        [id],
+      );
+      const ride = locked.rows[0];
+      if (!ride || ride.status !== 'in_trip' || ride.accepted_driver_user_id !== driverId || !ride.user_id) {
+        throw new BadRequestException('Only the assigned driver can complete an active trip once.');
+      }
+      const passengerId = ride.user_id as string;
+      const minor = Math.round(fare * 100);
+      const fee = Math.round(minor * 0.1); // Explicit test-only 10% platform fee.
+      await client.query(
+        "INSERT INTO test_wallet_accounts (user_id, account_kind) VALUES ($1,'passenger') ON CONFLICT DO NOTHING",
+        [passengerId],
+      );
+      const debited = await client.query(
+        "UPDATE test_wallet_accounts SET balance_minor = balance_minor - $2 WHERE user_id = $1 AND account_kind = 'passenger' AND balance_minor >= $2 RETURNING balance_minor",
+        [passengerId, minor],
+      );
+      if (!debited.rowCount) throw new BadRequestException('Passenger virtual balance is insufficient.');
+      const transactionId = randomUUID();
+      await client.query(
+        `INSERT INTO test_wallet_transactions (id, kind, request_id, actor_user_id, amount_minor, platform_fee_minor)
+         VALUES ($1,'ride_settlement',$2,$3,$4,$5)`,
+        [transactionId, id, driverId, minor, fee],
+      );
+      // Passenger debit was conditional above; record its journal entry without debiting twice.
+      await client.query(
+        "INSERT INTO test_wallet_entries (transaction_id,user_id,account_kind,delta_minor) VALUES ($1,$2,'passenger',$3)",
+        [transactionId, passengerId, -minor],
+      );
+      await this.postEntries(client, transactionId, [
+        { userId: driverId, kind: 'driver', delta: minor - fee },
+        { userId: driverId, kind: 'platform', delta: fee },
+        { userId: driverId, kind: 'test_source', delta: -minor },
+        { userId: driverId, kind: 'test_source', delta: minor },
+      ].filter(e => e.delta !== 0));
+      await client.query(
+        "UPDATE test_passenger_requests SET status = 'completed', completed_at = now() WHERE id = $1",
+        [id],
+      );
+      await client.query(
+        "INSERT INTO test_request_events (request_id,actor_profile_id,event_type,details) VALUES ($1,$2,'request.completed',$3::jsonb)",
+        [id, profileId, JSON.stringify({ fareMinor: minor, driverNetMinor: minor - fee, platformFeeMinor: fee, transactionId })],
+      );
+      return { id, status: 'completed', fareMinor: minor, driverNetMinor: minor - fee, platformFeeMinor: fee, transactionId };
+    });
+  }
+
   async list(installationId: string) {
     this.assertEnabled();
     const owner = this.validateInstallationId(installationId);
@@ -180,7 +327,7 @@ export class TestRequestsService {
           user_id AS "userId", accepted_driver_user_id AS "driverUserId", accepted_at AS "acceptedAt",
           (accepted_driver_user_id = (SELECT user_id FROM test_profiles WHERE profile_id = $1)) AS "acceptedByMe"
          FROM test_passenger_requests
-         WHERE status IN ('searching','accepted')
+         WHERE status IN ('searching','accepted','in_trip','completed')
          ORDER BY created_at DESC
          LIMIT 200`,
         [owner],
