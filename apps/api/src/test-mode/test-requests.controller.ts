@@ -13,6 +13,14 @@ import { CreateTestRequestInput, TestRequestsService } from './test-requests.ser
 export class TestRequestsController {
   constructor(private readonly requests: TestRequestsService) {}
 
+  @Post('profiles')
+  registerProfile(
+    @Headers('x-test-installation-id') profileId: string,
+    @Body() body: { name?: string; phone?: string },
+  ) {
+    return this.requests.registerProfile(profileId, body);
+  }
+
   @Post()
   create(
     @Headers('x-test-installation-id') installationId: string,
