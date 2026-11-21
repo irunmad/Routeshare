@@ -409,6 +409,8 @@ export default function App() {
         // The test API accepts text addresses, including GPS latitude and longitude.
         origin: fromPoint.source === 'gps' ? 'GPS ' + fromPoint.lat.toFixed(5) + ', ' + fromPoint.lon.toFixed(5) : from.trim(),
         destination: to.trim(),
+        originPoint: {lat:fromPoint.lat,lon:fromPoint.lon},
+        destinationPoint: {lat:toPoint.lat,lon:toPoint.lon},
         departureStart: departure.toISOString(),
         departureEnd: departureEnd.toISOString(),
         offeredRateUahPerKm: parsedRate,
@@ -965,7 +967,7 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
   const [eligibleRequests, setEligibleRequests] = useState<MatchedRequest[]>([]);
   const [matchingState, setMatchingState] = useState('Для підбору вкажи початок і кінець маршруту');
   // Polling returns a fresh array every five seconds. Re-run routing only when request content changes.
-  const liveRequestSignature=JSON.stringify(liveRequests.map(r=>[r.id,r.origin,r.destination,r.offeredRateUahPerKm]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))));
+  const liveRequestSignature=JSON.stringify(liveRequests.map(r=>[r.id,r.origin,r.destination,r.originPoint,r.destinationPoint,r.offeredRateUahPerKm]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))));
   const latestLiveRequests=useRef(liveRequests);
   latestLiveRequests.current=liveRequests;
   useEffect(() => {
@@ -981,7 +983,7 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
     const run=async()=>{
       const outcomes=await Promise.all(requests.map(async(request):Promise<{match?:MatchedRequest;error?:string}>=>{
         try{
-          const [pickup,dropoff]=await Promise.all([resolveAddress(request.origin),resolveAddress(request.destination)]);
+          const [pickup,dropoff]=await Promise.all([request.originPoint || resolveAddress(request.origin),request.destinationPoint || resolveAddress(request.destination)]);
           if(!pickup||!dropoff)return {error:'адресу не знайдено'};
           const [pickupKm,finalKm,passengerKm]=await Promise.all([
             roadDistanceKm(driverStart,pickup),roadDistanceKm(dropoff,destinationPoint),roadDistanceKm(pickup,dropoff)
@@ -1085,7 +1087,7 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
     const matchedOffers = new Map(liveOffers.map(offer => [offer.id, offer]));
     for (const request of liveRequests.slice(0, 15)) {
       mapRoutes.push({
-        stops: matchedOffers.get(request.id)?.mapStops ?? [requestMapStop(request.origin), requestMapStop(request.destination)],
+        stops: request.originPoint && request.destinationPoint ? [toMapPoint(request.originPoint),toMapPoint(request.destinationPoint)] : matchedOffers.get(request.id)?.mapStops ?? [requestMapStop(request.origin), requestMapStop(request.destination)],
         color: priorityOffers.get(request.id)?.color ?? priorityMemberColors.get(request.id) ?? neutralRouteColor,
         kind: 'passenger', separate: true,
       });
