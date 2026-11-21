@@ -106,3 +106,14 @@ export interface TestFinanceJournal {
 export function getTestFinanceJournal(): Promise<TestFinanceJournal> {
   return request<TestFinanceJournal>('/test/passenger-requests/finance-journal');
 }
+
+export interface TestReadiness {
+  ready: boolean;
+  applied: string[];
+  missing: string[];
+  testMode: boolean;
+  realPayments: boolean;
+}
+export function getTestReadiness(): Promise<TestReadiness> {
+  return request<TestReadiness>('/test/passenger-requests/readiness');
+}
