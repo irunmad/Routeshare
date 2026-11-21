@@ -34,6 +34,11 @@ export class TestRequestsController {
     return this.requests.list(installationId);
   }
 
+  @Get('readiness')
+  readiness() {
+    return this.requests.readiness();
+  }
+
   @Get('finance-journal')
   financeJournal() {
     return this.requests.financeJournal();
