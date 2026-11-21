@@ -958,6 +958,37 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
         const part=(target-cumulative[i-1])/Math.max(0.001,cumulative[i]-cumulative[i-1]);
         return {lon:geometry[i-1][0]+(geometry[i][0]-geometry[i-1][0])*part,lat:geometry[i-1][1]+(geometry[i][1]-geometry[i-1][1])*part};
       };
+      // Generate candidate stops on neighboring routable streets rather than on
+      // the driver's polyline. Snap to OSRM roads and validate actual driving
+      // distances, including one-way restrictions and access direction.
+      const nearbyRoadPoint=async(fraction:number,side:number):Promise<Coordinates>=>{
+        const anchor=pointAt(fraction);
+        const before=pointAt(Math.max(.01,fraction-.008));
+        const after=pointAt(Math.min(.99,fraction+.008));
+        const dx=(after.lon-before.lon)*71000,dy=(after.lat-before.lat)*111000;
+        const length=Math.hypot(dx,dy)||1;
+        const offsets=[450,700,280,950,180];
+        for(const meters of offsets){
+          const lat=anchor.lat+side*(dx/length)*meters/111000;
+          const lon=anchor.lon-side*(dy/length)*meters/71000;
+          try{
+            const response=await fetch('https://router.project-osrm.org/nearest/v1/driving/'+lon+','+lat+'?number=1');
+            if(!response.ok)continue;
+            const data=await response.json();
+            const candidate=data.waypoints?.[0];
+            if(!candidate?.location||candidate.distance>140)continue;
+            const point={lon:candidate.location[0],lat:candidate.location[1]};
+            const separation=Math.hypot((point.lat-anchor.lat)*111000,(point.lon-anchor.lon)*71000);
+            if(separation<130||separation>1300)continue;
+            const check=await fetch('https://router.project-osrm.org/route/v1/driving/'+anchor.lon+','+anchor.lat+';'+point.lon+','+point.lat+'?overview=false');
+            if(!check.ok)continue;
+            const route=(await check.json()).routes?.[0];
+            if(!route||route.distance>3200)continue;
+            return point;
+          }catch{}
+        }
+        throw Error('Не знайдено доступну сусідню вулицю біля '+Math.round(fraction*100)+'% маршруту');
+      };
       const reverse=async(p:Coordinates)=>{
         try {
           const response=await fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&addressdetails=1&accept-language=uk&lat='+p.lat+'&lon='+p.lon);
@@ -971,8 +1002,14 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
       if(!id){id=testUuid();window.localStorage.setItem(key,id);}
       await registerTestProfile({id,name:'Тестовий пасажир RouteShare',phone:''});
       const pairs:[[number,number],[number,number],[number,number]]=[[0.12,0.46],[0.27,0.68],[0.48,0.88]];
-      for(const [from,to] of pairs){
-        const originPoint=pointAt(from),destinationPoint=pointAt(to);
+      for(const [index,[from,to]] of pairs.entries()){
+        setSeedMessage('Шукаємо сусідні вулиці для заявки '+(index+1)+'/3…');
+        const [originPoint,destinationPoint]=await Promise.all([
+          nearbyRoadPoint(from,index%2===0?1:-1),
+          nearbyRoadPoint(to,index%2===0?-1:1),
+        ]);
+        // Validate the entire passenger journey before saving it.
+        await roadDistanceKm(originPoint,destinationPoint);
         const [origin,destination]=await Promise.all([reverse(originPoint),reverse(destinationPoint)]);
         const departureStart=new Date();
         const departureEnd=new Date(departureStart.getTime()+11*60000);
@@ -980,7 +1017,7 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
         created++;setSeedMessage('Створено '+created+'/3 заявок');
       }
       await onRefresh();
-      setSeedMessage('Створено 3 реальні тестові заявки вздовж маршруту водія');
+      setSeedMessage('Створено 3 тестові заявки із заїздами на сусідні вулиці');
     }catch(e){setSeedMessage('Створено '+created+'/3. '+(e instanceof Error?e.message:'Помилка'));}
     finally{setSeedBusy(false);}
   };
@@ -1181,7 +1218,7 @@ function DriverOfferList({ liveRequests, onRefresh, design, view, selectedOffer,
     <View style={[driverStyles.wrap, design === 'new' && { backgroundColor: '#E9F0F6', padding: 8, borderRadius: 14 }]}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}><Text style={[driverStyles.heading, design === 'new' && { color: '#27495E' }]}>Маршрути</Text><Text style={{ color: design === 'new' ? '#526D7D' : '#91A8B7', fontSize: 11 }}>{liveRequests.length} активних пасажирських заявок</Text></View>
       {view === 'list' && <TouchableOpacity disabled={!driverStart||!destinationPoint||seedBusy} onPress={seedNearbyRequests} style={{padding:11,marginBottom:7,borderRadius:12,backgroundColor:'#285064',borderWidth:1,borderColor:'#4E8291',opacity:!driverStart||!destinationPoint||seedBusy?.55:1}}>
-        <Text style={{color:'#E8F7FF',fontSize:12,fontWeight:'800'}}>{seedBusy?'Створюємо заявки…':'＋ Створити 3 тестові заявки вздовж мого маршруту'}</Text>
+        <Text style={{color:'#E8F7FF',fontSize:12,fontWeight:'800'}}>{seedBusy?'Створюємо заявки…':'＋ Створити 3 заявки з відхиленнями від маршруту'}</Text>
       </TouchableOpacity>}
       {!!seedMessage && view === 'list' && <Text style={{color:'#AFC8D6',fontSize:11,marginBottom:5}}>{seedMessage}</Text>}
       <View style={{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginBottom:5}}>
