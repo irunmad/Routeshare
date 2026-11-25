@@ -394,11 +394,11 @@ export class TestRequestsService {
       const result = await client.query(
         `UPDATE test_passenger_requests SET status = 'cancelled', cancelled_at = now()
          WHERE id = $1 AND status IN ('searching','accepted','in_trip')
-         RETURNING id, status`, [id]);
+         RETURNING id, status, installation_id`, [id]);
       if (!result.rowCount) throw new NotFoundException('Active test request not found.');
       await client.query(
-        "INSERT INTO test_request_events (request_id, actor_profile_id, event_type) VALUES ($1,$2,'request.admin_cancelled')",
-        [id, actor]);
+        "INSERT INTO test_request_events (request_id, actor_profile_id, event_type) VALUES ($1,$2,'request.cancelled')",
+        [id, result.rows[0].installation_id]);
       return result.rows[0];
     });
   }
