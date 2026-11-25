@@ -11,7 +11,7 @@ export interface TestPassengerRequest {
   departureStart: string;
   departureEnd: string;
   offeredRateUahPerKm: number;
-  status: 'searching' | 'accepted' | 'in_trip' | 'completed';
+  status: 'searching' | 'accepted' | 'in_trip' | 'completed' | 'cancelled';
   driverUserId?: string | null;
   acceptedAt?: string | null;
   createdAt: string;
