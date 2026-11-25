@@ -377,8 +377,8 @@ export class TestRequestsService {
           user_id AS "userId", accepted_driver_user_id AS "driverUserId", accepted_at AS "acceptedAt",
           (accepted_driver_user_id = (SELECT user_id FROM test_profiles WHERE profile_id = $1)) AS "acceptedByMe"
          FROM test_passenger_requests
-         WHERE status IN ('searching','accepted','in_trip','completed')
-         ORDER BY created_at DESC
+         WHERE status IN ('searching','accepted','in_trip','completed','cancelled')
+         ORDER BY (status IN ('searching','accepted','in_trip')) DESC, created_at DESC
          LIMIT 200`,
         [owner],
       );
