@@ -57,6 +57,10 @@ export async function createTestPassengerRequest(input: {
   }, profileId);
 }
 
+export async function adminCancelTestPassengerRequest(id: string): Promise<void> {
+  await request(`/test/passenger-requests/admin/${id}`, { method: 'DELETE' });
+}
+
 export async function cancelTestPassengerRequest(id: string, profileId?: string): Promise<void> {
   await request<{ id: string; status: string }>(`/test/passenger-requests/${id}`, {
     method: 'DELETE',
