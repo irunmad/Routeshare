@@ -175,13 +175,21 @@ async function roadDistanceKm(a: Coordinates, b: Coordinates): Promise<number> {
   if (!data.routes?.[0]) throw Error('Автомобільний маршрут не знайдено');
   return data.routes[0].distance / 1000;
 }
+function savedNav<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
+  try { if (Platform.OS === 'web') { const v = window.localStorage.getItem('routeshare.nav.'+key) as T; if (allowed.includes(v)) return v; } } catch {}
+  return fallback;
+}
+function saveNav(key: string, value: string) {
+  try { if (Platform.OS === 'web') window.localStorage.setItem('routeshare.nav.'+key,value); } catch {}
+}
 export default function App() {
-  const [mode, setMode] = useState<Mode>('passenger');
-  const [tab, setTab] = useState<Tab>('home');
+  const [mode, setMode] = useState<Mode>(()=>savedNav('mode',['passenger','driver','admin'],'passenger'));
+  const [tab, setTab] = useState<Tab>(()=>savedNav('tab',['home','trips','messages','profile'],'home'));
   const modeTabs = useRef<Record<Mode, Tab>>({passenger:'home',driver:'home',admin:'home'});
   const switchMode = (next: Mode) => { if(next===mode)return; modeTabs.current[mode]=tab; setMode(next); setTab(modeTabs.current[next]); setMenuOpen(false); setAccountScreen('none'); };
   const [menuOpen, setMenuOpen] = useState(false);
-  const [adminSection, setAdminSection] = useState<'requests' | 'status' | 'logs' | 'finance'>('requests');
+  const [adminSection, setAdminSection] = useState<'requests' | 'status' | 'logs' | 'finance'>(()=>savedNav('admin',['requests','status','logs','finance'],'requests'));
+  useEffect(()=>{saveNav('mode',mode);saveNav('tab',tab);saveNav('admin',adminSection);},[mode,tab,adminSection]);
   const [testReadiness, setTestReadiness] = useState<TestReadiness | null>(null);
   const [readinessError, setReadinessError] = useState('');
   const refreshReadiness = async () => {
@@ -235,7 +243,8 @@ export default function App() {
       try { window.localStorage.setItem('routeshare-design', next); } catch {}
     }
   };
-  const [driverView, setDriverView] = useState<'list' | 'map' | 'offer'>('list');
+  const [driverView, setDriverView] = useState<'list' | 'map' | 'offer'>(()=>savedNav('driverView',['list','map'],'list'));
+  useEffect(()=>{saveNav('driverView',driverView==='offer'?'list':driverView);},[driverView]);
   const [driverOffer, setDriverOffer] = useState<DriverOffer | null>(null);
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
@@ -459,13 +468,15 @@ export default function App() {
     }
   };
 
+  const [adminDeleteError,setAdminDeleteError] = useState('');
   const adminDelete = async (ids: string[]) => {
+    setAdminDeleteError('');
     if (Platform.OS === 'web' && !window.confirm('Видалити тестові заявки: ' + ids.length + '?')) return;
     try {
       for (const id of ids) await adminCancelTestPassengerRequest(id);
       setNotice('Тестові заявки видалено.');
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'Не вдалося видалити заявку.');
+      setAdminDeleteError(error instanceof Error ? error.message : 'Не вдалося видалити заявку.');
     } finally { await refreshTestRequests(); }
   };
 
@@ -617,6 +628,7 @@ export default function App() {
                 {([['requests','Заявки'],['status','Статуси'],['logs','Логи'],['finance','Фінанси']] as const).map(([key,label])=><TouchableOpacity key={key} onPress={()=>{setAdminSection(key);if(key==='requests')refreshTestRequests(true);}} style={{flex:1,paddingVertical:10,borderRadius:9,alignItems:'center',backgroundColor:adminSection===key?'#145C46':'#243B4B',borderWidth:1,borderColor:adminSection===key?'#35D99B':'#345368'}}><Text style={{color:'#FFFFFF',fontWeight:'800',fontSize:12}}>{label}</Text></TouchableOpacity>)}
               </View>
               {adminSection==='requests' && <>
+                {!!adminDeleteError && <Text style={{color:'#FF9292',fontWeight:'700'}}>{adminDeleteError}</Text>}
                 <Text style={styles.pageSubtitle}>Усі тестові заявки · незалежно від фільтрів водія · оновлення кожні 5 с</Text>
                 <Text style={{color:'#49E5A2',fontWeight:'900',fontSize:16}}>Заявок: {testRequests.length}</Text>
                 {testRequests.length===0?<View style={styles.emptyCard}><Text style={styles.emptyTitle}>Заявок поки немає</Text><Text style={styles.emptyText}>Створи маршрут у режимі пасажира.</Text></View>:testRequests.map(request=><TestRequestCard key={request.id} request={request} onCancel={id=>adminDelete([id])} admin/>)}
