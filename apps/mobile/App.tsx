@@ -59,7 +59,7 @@ type Coordinates = { lat: number; lon: number };
 type MapPoint = [longitude: number, latitude: number];
 type MapStop = MapPoint | string | null;
 type MapRoute = { stops: MapStop[]; color: string; kind: 'driver' | 'passenger' | 'demo'; separate?: boolean; occupancy?: number[]; approach?: MapPoint[]; departure?: MapPoint[]; stopKinds?: ('pickup'|'dropoff')[] };
-type AddressSuggestion = Coordinates & { label: string; houseNumber?: string; source?: 'gps' | 'map' };
+type AddressSuggestion = Coordinates & { district?: string; label: string; houseNumber?: string; source?: 'gps' | 'map' };
 
 const passengerGpsLabel = 'Моя GPS-точка';
 const neutralRouteColor = '#171b23';
@@ -166,6 +166,12 @@ async function resolveAddress(label: string): Promise<AddressSuggestion | null> 
   if (label === passengerGpsLabel) return null;
   const rows = await lookupAddresses(label);
   return rows[0] || null;
+}
+function reverseLabel(data: any, fallback: string) {
+  const a = data.address || {};
+  const street = a.road || a.pedestrian || a.square || a.residential || a.footway;
+  const name = data.name || a.shop || a.amenity;
+  return {label: [street, a.house_number].filter(Boolean).join(', ') + (street && name && name!==street ? ' ('+name+')' : '') || name || fallback, district: [...new Set([a.neighbourhood,a.suburb,a.city_district,a.borough].filter(Boolean))].join(', ')};
 }
 async function roadDistanceKm(a: Coordinates, b: Coordinates): Promise<number> {
   const url = 'https://router.project-osrm.org/route/v1/driving/' + a.lon + ',' + a.lat + ';' + b.lon + ',' + b.lat + '?overview=false';
@@ -546,6 +552,7 @@ export default function App() {
                   {!!from && <TouchableOpacity onPress={()=>{setFrom('');setFromPoint(null);setEditingAddress('from');}}><Text style={{color:'#DDE8F2',fontSize:23}}>×</Text></TouchableOpacity>}
                   <TouchableOpacity onPress={()=>{setMapTarget('from');setEditingAddress(null);}} style={{padding:6}}><Text style={{color:'#4ABFA8',fontSize:23}}>⌖</Text></TouchableOpacity>
                 </View>
+                {!!fromPoint?.district && <Text style={{color:'#8CA7B7',fontSize:10,marginLeft:24}}>{fromPoint.district}</Text>}
                 <View style={{height:1,backgroundColor:'#304253',marginLeft:26}}/>
                 <View style={{flexDirection:'row',alignItems:'center',gap:8}}>
                   <Text style={{color:'#D77B88',fontSize:16}}>●</Text>
@@ -554,6 +561,7 @@ export default function App() {
                   {!!to && <TouchableOpacity onPress={()=>{setTo('');setToPoint(null);setEditingAddress('to');}}><Text style={{color:'#DDE8F2',fontSize:23}}>×</Text></TouchableOpacity>}
                   <TouchableOpacity onPress={()=>{setMapTarget('to');setEditingAddress(null);}} style={{padding:6}}><Text style={{color:'#4ABFA8',fontSize:23}}>⌖</Text></TouchableOpacity>
                 </View>
+                {!!toPoint?.district && <Text style={{color:'#8CA7B7',fontSize:10,marginLeft:24}}>{toPoint.district}</Text>}
               </View>
               {editingAddress && (editingAddress==='from'?from:to).trim().length<2 && addressHistory.length>0 && <View style={{backgroundColor:'#192A38',borderRadius:10,paddingHorizontal:10,marginBottom:8}}>
                 <Text style={{color:'#89A7B5',fontSize:11,marginTop:8}}>НЕДАВНІ АДРЕСИ</Text>
@@ -568,33 +576,23 @@ export default function App() {
                   {mapTarget && <MapPointPicker initial={mapTarget === 'from' ? fromPoint : toPoint} onCancel={() => setMapTarget(null)} onConfirm={p => { if(mapTarget === 'from'){setFrom(p.label);setFromPoint(p);} else {setTo(p.label);setToPoint(p);}setMapTarget(null);setHouseTarget(null);setShowPassengerRoute(false); }} />}
                   {!!addressError && <Text style={{ color: '#D3B29B', fontSize: 12, marginBottom: 8 }}>{addressError}</Text>}
                   {(fromPoint || toPoint) && <>
-                    <Text style={{color:'#93B5C6',fontSize:11,marginBottom:4}}>Утримуй точку на карті: зміниться найближча точка посадки або висадки та її адреса.</Text>
+                    
                     <RouteMapPreview detail routes={[{stops: fromPoint && toPoint ? [toMapPoint(fromPoint),toMapPoint(toPoint)] : [toMapPoint((fromPoint||toPoint)!),toMapPoint((fromPoint||toPoint)!)],kind:'passenger',color:'#00DB79'}]} onLongPress={async(lat,lon)=>{
                       const reference={lat,lon};
                       const d=(p:Coordinates|null)=>p?Math.hypot((p.lat-lat)*111000,(p.lon-lon)*71000):Infinity;
                       const target=!fromPoint?'from':!toPoint?'to':d(fromPoint)<=d(toPoint)?'from':'to';
-                      let label='GPS '+lat.toFixed(5)+', '+lon.toFixed(5);
-                      try{const response=await fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&accept-language=uk&lat='+lat+'&lon='+lon);if(response.ok){const data=await response.json();if(data.display_name)label=data.display_name;}}catch{}
-                      const point:AddressSuggestion={...reference,label,source:'map'};
+                      let label='GPS '+lat.toFixed(5)+', '+lon.toFixed(5); let district='';
+                      try{const response=await fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&accept-language=uk&lat='+lat+'&lon='+lon);if(response.ok){const data=await response.json();const formatted=reverseLabel(data,label);label=formatted.label;district=formatted.district;}}catch{}
+                      const point:AddressSuggestion={...reference,label,district,source:'map'};
                       if(target==='from'){setFrom(label);setFromPoint(point);}else{setTo(label);setToPoint(point);}
                       setShowPassengerRoute(false);
                     }} />
                   </>}
-                  <Text style={{ color: '#00EF78', fontWeight: '800', marginVertical: 9 }}>{routeBusy ? 'Розрахунок маршруту…' : distanceKm === null ? 'Вибери обидві точки' : distanceKm.toFixed(1) + ' км · ≈ ' + Math.round(distanceKm/25*60) + ' хв · ' + Math.ceil(distanceKm*15) + ' ₴'}</Text>
-                  <View style={styles.rateRow}>
-                    <Text style={styles.rateLabel}>ТАРИФ, грн/км (мін. 15)</Text>
-                    <TextInput value={rate} onChangeText={setRate} keyboardType="decimal-pad" style={styles.rateInput} />
-                    <TouchableOpacity onPress={()=>setRate(v=>String(Math.max(15,(Number(v.replace(',','.'))||15)+1)))} style={{padding:9,borderRadius:9,backgroundColor:'#244D48'}}><Text style={{color:'#56CDB3',fontSize:17,fontWeight:'900'}}>+1</Text></TouchableOpacity>
-                    <TouchableOpacity onPress={()=>setRate(v=>String(Math.max(15,(Number(v.replace(',','.'))||15)+5)))} style={{padding:9,borderRadius:9,backgroundColor:'#244D48'}}><Text style={{color:'#56CDB3',fontSize:17,fontWeight:'900'}}>+5</Text></TouchableOpacity>
+                  <Text style={{color:'#A9C3CE',fontSize:12,marginVertical:4}}>{routeBusy?'Розрахунок маршруту…':distanceKm===null?'Вибери обидві точки':distanceKm.toFixed(1)+' км · ≈ '+Math.round(distanceKm/25*60)+' хв (без заторів)'}</Text>
+                  <View style={{flexDirection:'row',alignItems:'center',gap:5,paddingVertical:5}}>
+                    <Text style={{flex:1,color:'#00F17C',fontWeight:'900',fontSize:24}}>{distanceKm===null?'—':Math.ceil(distanceKm*Math.max(15,Number(rate.replace(',','.'))||15))+' ₴'}</Text>
+                    {[0,10,20,30,50].map(p=><TouchableOpacity key={p} onPress={()=>setRate(String(15*(100+p)/100))} style={{padding:7,borderRadius:7,backgroundColor:Math.abs(Number(rate)-15*(100+p)/100)<0.01?'#17694F':'#243D49'}}><Text style={{color:'#E4F7EF',fontWeight:'800',fontSize:12}}>{p?'+'+p+'%':'0%'}</Text></TouchableOpacity>)}
                   </View>
-                  {distanceKm !== null && <View style={{backgroundColor:'#0C1E23',borderColor:'#00DE72',borderWidth:1,borderRadius:12,padding:11,marginBottom:10,shadowColor:'#00FF80',shadowOpacity:0.35,shadowRadius:9,elevation:4}}><Text style={{color:'#90A9B5',fontSize:11,fontWeight:'700'}}>ВАРТІСТЬ ПОЇЗДКИ</Text><Text style={{color:'#00F17C',fontWeight:'900',fontSize:27,textShadowColor:'#00D870',textShadowRadius:9}}>{Math.ceil(distanceKm * Math.max(15, Number(rate.replace(',', '.')) || 15))} ₴</Text><Text style={{color:'#E0EBF1',fontSize:12}}>{distanceKm.toFixed(1)} км · ≈ {Math.round(distanceKm/25*60)} хв · {Math.max(15,Number(rate.replace(',','.'))||15)} ₴/км</Text></View>}
-                  <View style={{flexDirection:'row',gap:7}}>
-                    <TouchableOpacity style={[styles.primaryButton,{flex:1,backgroundColor:'#47B69F',borderRadius:13,justifyContent:'center'}]} disabled={savingRequest || distanceKm === null || routeBusy} onPress={createTestRequest}>
-                      <Text style={[styles.primaryButtonText,{color:'#061C13',fontWeight:'900'}]}>{savingRequest?'Зберігаємо…':'Замовити'}</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity accessibilityLabel="Срочність поїздки" onPress={()=>setUrgency(v=>v==='now'?'flex':'now')} style={{width:55,height:49,marginTop:14,alignItems:'center',justifyContent:'center',backgroundColor:urgency==='now'?'#47B69F':'#1A2C39',borderWidth:1,borderColor:'#47B69F',borderRadius:13}}><Text style={{color:urgency==='now'?'#062219':'#E9F4F5',fontSize:26}}>◷</Text></TouchableOpacity>
-                  </View>
-
                   {requestResult && <View style={{ marginTop: 12, padding: 12, borderRadius: 8, backgroundColor: requestResult.ok ? '#14563C' : '#692C36', borderWidth: 1, borderColor: requestResult.ok ? '#39D58A' : '#FF7883' }}><Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '800' }}>{requestResult.message}</Text></View>}
                   {!fromPoint || !toPoint ? <Text style={{ color: '#F3DFA3', marginTop: 8, fontSize: 12 }}>Для створення вибери обидві адреси саме зі списку підказок.</Text> : null}
                 </View>
@@ -708,6 +706,7 @@ export default function App() {
 
         </ScrollView>}
 
+        {!menuOpen && tab==='home' && mode==='passenger' && <View style={{flexDirection:'row',gap:7,paddingHorizontal:9,paddingBottom:7}}><TouchableOpacity style={[styles.primaryButton,{flex:1,marginTop:0,backgroundColor:'#47B69F'}]} disabled={savingRequest||distanceKm===null||routeBusy} onPress={createTestRequest}><Text style={[styles.primaryButtonText,{color:'#061C13'}]}>{savingRequest?'Зберігаємо…':'Замовити'}</Text></TouchableOpacity><TouchableOpacity onPress={()=>setUrgency(v=>v==='now'?'flex':'now')} style={{width:50,alignItems:'center',justifyContent:'center',backgroundColor:urgency==='now'?'#47B69F':'#243D49',borderRadius:10}}><Text style={{color:'#FFFFFF',fontSize:25}}>◷</Text></TouchableOpacity></View>}
         {!menuOpen && tab === 'home' && mode === 'driver' && <View style={{flexDirection:'row',marginHorizontal:7,marginBottom:5,padding:2,gap:3,backgroundColor:'#0E1A27',borderRadius:13,borderWidth:1,borderColor:'#273A4B'}}>
           {([['list','Список'],['map','Карта'],['offer','Заявка']] as const).map(([key,label])=>(
             <TouchableOpacity key={key} onPress={()=>{setDriverView(key);if(key!=='offer')setDriverOffer(null);}} style={{flex:1,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:6,paddingVertical:4,borderRadius:10,backgroundColor:driverView===key?'#174335':'transparent',borderWidth:1,borderColor:driverView===key?'#00DB7C':'transparent'}}>
@@ -871,12 +870,12 @@ function MapPointPicker({ initial, onConfirm, onCancel }: { initial: AddressSugg
   const confirm = async () => {
     setBusy(true);
     const {lat,lon} = point.current;
-    let label = 'Точка на мапі (' + lat.toFixed(5) + ', ' + lon.toFixed(5) + ')';
+    let district=''; let label = 'Точка на мапі (' + lat.toFixed(5) + ', ' + lon.toFixed(5) + ')';
     try {
       const response = await fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&accept-language=uk&lat='+lat+'&lon='+lon);
-      if (response.ok) { const result=await response.json(); if(result.display_name) label=result.display_name; }
+      if (response.ok) { const result=await response.json(); const formatted=reverseLabel(result,label);label=formatted.label;district=formatted.district; }
     } catch {}
-    onConfirm({label,lat,lon,source:'map'});setBusy(false);
+    onConfirm({label,district,lat,lon,source:'map'});setBusy(false);
   };
   return <View style={{ backgroundColor:'#122332',padding:10,borderRadius:14,gap:9 }}>
     <Text style={{color:'#FFFFFF',fontWeight:'900',fontSize:16}}>Обрати точку на мапі</Text>
@@ -1358,9 +1357,9 @@ function RouteMapPreview({ detail, routes, onLongPress }: { detail: boolean; rou
   },[onLongPress]);
 
   if (Platform.OS !== 'web') return <View style={detailStyles.mapPlaceholder}><Text style={detailStyles.mapText}>Веб-карта доступна у браузері.</Text></View>;
-  return <View style={{ height: detail ? 350 : Math.max(350, Platform.OS === 'web' && typeof window !== 'undefined' ? Math.min(window.innerWidth - 28, 650) : 350), borderRadius: 9, overflow: 'hidden', borderWidth: 1, borderColor: '#526373' }}>
+  return <View style={{ height: onLongPress ? Math.max(150,typeof window !== 'undefined' ? window.innerHeight-300 : 350) : detail ? 350 : Math.max(350, Platform.OS === 'web' && typeof window !== 'undefined' ? Math.min(window.innerWidth - 28, 650) : 350), borderRadius: 9, overflow: 'hidden', borderWidth: 1, borderColor: '#526373' }}>
     {React.createElement('iframe', {
-      ref: frame, src: './route-map.html?v=10', onLoad: sendRoutes, title: 'Карта маршрутів RouteShare',
+      ref: frame, src: './route-map.html?v=11'+(onLongPress?'&quiet=1':''), onLoad: sendRoutes, title: 'Карта маршрутів RouteShare',
       style: { width: '100%', height: '100%', border: 0 },
     })}
   </View>;
