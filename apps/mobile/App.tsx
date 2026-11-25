@@ -474,6 +474,8 @@ export default function App() {
     }
   };
 
+  const [adminArchive,setAdminArchive]=useState(false);
+  const adminRows=testRequests.filter(r=>adminArchive?(r.status==='completed'||r.status==='cancelled'):(r.status!=='completed'&&r.status!=='cancelled'));
   const [adminDeleteError,setAdminDeleteError] = useState('');
   const adminDelete = async (ids: string[]) => {
     setAdminDeleteError('');
@@ -628,9 +630,10 @@ export default function App() {
               {adminSection==='requests' && <>
                 {!!adminDeleteError && <Text style={{color:'#FF9292',fontWeight:'700'}}>{adminDeleteError}</Text>}
                 <Text style={styles.pageSubtitle}>Усі тестові заявки · незалежно від фільтрів водія · оновлення кожні 5 с</Text>
-                <Text style={{color:'#49E5A2',fontWeight:'900',fontSize:16}}>Заявок: {testRequests.length}</Text>
-                {testRequests.length===0?<View style={styles.emptyCard}><Text style={styles.emptyTitle}>Заявок поки немає</Text><Text style={styles.emptyText}>Створи маршрут у режимі пасажира.</Text></View>:testRequests.map(request=><TestRequestCard key={request.id} request={request} onCancel={id=>adminDelete([id])} admin/>)}
-                {testRequests.some(r=>r.status!=='completed') && <TouchableOpacity style={styles.cancelRequestButton} onPress={()=>adminDelete(testRequests.filter(r=>r.status!=='completed').map(r=>r.id))}><Text style={styles.cancelRequestText}>Видалити всі активні заявки</Text></TouchableOpacity>}
+                <Text style={{color:'#49E5A2',fontWeight:'900',fontSize:16}}>Заявок: {adminRows.length}</Text>
+                <View style={{flexDirection:'row',gap:8}}>{[false,true].map(v=><TouchableOpacity key={String(v)} onPress={()=>setAdminArchive(v)} style={{flex:1,padding:10,backgroundColor:adminArchive===v?'#17694F':'#243D49',borderRadius:8}}><Text style={{color:'#FFFFFF',textAlign:'center'}}>{v?'Закриті':'Активні'}</Text></TouchableOpacity>)}</View>
+                {adminRows.length===0?<View style={styles.emptyCard}><Text style={styles.emptyTitle}>Заявок поки немає</Text><Text style={styles.emptyText}>Створи маршрут у режимі пасажира.</Text></View>:adminRows.map(request=><TestRequestCard key={request.id} request={request} onCancel={id=>adminDelete([id])} admin/>)}
+                {!adminArchive && adminRows.length>0 && <TouchableOpacity style={styles.cancelRequestButton} onPress={()=>adminDelete(adminRows.map(r=>r.id))}><Text style={styles.cancelRequestText}>Видалити всі активні заявки</Text></TouchableOpacity>}
                 <TouchableOpacity style={styles.secondaryButton} onPress={()=>refreshTestRequests(true)}><Text style={styles.secondaryButtonText}>Оновити зараз</Text></TouchableOpacity>
               </>}
               {adminSection==='status' && <>
@@ -1482,12 +1485,12 @@ function TestRequestCard({ request, onCancel, admin = false }: { request: TestPa
   return (
     <View style={styles.testRequestCard}>
       <View style={styles.testRequestHeader}>
-        <Text style={styles.testRequestBadge}>ТЕСТ · {request.status==='accepted'?'ПРИЙНЯТО ВОДІЄМ':request.isMine ? 'ТВОЯ ЗАЯВКА' : 'ІНШИЙ ПРОФІЛЬ'}</Text>
+        <Text style={styles.testRequestBadge}>ТЕСТ · {request.status==='cancelled'?'СКАСОВАНО':request.status==='completed'?'ЗАВЕРШЕНО':request.status==='accepted'?'ПРИЙНЯТО ВОДІЄМ':request.isMine ? 'ТВОЯ ЗАЯВКА' : 'ІНШИЙ ПРОФІЛЬ'}</Text>
         <Text style={styles.testRequestRate}>{formatRate(request.offeredRateUahPerKm)} грн/км</Text>
       </View>
       <Text style={styles.testRequestRoute}>{displayTestAddress(request.origin)} → {displayTestAddress(request.destination)}</Text>
       <Text style={styles.testRequestMeta}>Виїзд: {departure}</Text>
-      {admin && request.status!=='completed' && <TouchableOpacity style={styles.cancelRequestButton} onPress={()=>onCancel(request.id)}><Text style={styles.cancelRequestText}>🗑 Видалити заявку</Text></TouchableOpacity>}
+      {admin && request.status!=='completed' && request.status!=='cancelled' && <TouchableOpacity style={styles.cancelRequestButton} onPress={()=>onCancel(request.id)}><Text style={styles.cancelRequestText}>🗑 Видалити заявку</Text></TouchableOpacity>}
       {!admin && request.isMine && (request.status==='searching' || (request.status==='accepted' && !!request.acceptedAt && Date.now()-new Date(request.acceptedAt).getTime()<10000)) && <TouchableOpacity style={styles.cancelRequestButton} onPress={() => onCancel(request.id)}><Text style={styles.cancelRequestText}>Скасувати заявку</Text></TouchableOpacity>}
     </View>
   );
