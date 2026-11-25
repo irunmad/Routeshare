@@ -81,6 +81,11 @@ export class TestRequestsController {
     return this.requests.release(profileId, id);
   }
 
+  @Delete('admin/:id')
+  adminCancel(@Headers('x-test-installation-id') installationId: string, @Param('id') id: string) {
+    return this.requests.adminCancel(installationId, id);
+  }
+
   @Delete(':id')
   cancel(
     @Headers('x-test-installation-id') installationId: string,
