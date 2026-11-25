@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { getTestReadiness, TestReadiness, getTestFinanceJournal, TestFinanceJournal, completeTestTrip, getTestWallet, startTestTrip, topupTestWallet, TestWallet, acceptTestPassengerRequest, cancelTestPassengerRequest, createTestPassengerRequest, listTestPassengerRequests, registerTestProfile, releaseTestPassengerRequest, TestPassengerRequest } from './src/lib/testRequests';
+import { adminCancelTestPassengerRequest, getTestReadiness, TestReadiness, getTestFinanceJournal, TestFinanceJournal, completeTestTrip, getTestWallet, startTestTrip, topupTestWallet, TestWallet, acceptTestPassengerRequest, cancelTestPassengerRequest, createTestPassengerRequest, listTestPassengerRequests, registerTestProfile, releaseTestPassengerRequest, TestPassengerRequest } from './src/lib/testRequests';
 import { StatusBar } from 'expo-status-bar';
 import {
   SafeAreaView,
@@ -459,6 +459,16 @@ export default function App() {
     }
   };
 
+  const adminDelete = async (ids: string[]) => {
+    if (Platform.OS === 'web' && !window.confirm('Видалити тестові заявки: ' + ids.length + '?')) return;
+    try {
+      for (const id of ids) await adminCancelTestPassengerRequest(id);
+      setNotice('Тестові заявки видалено.');
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Не вдалося видалити заявку.');
+    } finally { await refreshTestRequests(); }
+  };
+
   const showNotice = (message: string) => setNotice(message);
 
   return (
@@ -609,7 +619,8 @@ export default function App() {
               {adminSection==='requests' && <>
                 <Text style={styles.pageSubtitle}>Усі тестові заявки · незалежно від фільтрів водія · оновлення кожні 5 с</Text>
                 <Text style={{color:'#49E5A2',fontWeight:'900',fontSize:16}}>Заявок: {testRequests.length}</Text>
-                {testRequests.length===0?<View style={styles.emptyCard}><Text style={styles.emptyTitle}>Заявок поки немає</Text><Text style={styles.emptyText}>Створи маршрут у режимі пасажира.</Text></View>:testRequests.map(request=><TestRequestCard key={request.id} request={request} onCancel={cancelTestRequest}/>)}
+                {testRequests.length===0?<View style={styles.emptyCard}><Text style={styles.emptyTitle}>Заявок поки немає</Text><Text style={styles.emptyText}>Створи маршрут у режимі пасажира.</Text></View>:testRequests.map(request=><TestRequestCard key={request.id} request={request} onCancel={id=>adminDelete([id])} admin/>)}
+                {testRequests.some(r=>r.status!=='completed') && <TouchableOpacity style={styles.cancelRequestButton} onPress={()=>adminDelete(testRequests.filter(r=>r.status!=='completed').map(r=>r.id))}><Text style={styles.cancelRequestText}>Видалити всі активні заявки</Text></TouchableOpacity>}
                 <TouchableOpacity style={styles.secondaryButton} onPress={()=>refreshTestRequests(true)}><Text style={styles.secondaryButtonText}>Оновити зараз</Text></TouchableOpacity>
               </>}
               {adminSection==='status' && <>
@@ -1455,7 +1466,7 @@ const driverStyles = StyleSheet.create({
   confirmYes: { color: '#7CCDB9', fontWeight: '900' }, disclaimer: { color: '#8A9BAB', fontSize: 10, marginTop: 4 },
 });
 
-function TestRequestCard({ request, onCancel }: { request: TestPassengerRequest; onCancel: (id: string) => void }) {
+function TestRequestCard({ request, onCancel, admin = false }: { request: TestPassengerRequest; onCancel: (id: string) => void; admin?: boolean }) {
   const departure = new Date(request.departureStart).toLocaleString('uk-UA', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
   return (
     <View style={styles.testRequestCard}>
@@ -1465,7 +1476,8 @@ function TestRequestCard({ request, onCancel }: { request: TestPassengerRequest;
       </View>
       <Text style={styles.testRequestRoute}>{displayTestAddress(request.origin)} → {displayTestAddress(request.destination)}</Text>
       <Text style={styles.testRequestMeta}>Виїзд: {departure}</Text>
-      {request.isMine && (request.status==='searching' || (request.status==='accepted' && !!request.acceptedAt && Date.now()-new Date(request.acceptedAt).getTime()<10000)) && <TouchableOpacity style={styles.cancelRequestButton} onPress={() => onCancel(request.id)}><Text style={styles.cancelRequestText}>Скасувати заявку</Text></TouchableOpacity>}
+      {admin && request.status!=='completed' && <TouchableOpacity style={styles.cancelRequestButton} onPress={()=>onCancel(request.id)}><Text style={styles.cancelRequestText}>🗑 Видалити заявку</Text></TouchableOpacity>}
+      {!admin && request.isMine && (request.status==='searching' || (request.status==='accepted' && !!request.acceptedAt && Date.now()-new Date(request.acceptedAt).getTime()<10000)) && <TouchableOpacity style={styles.cancelRequestButton} onPress={() => onCancel(request.id)}><Text style={styles.cancelRequestText}>Скасувати заявку</Text></TouchableOpacity>}
     </View>
   );
 }
