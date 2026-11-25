@@ -386,6 +386,23 @@ export class TestRequestsService {
     });
   }
 
+  async adminCancel(installationId: string, requestId: string) {
+    this.assertEnabled();
+    const actor = this.validateInstallationId(installationId);
+    const id = this.validateInstallationId(requestId);
+    return this.database.withTransaction(async client => {
+      const result = await client.query(
+        `UPDATE test_passenger_requests SET status = 'cancelled', cancelled_at = now()
+         WHERE id = $1 AND status IN ('searching','accepted','in_trip')
+         RETURNING id, status`, [id]);
+      if (!result.rowCount) throw new NotFoundException('Active test request not found.');
+      await client.query(
+        "INSERT INTO test_request_events (request_id, actor_profile_id, event_type) VALUES ($1,$2,'request.admin_cancelled')",
+        [id, actor]);
+      return result.rows[0];
+    });
+  }
+
   async cancel(installationId: string, requestId: string) {
     this.assertEnabled();
     const owner = this.validateInstallationId(installationId);
